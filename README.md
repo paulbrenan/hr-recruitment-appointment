@@ -1,4 +1,4 @@
-Building the Recruitment & Appointment module of an HRMS spec, as a new, separate Laravel 12 project called hr-recruitment,
+Building the Recruitment & Appointment module of an HRMS, as a new, separate Laravel 12 project called hr-recruitment,
 Stack: Blade + Bootstrap 5 (via CDN, no npm), MySQL via XAMPP, database name hr_system. 
 
 Recruitment & Appointment

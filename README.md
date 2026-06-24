@@ -138,6 +138,7 @@ Other HRMS sections outside Recruitment (e.g., Performance Management, Learning 
 Next Steps: Connect the Talent Pool page to real data; look into file upload functionality for resumes and documents.
 
 
+Task:
 Recruitment & Appointment
 
 This will handle the recruitment process, appointment, and onboarding of employees (regular, provisional, casual, job orders including On-the-Job Trainees).

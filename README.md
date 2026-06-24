@@ -9,7 +9,7 @@ Project Setup
 
 
 
-Set up a new, separate Laravel 12 project (hr-recruitment) with its own database (hr_system), kept apart from the existing Leave Management System project for now but built conventionally so it can be merged later.
+Set up a new, separate Laravel 12 project (hr-recruitment) with its own database (hr_system), kept apart from the existing Leave Management System project for now but built conventionally so it can be merged.
 
 
 

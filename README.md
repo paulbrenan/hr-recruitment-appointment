@@ -1,4 +1,4 @@
-# HR Recruitment Module
+# HR Recruitment & Appointment
 
 Recruitment & Appointment module for an HR Management System (HRMS), built as a standalone Laravel 12 project. Handles the recruitment process, appointment, and onboarding of employees (regular, provisional, casual, job order, and On-the-Job Trainees).
 

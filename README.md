@@ -1,4 +1,7 @@
-c)	Recruitment & Appointment
+Building the Recruitment & Appointment module of an HRMS spec, as a new, separate Laravel 12 project called hr-recruitment,
+Stack: Blade + Bootstrap 5 (via CDN, no npm), MySQL via XAMPP, database name hr_system. 
+
+Recruitment & Appointment
 
 This will handle the recruitment process, appointment, and onboarding of employees (regular, provisional, casual, job orders including On-the-Job Trainees).
 

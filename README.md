@@ -1,174 +1,125 @@
-Building the Recruitment & Appointment module of an HRMS, as a new, separate Laravel 12 project called hr-recruitment,
+# HR Recruitment Module
+
+Recruitment & Appointment module for an HR Management System (HRMS), built as a standalone Laravel 12 project. Handles the recruitment process, appointment, and onboarding of employees (regular, provisional, casual, job order, and On-the-Job Trainees).
+
+Built independently from the existing Leave Management System project, but structured conventionally so it can be merged or linked later.
+
+## Tech Stack
+
+- **Backend:** Laravel 12
+- **Frontend:** Blade templates + Bootstrap 5 (via CDN, no npm/build step)
+- **Database:** MySQL (via XAMPP), database name `hr_system`
+- **Charts:** Chart.js
+
+## Intended Scope
+
+This module is being built against the following requirements. Items already implemented are marked ✅; everything else is planned but not yet built.
+
+### Job Posting and Management
+- ✅ Create, view, edit, and delete job postings — descriptions, duties & responsibilities, qualification standards, place of assignment
+- ✅ Monitor filled and unfilled positions (status tracking: draft / open / filled / closed)
+- ⬜ Publish postings to a public News & Announcements page
+
+### Candidate Application and Tracking
+- ⬜ Online application portal for candidates to submit applications and documents directly
+- ✅ Track and manage candidate applications and statuses throughout the recruitment pipeline (submitted → screening → shortlisted → interview → assessed → ranked → offer → hired/rejected)
+
+### Open Ranking, Interview and Exam Scheduling
+- ✅ Schedule open ranking sessions, interviews, and exams
+- ⬜ Automated invitations and reminders to candidates, interviewers, and evaluators
+
+### Candidate Assessment and Ranking
+- ✅ Define weighted assessment criteria per job posting (capped at 100% total)
+- ✅ Score candidates per criterion and produce a ranked list
+- ⬜ Automatic resume parsing and categorization
+- ⬜ Automated screening/filtering of applicants against criteria
+- ⬜ Automatically send ranking results to applicants
+- ⬜ Generate comparative assessment result reports
+
+### Offer Management
+- ✅ Generate, send, and track job offers (compensation, status lifecycle: draft → sent → accepted/declined)
+- ✅ Minimum compensation enforced against the government Salary Grade table (EO No. 64)
+- ⬜ Customizable benefits/terms templates
+- ⬜ Electronic delivery and tracking of formal offer/appointment letters to candidates
+
+### Talent Pool and Pipeline Management
+- ⬜ Build and maintain a talent pool of past candidates for future hiring needs
+- ⬜ Manage candidate pipelines for ongoing or future recruitment
+
+### Appointment and Onboarding
+- ✅ Generate and manage appointment records for hired candidates (position, item number, appointment status, dates)
+- ✅ Printable Notice of Appointment per candidate
+- ✅ Printable newly-hired summary list for onboarding/induction
+
+## Current Status
+
+7 of 8 recruitment pages are fully connected to the database with working create/edit/delete: **Job Postings, Applications, Dashboard, Scheduling, Assessment & Ranking, Offer Management, and Appointment & Onboarding.**
+
+Only the **Talent Pool** page still uses sample data.
+
+### Recently completed
+- Dashboard fully wired to real data — all stat cards, both charts, and both activity lists pull from the live database (no placeholder numbers remain).
+- Scheduling module's create/edit forms fixed to actually persist to the database.
+- Appointment & Onboarding: manual appointment creation, editing, deletion, and two printable documents (individual appointment paper + newly-hired summary), both exportable as PDF via the browser's print dialog.
+- Collapsible sidebar navigation (icon-only mode with hover tooltips, preference remembered between visits).
+
+### Not yet done
+- Talent Pool page (still sample data)
+- File uploads for resumes and supporting documents
+- Application Documents management (table exists, not yet connected to any UI)
+- User authentication
+- Online candidate-facing application portal
+- Automated notifications/reminders
+- Other HRMS sections outside Recruitment (Performance Management, Learning & Development, Recognition & Rewards, System Administration) — intentionally deferred
+
+## Getting Started
+
+### Requirements
+- PHP 8.2+
+- Composer
+- MySQL (e.g. via XAMPP)
+
+### Setup
+
+1. Clone the repository
+   ```bash
+   git clone https://github.com/your-username/hr-recruitment.git
+   cd hr-recruitment
+   ```
+
+2. Install PHP dependencies
+   ```bash
+   composer install
+   ```
+
+3. Copy the environment file and generate an app key
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+4. Configure your database in `.env`
+   ```
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=hr_system
+   DB_USERNAME=root
+   DB_PASSWORD=
+   ```
+   (Defaults above match a standard XAMPP MySQL setup — no password on `root`.)
+
+
+5. Serve the application
+   ```bash
+   php artisan serve
+   ```
+   Visit `http://localhost:8000` — it redirects to the Dashboard.
+
+No `npm install` or frontend build step is needed — Bootstrap 5 and Chart.js are loaded via CDN directly in the shared layout.
+
+### Notes
+- There is currently no authentication — every page is publicly accessible. This is intentional for now; auth is on the not-yet-done list.
+- `php artisan db:show` may error on some XAMPP MySQL setups due to a `performance_schema` permissions issue. Use `php artisan db:table {table_name}` instead to inspect individual tables.
 
-Stack: Blade + Bootstrap 5 (via CDN, no npm), MySQL via XAMPP, database name hr_system. 
 
-Summary of all finished tasks and features to date:
-
-
-Project Setup
-
-
-
-Set up a new, separate Laravel 12 project (hr-recruitment) with its own database (hr_system), kept apart from the existing Leave Management System project for now but built conventionally so it can be merged.
-
-
-
-Database & Models
-
-
-
-Created and ran 10 database migrations: job postings, candidates, applications, application documents, interview schedules, assessment criteria, candidate assessments, job offers, talent pools, and appointments.
-Built all 10 corresponding Eloquent models with proper relationships between them (e.g., an application links to a candidate, a job posting, its documents, schedules, assessments, an offer, and an appointment).
-
-
-
-Layout & Navigation
-
-
-
-Built a shared layout used by all pages: full-width header with the system title and a back button, plus a sidebar for navigation.
-Added a collapsible sidebar — can shrink to icons-only to give pages more screen space, shows tooltips on hover when collapsed, and remembers the user's preference between page visits. Fixed alignment so the collapse button lines up neatly with the navigation icons.
-
-
-
-Job Postings Module
-
-
-
-Built full create, view, edit, and delete functionality for job postings.
-Added validation rules (e.g., closing date cannot be earlier than the posting date).
-Fixed date fields so they display and save correctly.
-Added delete confirmation and success messages.
-Added 12 sample job postings for testing.
-
-
-
-Applications Module
-
-
-
-Built the applications list and detail pages, pulling real candidate and job posting information.
-Added a working status filter (e.g., view only "Shortlisted" or "Hired" applicants).
-Added the ability to update an application's status and notes directly from its detail page.
-Added delete functionality (with a warning that deleting an application also removes any linked documents, schedules, assessments, offers, or appointments).
-Added 12 sample candidates and 12 sample applications across all application statuses for testing.
-
-
-
-Dashboard
-
-
-
-Connected all dashboard statistics to real data: open job postings, total applications, pending offers, and interviews scheduled this week.
-Built a 6-month activity chart showing applications received and job postings opened.
-Built a chart showing the breakdown of applications by status.
-Connected the "Recent Applications" and "Upcoming Interviews & Exams" lists to real data.
-The dashboard no longer uses any placeholder/sample numbers — everything reflects the actual database.
-
-
-
-Scheduling Module (Interviews & Exams)
-
-
-
-Fixed the "New Schedule" form so it actually saves to the database (it previously didn't work).
-Added a proper "Edit Schedule" feature, since there was previously no way to update a schedule after creating it (e.g., marking it completed, cancelled, or adding remarks).
-Added delete functionality for schedules.
-Added 10 sample interview/exam schedules covering all types and statuses for testing.
-
-
-
-Assessment & Ranking Module
-
-
-
-Built a posting-specific assessment system where HR can add scoring criteria (e.g., Communication Skills, Technical Knowledge) with assigned weight percentages.
-Added a safeguard so total weight per posting cannot exceed 100%, with the system auto-suggesting the remaining percentage.
-Built a ranked candidates table showing scores per criterion and overall rank.
-Added working forms for adding criteria and entering/editing scores.
-Added sample assessment data for testing.
-
-
-
-Job Offers Module
-
-
-
-Built the full offer lifecycle: generating an offer, sending it, and recording whether the candidate accepted or declined.
-Linked offer status changes to automatically update the related application's status.
-Enforced a minimum compensation amount based on the government Salary Grade table (Executive Order No. 64), both on the form and on the server side.
-Prevented duplicate offers from being created for the same application.
-Added delete functionality for offers.
-
-
-
-Appointment & Onboarding Module
-
-
-
-Built the appointments list showing appointed candidates, their position, item number, status, and appointment/onboarding dates.
-Added a "New Appointment" form where HR can appoint a candidate who has accepted a job offer, entering the position, item number, status, and dates manually.
-Added an edit feature to update any appointment's details later (useful since item numbers and onboarding dates are often finalized after the initial appointment).
-Added delete functionality.
-Built two printable documents: an individual "Notice of Appointment" paper per candidate, and a "Newly-Hired Summary" list of all appointees for onboarding/induction — both can be printed or saved as PDF directly from the browser.
-Added sample data for testing (including applicants ready to be appointed).
-
-
-
-Version Control
-
-
-
-Initialized Git in the project and set up a .gitignore to exclude unnecessary files (cache, backups, environment settings).
-Created a GitHub repository and pushed the full project for backup and version tracking.
-
-
-Current Status: 7 of 8 recruitment pages are fully connected to the database and working end-to-end (Job Postings, Applications, Dashboard, Scheduling, Assessment & Ranking, Offer Management, Appointment & Onboarding). Only the Talent Pool page still uses sample data.
-
-Not Yet Done:
-
-
-Talent Pool page (still using sample data).
-File uploads for resumes and other documents.
-Viewing/managing application documents (table exists but isn't connected yet).
-User login/authentication (not yet implemented).
-Other HRMS sections outside Recruitment (e.g., Performance Management, Learning & Development) — intentionally deferred.
-
-
-Next Steps: Connect the Talent Pool page to real data; look into file upload functionality for resumes and documents.
-
-
-Task:
-Recruitment & Appointment
-
-This will handle the recruitment process, appointment, and onboarding of employees (regular, provisional, casual, job orders including On-the-Job Trainees).
-
-•	Job Posting and Management
-(a)	Monitor filled and unfilled positions.
-(b)	Create and manage job postings, including details about the job descriptions, duties and responsibilities, qualification standards, and place of assignment (will be posted on News and Announcement).
-
-•	Candidate application and Tracking
-(a)	Online application portal for candidates to submit required documents.
-(b)	Track and manage candidate applications and statuses throughout the recruitment process. 
-
-•	Open Ranking, Interview and Exam Scheduling
-(a)	Schedule open ranking, interviews, examination and send automated invitations and reminders to candidates and interviewers and evaluators.
-
-•	Candidate Assessment and Ranking
-(a)	Automatically parse and categorize candidate resumes.
-(b)	Implement screening criteria to filter and prioritize applicants.
-(c)	Evaluate candidates using predefined assessment criteria and ranking systems.
-(d)	Automatically send results of ranking to applicants
-(e)	Generate Comparative Assessment Results
-
-•	Offer Management
-(a)	Generate and customize job offers, including compensation, benefits, and other terms.
-(b)	Electronically deliver and track offer acceptance (letter to qualified applicants for appointment).
-
-•	Talent Pool and Pipeline Management
-(a)	Build and maintain a talent pool for future hiring needs
-(b)	Manage candidate pipelines for ongoing or future recruitment
-
-•	Appointment and Onboarding
-(a)	Generate appointment papers of qualified applicants
-(b)	Generate summary list of newly-hired employees for onboarding/induction

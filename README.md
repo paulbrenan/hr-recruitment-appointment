@@ -2,7 +2,7 @@
 
 Recruitment & Appointment module for an HR Management System (HRMS), built as a standalone Laravel 12 project. Handles the recruitment process, appointment, and onboarding of employees (regular, provisional, casual, job order, and On-the-Job Trainees).
 
-Built independently from the existing Leave Management System project, but structured conventionally so it can be merged or linked later.
+Built independently from the existing Human Resource Management System (HRMS) and Leave Management System project, but structured conventionally so it can be merged or linked later.
 
 ## Tech Stack
 

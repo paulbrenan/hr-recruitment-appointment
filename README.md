@@ -1,5 +1,19 @@
 Building the Recruitment & Appointment module of an HRMS, as a new, separate Laravel 12 project called hr-recruitment,
+
 Stack: Blade + Bootstrap 5 (via CDN, no npm), MySQL via XAMPP, database name hr_system. 
+
+Tasks accomplished:
+
+
+Finished wiring the Appointment & Onboarding page to the real database. Replaced the original auto-generate flow with a manual "New Appointment" form (HR selects an applicant with an accepted offer and fills in position, item number, status, and dates). Added an edit modal, delete function, and two printable views (individual Appointment Paper and a Newly-Hired Summary list) using the browser's built-in print-to-PDF feature.
+Connected the two remaining placeholder values on the Dashboard ("Pending Offers" and "Interviews This Week") to real data now that the Offers and Scheduling modules are complete. The Dashboard no longer uses any sample/placeholder data.
+Improved the sidebar navigation: added a collapse/expand toggle so it can shrink to icons-only, giving more screen space to page content. Collapsed state shows tooltips on hover and is remembered across page visits. Fixed alignment so the toggle button lines up with the navigation icons.
+Set up version control for the project and pushed the full codebase to a GitHub repository for backup and tracking.
+
+
+Status: 7 of 8 recruitment pages are now fully connected to the database (Job Postings, Applications, Dashboard, Scheduling, Assessment & Ranking, Offer Management, Appointment & Onboarding). Only the Talent Pool page still uses sample data.
+
+Next steps: Wire the Talent Pool page to real data; explore file upload functionality for resumes and documents.
 
 Recruitment & Appointment
 

@@ -109,7 +109,11 @@ Only the **Talent Pool** page still uses sample data.
    ```
    (Defaults above match a standard XAMPP MySQL setup — no password on `root`.)
 
-
+5. Create the hr_system database (via phpMyAdmin or the MySQL CLI), then run migrations
+   ```bash
+   php artisan migrate
+   ```
+   
 5. Serve the application
    ```bash
    php artisan serve

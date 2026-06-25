@@ -10,7 +10,7 @@ Built independently from the existing Human Resource Management System (HRMS) an
 - **Frontend:** Blade templates + Bootstrap 5 (via CDN, no npm/build step)
 - **Database:** MySQL (via XAMPP), database name `hr_system`
 - **Charts:** Chart.js
-- **PDF parsing:** smalot/pdfparser + Tesseract OCR + Poppler (pdftoppm)
+- **PDF import:** Tesseract OCR 5.5 + Poppler (`pdftoppm`) — for scanned DepEd Division Memo PDFs
 
 ## Intended Scope
 
@@ -24,7 +24,7 @@ This module is being built against the following requirements. Items already imp
 - ✅ Searchable place of assignment dropdown (121 schools + SDO units)
 - ✅ Mandatory and additional requirements list builder (pre-filled with standard DepEd A–J items)
 - ✅ Monitor filled and unfilled positions (status tracking: draft / open / filled / closed)
-- 🔄 Import job postings from DepEd Division Memo PDFs (OCR pipeline in progress — Tesseract + pdftoppm)
+- 🔄 Import job postings from DepEd Division Memo PDFs — OCR extraction confirmed working (Tesseract + pdftoppm); parsing and review screen in progress
 - ⬜ Publish postings to a public News & Announcements page
 
 ### Candidate Application and Tracking
@@ -62,10 +62,10 @@ This module is being built against the following requirements. Items already imp
 
 7 of 8 recruitment pages are fully connected to the database with working create/edit/delete: **Job Postings, Applications, Dashboard, Scheduling, Assessment & Ranking, Offer Management, and Appointment & Onboarding.**
 
-Only the **Talent Pool** page still uses sample data.
+Only the **Talent Pool** page currently has no create/edit/delete — it displays a read-only index.
 
 ### Recently completed
-- **PDF import pipeline (OCR):** Upload form and per-page OCR extraction wired up using Tesseract 5.5 + Poppler's `pdftoppm`. Handles scanned/image-based DepEd Division Memo PDFs that have no embedded text layer. Stage 3 (parsing extracted text into position blocks) and Stage 4 (review/confirm screen before database write) still in progress.
+- **PDF import — OCR extraction confirmed working:** Upload a scanned DepEd Division Memo PDF via the "Import from PDF" button on Job Postings. The pipeline converts each page to an image (`pdftoppm` at 150 DPI) then runs Tesseract OCR, displaying extracted text per page in collapsible accordions. Confirmed readable output on real sample memos (SGOD-2026-DM-0079). Stage 3 (parsing extracted text into position blocks) and Stage 4 (review/confirm screen before database write) are next.
 - **Job postings — structured qualifications:** Replaced single `qualification_standards` textarea with four separate fields (education, training, experience, eligibility). Legacy rows display gracefully via fallback.
 - **Job postings — requirements list builder:** Replaced old `requirement_items` pivot table system with free-form newline-delimited text fields and a dynamic add/remove widget. New postings pre-fill standard DepEd A–J mandatory items.
 - **Job postings — field order rewrite:** Form fields reordered to match standard DepEd posting format (Title → SG → Place → Qualifications → Requirements → Duties → Description → Dates/Status).
@@ -76,8 +76,9 @@ Only the **Talent Pool** page still uses sample data.
 - Collapsible sidebar navigation (icon-only mode with hover tooltips, preference remembered between visits).
 
 ### Not yet done
-- PDF import Stage 3 & 4 (position block parsing + review/confirm screen)
-- Talent Pool page (currently read-only index, no CRUD)
+- PDF import Stage 3 — parse OCR text into position blocks (anchored on known 68-title list), extract SG, qualifications, vacancy count, duties, and place of assignment per block
+- PDF import Stage 4 — review/confirm screen with editable fields and checkboxes before bulk-creating `job_postings` rows
+- Talent Pool page CRUD (currently read-only)
 - File uploads for resumes and supporting documents
 - Application Documents management (table exists, not yet connected to any UI)
 - User authentication
@@ -142,14 +143,15 @@ No `npm install` or frontend build step is needed — Bootstrap 5 and Chart.js a
 To use the "Import from PDF" feature for DepEd Division Memo job postings:
 
 1. Install **Tesseract OCR** from the [UB Mannheim builds](https://github.com/UB-Mannheim/tesseract/wiki). During install, select **English** under additional language data.
-2. Install **Poppler for Windows** from [oschwartz10612/poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases). Extract to a permanent location (e.g. `C:\poppler\`).
+2. Install **Poppler for Windows** from [oschwartz10612/poppler-windows/releases](https://github.com/oschwartz10612/poppler-windows/releases). Extract to a permanent location (e.g. `C:\poppler-26.02.0\`).
 3. Add both to your **System** PATH (not User PATH, so XAMPP's PHP process can find them):
    - `C:\Program Files\Tesseract-OCR`
-   - `C:\poppler\Library\bin`
+   - `C:\poppler-26.02.0\Library\bin`
 4. Restart XAMPP after updating PATH.
 
-If PATH registration is unreliable, the controller accepts hardcoded binary paths as a fallback — see `JobPostingImportController.php`.
+> **Note:** If XAMPP's PHP process still cannot find the binaries after updating PATH, the controller uses hardcoded full paths as a fallback. See `JobPostingImportController.php` — update the `$pdftoppmCmd` and `$tesseractCmd` paths to match your installation if needed.
 
 ### Notes
 - There is currently no authentication — every page is publicly accessible. This is intentional for now; auth is on the not-yet-done list.
 - `php artisan db:show` may error on some XAMPP MySQL setups due to a `performance_schema` permissions issue. Use `php artisan db:table {table_name}` instead to inspect individual tables.
+- The PDF import feature requires a 5-minute execution time limit (`set_time_limit(300)` in `public/index.php`) due to the time Tesseract takes to OCR multi-page scanned documents. This is already set in the codebase — no manual change needed.

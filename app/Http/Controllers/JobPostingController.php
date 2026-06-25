@@ -15,7 +15,7 @@ class JobPostingController extends Controller
     private function rules(): array
     {
         return [
-            'title' => ['required', 'string', 'max:255'],
+            'title' => ['required', 'string', 'max:255', Rule::in(config('job_titles.titles', []))],
             'description' => ['nullable', 'string'],
             'duties_responsibilities' => ['nullable', 'string'],
             'qualification_standards' => ['nullable', 'string'],
@@ -46,8 +46,9 @@ class JobPostingController extends Controller
     {
         $posting = new JobPosting();
         $posting->exists = false;
+        $jobTitles = config('job_titles.titles', []);
 
-        return view('job-postings.form', compact('posting'));
+        return view('job-postings.form', compact('posting', 'jobTitles'));
     }
 
     public function store(Request $request)
@@ -65,8 +66,9 @@ class JobPostingController extends Controller
     {
         $posting = JobPosting::findOrFail($id);
         $posting->exists = true;
+        $jobTitles = config('job_titles.titles', []);
 
-        return view('job-postings.form', compact('posting'));
+        return view('job-postings.form', compact('posting', 'jobTitles'));
     }
 
     public function update(Request $request, $id)

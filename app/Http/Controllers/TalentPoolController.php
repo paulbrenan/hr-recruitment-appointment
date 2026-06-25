@@ -2,16 +2,68 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Candidate;
+use App\Models\TalentPool;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
 class TalentPoolController extends Controller
 {
     public function index()
     {
-        $pool = collect([
-            (object)['candidate_name' => 'Pedro Garcia', 'candidate_email' => 'pedro.garcia@email.com', 'tags' => 'Records, Data Entry', 'notes' => 'Strong filing system experience, good fit for future records openings.', 'added_at' => '2026-05-01'],
-            (object)['candidate_name' => 'Carmen Lopez', 'candidate_email' => 'carmen.lopez@email.com', 'tags' => 'IT, Networking', 'notes' => 'Solid technical interview, no current opening matched.', 'added_at' => '2026-04-18'],
-            (object)['candidate_name' => 'Ramon Torres', 'candidate_email' => 'ramon.torres@email.com', 'tags' => 'Finance, Budgeting', 'notes' => 'Reserve candidate for accounting section.', 'added_at' => '2026-03-30'],
+        $pool = TalentPool::with('candidate')
+            ->orderByDesc('added_at')
+            ->get();
+
+        $availableCandidates = Candidate::whereNotIn('id', TalentPool::pluck('candidate_id'))
+            ->orderBy('first_name')
+            ->get();
+
+        return view('talent-pool.index', compact('pool', 'availableCandidates'));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'candidate_id' => [
+                'required',
+                'exists:candidates,id',
+                Rule::unique('talent_pools', 'candidate_id'),
+            ],
+            'tags' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'added_at' => ['nullable', 'date'],
+        ], [
+            'candidate_id.unique' => 'This candidate is already in the talent pool.',
         ]);
 
-        return view('talent-pool.index', compact('pool'));
+        $validated['added_at'] = $validated['added_at'] ?? now()->toDateString();
+
+        TalentPool::create($validated);
+
+        return redirect()->route('talent-pool.index')->with('success', 'Candidate added to talent pool.');
+    }
+
+    public function update(Request $request, $id)
+    {
+        $entry = TalentPool::findOrFail($id);
+
+        $validated = $request->validate([
+            'tags' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string'],
+            'added_at' => ['nullable', 'date'],
+        ]);
+
+        $entry->update($validated);
+
+        return redirect()->route('talent-pool.index')->with('success', 'Talent pool entry updated.');
+    }
+
+    public function destroy($id)
+    {
+        $entry = TalentPool::findOrFail($id);
+        $entry->delete();
+
+        return redirect()->route('talent-pool.index')->with('success', 'Candidate removed from talent pool.');
     }
 }

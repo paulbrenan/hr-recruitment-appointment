@@ -1,3 +1,153 @@
+<?php
+// install_school_dropdown.php
+// Run once from your Laravel project root: php install_school_dropdown.php
+// Replaces the free-text Place of assignment input on the Job Posting form with
+// a searchable type-to-filter dropdown, populated from a starting list of 121
+// real DepEd Cavite schools (compiled from actual Call for Applications memos).
+// Unlike the title dropdown, this one allows typing a school NOT yet on the list
+// (soft suggestion, not a hard restriction) since the list is known to be incomplete.
+// Backs up files it overwrites to .bak before writing. Safe to delete after running.
+
+$files = [];
+
+$files['config/schools.php'] = <<<'PHPCODE'
+<?php
+
+// config/schools.php
+// Master list of schools for the Place of Assignment searchable dropdown.
+// This is a STARTING list compiled from actual DepEd Cavite Division Memoranda
+// (Call for Applications attachments) and is known to be incomplete -- it does
+// not yet cover every school in the division. Add new schools as you encounter
+// them by appending a new line to the array below.
+
+return [
+    'schools' => [
+        'Agus-os ES',
+        'Alfonso Integrated High School',
+        'Amadeo ES',
+        'Amadeo Integrated School',
+        'Amaya ES',
+        'Amaya Sch. of Home Industries',
+        'Amuyong Elementary School',
+        'Antonio B. del Rosario Sr. Mem. ES',
+        'Anuling Lejos Integrated High School',
+        'Area J ES',
+        'Bagbag National High School',
+        'Bailen ES',
+        'Banaba Cerca Integrated School',
+        'Bancod ES',
+        'Bendita Integrated High School',
+        'Binakayan National High School',
+        'Bucal I ES',
+        'Bucal National High School - Sta. Mercedes Annex',
+        'Bucal National Integrated School',
+        'Buho ES',
+        'Bulalo ES',
+        'Bulalo ES - Annex',
+        'Bulihan Integrated National High School',
+        'Bulihan Sites & Services Project ES',
+        'Cabangaan ES',
+        'Cabulusan ES',
+        'Caluangan ES',
+        'Caluangan National High School',
+        'Calumpang Lejos ES',
+        'Carasuchi ES',
+        'Carmen ES',
+        'Cavite Science Integrated School',
+        'Constancio E. Aure Sr. National High School',
+        'Dao ES',
+        'Emilia Ambalada Poblete Integrated High School',
+        'Emiliano T. Tirona Memorial National High School',
+        'Feliciano Cabuco ES',
+        'Francisco Osorio National High School',
+        'Francisco P. Tolentino Integrated High School',
+        'Galicia ES',
+        'Gen. Emilio Aguinaldo-Bailen Integrated School',
+        'Gen. Mariano Alvarez Tech. High School',
+        'Guitasin PS',
+        'Guyung-Guyong ES',
+        'Halang Banaybanay NHS',
+        'Harasan ES',
+        'Hugo Perez ES',
+        'Indang Integrated National High School',
+        'Kaingen-Poblacion ES',
+        'Kanggahan ES',
+        'Kaong ES',
+        'Kaong National High School',
+        'Kaymisas ES',
+        'Kaypaaba ES',
+        'Kaytambog ES',
+        'Kaytitinga Integrated School',
+        'Layong Mabilog ES',
+        'Lucsuhin Integrated School',
+        'Luis Aguado National High School',
+        'Lumampong Balagbag ES',
+        'Lumampong INHS',
+        'Lumampong Integrated National High School',
+        'Lumil Integrated National High School',
+        'Lumipa ES',
+        'Mahabang Kahoy Lejos ES',
+        'Malabag National High School',
+        'Malainen Bago Integrated School',
+        'Maragondon National High School',
+        'Marahan ES',
+        'Marcelo D. Samaniego ES (Bucal IV ES)',
+        'Mataas Na Burol ES (Burol ES)',
+        'Matagbak ES',
+        'Medina ES',
+        'Mendez-Nuñez National High School',
+        'Munting Ilog Integrated National High School',
+        'Naic Coastal Integrated National High School',
+        'Naic ES',
+        'Naic Integrated National High School',
+        'Naic Senior High School Stand-Alone',
+        'Narvaez ES',
+        'Noveleta National High School',
+        'Noveleta Senior High School',
+        'Pacheco ES',
+        'Paligawan ES',
+        'Palocpoc ES',
+        'Pangil NHS',
+        'Pantihan II ES',
+        'Petronilo L. Torres MES',
+        'Pulo ni Sara ES',
+        'Pulo ni Sara Integrated School',
+        'Pulong Bunga ES',
+        'Pulong Saging ES',
+        'Punta ES',
+        'Puting Kahoy ES',
+        'Ricardo Lejos Cortez ES',
+        'Rosa G. Acuña Memorial ES',
+        'Rosario National High School',
+        'San Miguel ES',
+        'Santiago L. Angue, Sr. ES (formerly Mabato ES)',
+        'Sicat ES',
+        'Silang Central School',
+        'Sta. Mercedes ES',
+        'Tagaytay City National High School',
+        'Tagaytay City Science National High School - Integrated Senior High School',
+        'Talipusngo ES',
+        'Talon Integrated School',
+        'Tambo Balagbag ES',
+        'Tanza NTS Annex',
+        'Tanza National Comprehensive High School',
+        'Tanza National Trade School',
+        'Tatiao ES',
+        'Taywanak ES',
+        'Taywanak National High School',
+        'Ternate Integrated National High School',
+        'Ternate West National High School',
+        'Timalan ES',
+        'Timalan Hillsview Integrated School',
+        'Trece Martires City National High School',
+        'Tua ES',
+        'Urdaneta ES',
+        'Victoriano Luciano ES',
+    ],
+];
+PHPCODE;
+
+$files['resources/views/job-postings/form.blade.php'] = <<<'BLADE'
 @extends('layouts.app')
 
 @section('title', $posting->exists ?? false ? 'Edit posting' : 'New posting')
@@ -243,3 +393,28 @@
 </script>
 @endpush
 @endsection
+BLADE;
+
+$base = __DIR__;
+$created = 0;
+
+foreach ($files as $relativePath => $content) {
+    $fullPath = $base . '/' . $relativePath;
+    $dir = dirname($fullPath);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    if (file_exists($fullPath)) {
+        copy($fullPath, $fullPath . '.bak');
+        echo "BACKED UP: $relativePath -> " . basename($fullPath) . ".bak\n";
+    }
+    file_put_contents($fullPath, $content);
+    echo "WROTE: $relativePath\n";
+    $created++;
+}
+
+echo "\nDone. $created file(s) written.\n";
+echo "Run 'php artisan config:clear' to make sure the new config file is picked up.\n";
+echo "Then visit /job-postings/create and try typing a school name in Place of assignment.\n";
+echo "Note: this list has 121 schools and is a STARTING point, not a complete master list.\n";
+echo "Add more schools later by editing the 'schools' array in config/schools.php directly.\n";

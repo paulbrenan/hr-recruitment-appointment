@@ -3,59 +3,99 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Smalot\PdfParser\Parser as PdfParser;
 
 class JobPostingImportController extends Controller
 {
-    /**
-     * Stage 2 of PDF import: show the upload form.
-     */
+    // ── Upload form ───────────────────────────────────────────────────────────
     public function create()
     {
         return view('job-postings.import.upload');
     }
 
-    /**
-     * Stage 2 of PDF import: accept the uploaded PDF, extract raw text via
-     * smalot/pdfparser, and display it for inspection. No parsing into
-     * structured postings yet -- that's Stage 3.
-     */
+    // ── OCR extraction pipeline ───────────────────────────────────────────────
     public function extract(Request $request)
     {
         $request->validate([
-            'pdf_file' => ['required', 'file', 'mimes:pdf', 'max:20480'],
+            'pdf_file' => 'required|file|mimes:pdf|max:20480',
         ]);
 
-        $uploadedFile = $request->file('pdf_file');
-        $originalName = $uploadedFile->getClientOriginalName();
+        // ── 1. Save uploaded PDF to a dedicated temp directory ────────────────
+        $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'hr_ocr_' . uniqid();
+        if (!mkdir($tmpDir, 0755, true)) {
+            return back()->withErrors(['pdf_file' => 'Could not create temporary directory for processing.']);
+        }
 
-        $parser = new PdfParser();
+        $pdfPath = $tmpDir . DIRECTORY_SEPARATOR . 'input.pdf';
+        $request->file('pdf_file')->move($tmpDir, 'input.pdf');
 
-        try {
-            $pdf = $parser->parseFile($uploadedFile->getPathname());
-            $rawText = $pdf->getText();
-        } catch (\Exception $e) {
+        // ── 2. Convert PDF pages to PNG images via pdftoppm ──────────────────
+        //    Output files will be named: page-1.png, page-2.png, etc.
+        $imagePrefix = $tmpDir . DIRECTORY_SEPARATOR . 'page';
+
+        // -r 200  → 200 DPI (good OCR quality without being huge)
+        // -png    → PNG output
+        $pdftoppmCmd = sprintf(
+            'pdftoppm -r 200 -png %s %s 2>&1',
+            escapeshellarg($pdfPath),
+            escapeshellarg($imagePrefix)
+        );
+
+        $pdftoppmOutput = shell_exec($pdftoppmCmd);
+        $imageFiles     = glob($tmpDir . DIRECTORY_SEPARATOR . 'page-*.png');
+
+        if (empty($imageFiles)) {
+            $this->cleanupTmp($tmpDir);
             return back()->withErrors([
-                'pdf_file' => 'Could not read this PDF: ' . $e->getMessage(),
+                'pdf_file' => 'pdftoppm could not convert the PDF to images. '
+                            . 'pdftoppm output: ' . ($pdftoppmOutput ?: '(none)'),
             ]);
         }
 
-        $pages = $pdf->getPages();
-        $pageCount = count($pages);
+        // Sort by page number (glob order may not be numeric)
+        natsort($imageFiles);
+        $imageFiles = array_values($imageFiles);
 
-        $pageTexts = [];
-        foreach ($pages as $index => $page) {
-            $pageTexts[] = [
+        // ── 3. Run Tesseract on each page image ───────────────────────────────
+        $pages = [];
+
+        foreach ($imageFiles as $index => $imagePath) {
+            $outBase = $tmpDir . DIRECTORY_SEPARATOR . 'ocr_page_' . ($index + 1);
+
+            // tesseract writes to outBase.txt automatically
+            $tesseractCmd = sprintf(
+                'tesseract %s %s -l eng 2>&1',
+                escapeshellarg($imagePath),
+                escapeshellarg($outBase)
+            );
+
+            shell_exec($tesseractCmd);
+
+            $txtFile = $outBase . '.txt';
+            $text    = file_exists($txtFile) ? file_get_contents($txtFile) : '';
+
+            $pages[] = [
                 'number' => $index + 1,
-                'text' => $page->getText(),
+                'text'   => $text,
             ];
         }
 
-        return view('job-postings.import.extracted', [
-            'originalName' => $originalName,
-            'rawText' => $rawText,
-            'pageCount' => $pageCount,
-            'pageTexts' => $pageTexts,
-        ]);
+        // ── 4. Clean up all temp files ────────────────────────────────────────
+        $this->cleanupTmp($tmpDir);
+
+        // ── 5. Pass to view ───────────────────────────────────────────────────
+        return view('job-postings.import.extracted', compact('pages'));
+    }
+
+    // ── Helper: recursively delete temp directory ─────────────────────────────
+    private function cleanupTmp(string $dir): void
+    {
+        if (!is_dir($dir)) return;
+
+        $items = array_diff(scandir($dir), ['.', '..']);
+        foreach ($items as $item) {
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+            is_dir($path) ? $this->cleanupTmp($path) : unlink($path);
+        }
+        rmdir($dir);
     }
 }

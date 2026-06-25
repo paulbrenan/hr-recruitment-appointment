@@ -10,6 +10,7 @@ Built independently from the existing Human Resource Management System (HRMS) an
 - **Frontend:** Blade templates + Bootstrap 5 (via CDN, no npm/build step)
 - **Database:** MySQL (via XAMPP), database name `hr_system`
 - **Charts:** Chart.js
+- **PDF parsing:** smalot/pdfparser + Tesseract OCR + Poppler (pdftoppm)
 
 ## Intended Scope
 
@@ -17,7 +18,13 @@ This module is being built against the following requirements. Items already imp
 
 ### Job Posting and Management
 - ✅ Create, view, edit, and delete job postings — descriptions, duties & responsibilities, qualification standards, place of assignment
+- ✅ Structured qualification standards (education, training, experience, eligibility — separate fields)
+- ✅ Salary Grade selection (SG-1 to SG-33, validated against CSC schedule)
+- ✅ Searchable job title dropdown (68 standardized DepEd position titles)
+- ✅ Searchable place of assignment dropdown (121 schools + SDO units)
+- ✅ Mandatory and additional requirements list builder (pre-filled with standard DepEd A–J items)
 - ✅ Monitor filled and unfilled positions (status tracking: draft / open / filled / closed)
+- 🔄 Import job postings from DepEd Division Memo PDFs (OCR pipeline in progress — Tesseract + pdftoppm)
 - ⬜ Publish postings to a public News & Announcements page
 
 ### Candidate Application and Tracking
@@ -58,13 +65,19 @@ This module is being built against the following requirements. Items already imp
 Only the **Talent Pool** page still uses sample data.
 
 ### Recently completed
-- Dashboard fully wired to real data — all stat cards, both charts, and both activity lists pull from the live database (no placeholder numbers remain).
+- **PDF import pipeline (OCR):** Upload form and per-page OCR extraction wired up using Tesseract 5.5 + Poppler's `pdftoppm`. Handles scanned/image-based DepEd Division Memo PDFs that have no embedded text layer. Stage 3 (parsing extracted text into position blocks) and Stage 4 (review/confirm screen before database write) still in progress.
+- **Job postings — structured qualifications:** Replaced single `qualification_standards` textarea with four separate fields (education, training, experience, eligibility). Legacy rows display gracefully via fallback.
+- **Job postings — requirements list builder:** Replaced old `requirement_items` pivot table system with free-form newline-delimited text fields and a dynamic add/remove widget. New postings pre-fill standard DepEd A–J mandatory items.
+- **Job postings — field order rewrite:** Form fields reordered to match standard DepEd posting format (Title → SG → Place → Qualifications → Requirements → Duties → Description → Dates/Status).
+- **Job postings — index and show page improvements:** SG column added to index table; show page displays structured qualifications and parsed requirement lists.
+- Dashboard fully wired to real data — all stat cards, both charts, and both activity lists pull from the live database.
 - Scheduling module's create/edit forms fixed to actually persist to the database.
 - Appointment & Onboarding: manual appointment creation, editing, deletion, and two printable documents (individual appointment paper + newly-hired summary), both exportable as PDF via the browser's print dialog.
 - Collapsible sidebar navigation (icon-only mode with hover tooltips, preference remembered between visits).
 
 ### Not yet done
-- Talent Pool page (still sample data)
+- PDF import Stage 3 & 4 (position block parsing + review/confirm screen)
+- Talent Pool page (currently read-only index, no CRUD)
 - File uploads for resumes and supporting documents
 - Application Documents management (table exists, not yet connected to any UI)
 - User authentication
@@ -78,6 +91,8 @@ Only the **Talent Pool** page still uses sample data.
 - PHP 8.2+
 - Composer
 - MySQL (e.g. via XAMPP)
+- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) (for PDF import — Windows 64-bit installer, include English language data)
+- [Poppler for Windows](https://github.com/oschwartz10612/poppler-windows/releases) (for PDF import — provides `pdftoppm`)
 
 ### Setup
 
@@ -109,12 +124,12 @@ Only the **Talent Pool** page still uses sample data.
    ```
    (Defaults above match a standard XAMPP MySQL setup — no password on `root`.)
 
-5. Create the hr_system database (via phpMyAdmin or the MySQL CLI), then run migrations
+5. Create the `hr_system` database (via phpMyAdmin or the MySQL CLI), then run migrations
    ```bash
    php artisan migrate
    ```
-   
-5. Serve the application
+
+6. Serve the application
    ```bash
    php artisan serve
    ```
@@ -122,8 +137,19 @@ Only the **Talent Pool** page still uses sample data.
 
 No `npm install` or frontend build step is needed — Bootstrap 5 and Chart.js are loaded via CDN directly in the shared layout.
 
+### PDF Import (optional)
+
+To use the "Import from PDF" feature for DepEd Division Memo job postings:
+
+1. Install **Tesseract OCR** from the [UB Mannheim builds](https://github.com/UB-Mannheim/tesseract/wiki). During install, select **English** under additional language data.
+2. Install **Poppler for Windows** from [oschwartz10612/poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases). Extract to a permanent location (e.g. `C:\poppler\`).
+3. Add both to your **System** PATH (not User PATH, so XAMPP's PHP process can find them):
+   - `C:\Program Files\Tesseract-OCR`
+   - `C:\poppler\Library\bin`
+4. Restart XAMPP after updating PATH.
+
+If PATH registration is unreliable, the controller accepts hardcoded binary paths as a fallback — see `JobPostingImportController.php`.
+
 ### Notes
 - There is currently no authentication — every page is publicly accessible. This is intentional for now; auth is on the not-yet-done list.
 - `php artisan db:show` may error on some XAMPP MySQL setups due to a `performance_schema` permissions issue. Use `php artisan db:table {table_name}` instead to inspect individual tables.
-
-

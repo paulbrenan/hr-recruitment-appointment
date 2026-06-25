@@ -22,7 +22,7 @@
             @endif
             @csrf
             <div class="row g-3">
-                <div class="col-md-8">
+                <div class="col-md-7">
                     <label class="form-label small fw-medium">Job title</label>
                     <div class="position-relative" id="titleSearchWrapper">
                         <input
@@ -41,9 +41,22 @@
                         ></div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label small fw-medium">Vacancies</label>
                     <input type="number" class="form-control" name="vacancies" value="{{ old('vacancies', $posting->vacancies ?? 1) }}" min="1">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-medium">Salary Grade</label>
+                    @php
+                        $currentSg = old('salary_grade', $posting->salary_grade ?? '');
+                        $currentSgNumber = $currentSg ? (int) preg_replace('/^sg-?/i', '', trim($currentSg)) : null;
+                    @endphp
+                    <select class="form-select" name="salary_grade">
+                        <option value="">—</option>
+                        @for ($sg = 1; $sg <= 33; $sg++)
+                            <option value="SG-{{ $sg }}" {{ $currentSgNumber === $sg ? 'selected' : '' }}>SG-{{ $sg }}</option>
+                        @endfor
+                    </select>
                 </div>
 
                 <div class="col-md-6">
@@ -55,7 +68,7 @@
                             id="schoolSearchInput"
                             name="place_of_assignment"
                             autocomplete="off"
-                            placeholder="Type to search schools, or enter a new one..."
+                            placeholder="Type to search schools or division units, or enter a new one..."
                             value="{{ old('place_of_assignment', $posting->place_of_assignment ?? '') }}"
                         >
                         <div
@@ -63,7 +76,7 @@
                             class="list-group position-absolute w-100 shadow-sm"
                             style="z-index: 1050; max-height: 220px; overflow-y: auto; display: none; top: 100%;"
                         ></div>
-                        <div class="form-text" style="font-size: 0.72rem;">Pick from the list or type a school not yet listed.</div>
+                        <div class="form-text" style="font-size: 0.72rem;">Pick from the list (schools or division units) or type one not yet listed.</div>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -76,8 +89,60 @@
                 </div>
 
                 <div class="col-12">
-                    <label class="form-label small fw-medium">Job description</label>
-                    <textarea class="form-control" name="description" rows="3">{{ $posting->description ?? '' }}</textarea>
+                    <label class="form-label small fw-medium mb-2 d-block">Qualification standards</label>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Education</label>
+                            <textarea class="form-control" name="qualification_education" rows="2">{{ old('qualification_education', $posting->qualification_education ?? '') }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Training</label>
+                            <textarea class="form-control" name="qualification_training" rows="2">{{ old('qualification_training', $posting->qualification_training ?? '') }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Experience</label>
+                            <textarea class="form-control" name="qualification_experience" rows="2">{{ old('qualification_experience', $posting->qualification_experience ?? '') }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">Eligibility</label>
+                            <textarea class="form-control" name="qualification_eligibility" rows="2">{{ old('qualification_eligibility', $posting->qualification_eligibility ?? '') }}</textarea>
+                        </div>
+                    </div>
+                    @if ($posting->exists ?? false)
+                        @if ($posting->qualification_standards)
+                            <div class="form-text mt-2" style="font-size: 0.72rem;">
+                                This posting has legacy "Qualification standards" text that predates the Education/Training/Experience/Eligibility breakdown. It's preserved and still shown on the view page, but editing here will not modify it. Fill in the fields above to add structured qualifications.
+                            </div>
+                        @endif
+                    @endif
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label small fw-medium mb-2 d-block">Requirements checklist</label>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 h-100">
+                                <div class="small fw-medium text-muted mb-2">Mandatory requirements</div>
+                                <ul class="list-group mb-2" id="mandatoryList" style="font-size: 0.85rem;"></ul>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" id="mandatoryInput" placeholder="Type a requirement and press Add...">
+                                    <button type="button" class="btn btn-outline-secondary" id="mandatoryAddBtn">Add</button>
+                                </div>
+                                <textarea name="mandatory_requirements" id="mandatoryHidden" class="d-none">{{ old('mandatory_requirements', $posting->mandatory_requirements ?? '') }}</textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 h-100">
+                                <div class="small fw-medium text-muted mb-2">Additional requirements</div>
+                                <ul class="list-group mb-2" id="additionalList" style="font-size: 0.85rem;"></ul>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" id="additionalInput" placeholder="Type a requirement and press Add...">
+                                    <button type="button" class="btn btn-outline-secondary" id="additionalAddBtn">Add</button>
+                                </div>
+                                <textarea name="additional_requirements" id="additionalHidden" class="d-none">{{ old('additional_requirements', $posting->additional_requirements ?? '') }}</textarea>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="col-12">
@@ -86,8 +151,8 @@
                 </div>
 
                 <div class="col-12">
-                    <label class="form-label small fw-medium">Qualification standards</label>
-                    <textarea class="form-control" name="qualification_standards" rows="3">{{ $posting->qualification_standards ?? '' }}</textarea>
+                    <label class="form-label small fw-medium">Job description</label>
+                    <textarea class="form-control" name="description" rows="3">{{ $posting->description ?? '' }}</textarea>
                 </div>
 
                 <div class="col-md-4">
@@ -191,8 +256,11 @@
         });
     })();
 
+    @php
+        $placeOfAssignmentOptions = array_merge(config('schools.schools', []), config('schools.sdo_units', []));
+    @endphp
     (function () {
-        const schools = @json(config('schools.schools', []));
+        const schools = @json($placeOfAssignmentOptions);
         const schoolInput = document.getElementById('schoolSearchInput');
         const schoolResultsBox = document.getElementById('schoolSearchResults');
         const schoolWrapper = document.getElementById('schoolSearchWrapper');
@@ -240,6 +308,87 @@
         });
         // Note: no submit-blocking here -- typing a school not in the list is allowed.
     })();
+
+    function initRequirementList(listId, inputId, addBtnId, hiddenId) {
+        const listEl = document.getElementById(listId);
+        const inputEl = document.getElementById(inputId);
+        const addBtn = document.getElementById(addBtnId);
+        const hiddenEl = document.getElementById(hiddenId);
+
+        function getItems() {
+            return hiddenEl.value
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line !== '');
+        }
+
+        function syncHidden(items) {
+            hiddenEl.value = items.join('\n');
+        }
+
+        function render() {
+            const items = getItems();
+            listEl.innerHTML = '';
+
+            if (items.length === 0) {
+                const empty = document.createElement('li');
+                empty.className = 'list-group-item text-muted small py-2';
+                empty.textContent = 'No items added yet.';
+                listEl.appendChild(empty);
+                return;
+            }
+
+            items.forEach(function (item, index) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-start py-2';
+
+                const span = document.createElement('span');
+                span.textContent = item;
+                span.style.paddingRight = '0.5rem';
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-sm btn-link text-danger p-0';
+                removeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+                removeBtn.addEventListener('click', function () {
+                    const current = getItems();
+                    current.splice(index, 1);
+                    syncHidden(current);
+                    render();
+                });
+
+                li.appendChild(span);
+                li.appendChild(removeBtn);
+                listEl.appendChild(li);
+            });
+        }
+
+        function addItem() {
+            const value = inputEl.value.trim();
+            if (value === '') {
+                return;
+            }
+            const items = getItems();
+            items.push(value);
+            syncHidden(items);
+            inputEl.value = '';
+            render();
+            inputEl.focus();
+        }
+
+        addBtn.addEventListener('click', addItem);
+        inputEl.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addItem();
+            }
+        });
+
+        render();
+    }
+
+    initRequirementList('mandatoryList', 'mandatoryInput', 'mandatoryAddBtn', 'mandatoryHidden');
+    initRequirementList('additionalList', 'additionalInput', 'additionalAddBtn', 'additionalHidden');
 </script>
 @endpush
 @endsection

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JobPostingController;
+use App\Http\Controllers\JobPostingImportController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\InterviewScheduleController;
 use App\Http\Controllers\AssessmentController;
@@ -20,10 +21,14 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
 Route::get('/job-postings', [JobPostingController::class, 'index'])->name('job-postings.index');
 Route::get('/job-postings/create', [JobPostingController::class, 'create'])->name('job-postings.create');
 Route::get('/job-postings/{id}/edit', [JobPostingController::class, 'edit'])->name('job-postings.edit');
+// Job postings -- PDF import (Stage 2: extraction diagnostic only)
+Route::get('/job-postings/import', [JobPostingImportController::class, 'create'])->name('job-postings.import.create');
+Route::post('/job-postings/import/extract', [JobPostingImportController::class, 'extract'])->name('job-postings.import.extract');
 Route::get('/job-postings/{id}', [JobPostingController::class, 'show'])->name('job-postings.show');
 Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-postings.store');
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
+
 
 // Applications
 Route::get('/applications', [ApplicationController::class, 'index'])->name('applications.index');

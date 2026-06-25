@@ -1,11 +1,19 @@
 <?php
 
 // config/schools.php
-// Master list of schools for the Place of Assignment searchable dropdown.
-// This is a STARTING list compiled from actual DepEd Cavite Division Memoranda
-// (Call for Applications attachments) and is known to be incomplete -- it does
-// not yet cover every school in the division. Add new schools as you encounter
-// them by appending a new line to the array below.
+// Master list of place-of-assignment options for the searchable dropdown.
+//
+// Two categories:
+//   'schools'    - individual schools (elementary, secondary, integrated).
+//                  STARTING list compiled from actual DepEd Cavite Division
+//                  Memoranda (Call for Applications attachments). Known to
+//                  be incomplete -- does not yet cover every school in the
+//                  division. Add new schools by appending a new line.
+//   'sdo_units'  - Schools Division Office-level units/sections (not tied
+//                  to a specific school), e.g. ICT Unit, SGOD, CID, etc.
+//                  STARTING scaffold of common DepEd SDO offices, NOT yet
+//                  confirmed against this specific division's actual org
+//                  structure -- verify and correct before relying on it.
 
 return [
     'schools' => [
@@ -130,5 +138,22 @@ return [
         'Tua ES',
         'Urdaneta ES',
         'Victoriano Luciano ES',
+    ],
+
+    'sdo_units' => [
+        'Office of the Schools Division Superintendent (SDS)',
+        'Office of the Assistant Schools Division Superintendent (ASDS)',
+        'Curriculum Implementation Division (CID)',
+        'School Governance and Operations Division (SGOD)',
+        'Schools Division ICT Unit',
+        'Human Resource Management and Development Unit',
+        'Legal Unit',
+        'Finance Unit / Accounting Section',
+        'Budget Section',
+        'Cash Section',
+        'Supply/Property Section',
+        'Records Section',
+        'General Services Unit',
+        'Planning and Research Section',
     ],
 ];

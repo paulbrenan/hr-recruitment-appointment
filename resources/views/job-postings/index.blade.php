@@ -11,9 +11,14 @@
     <div>
         <p class="text-muted mb-0 small">Manage open positions, qualifications, and assignment details</p>
     </div>
-    <a href="{{ route('job-postings.create') }}" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
-        <i class="bi bi-plus-lg me-1"></i> New posting
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('job-postings.import.create') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-file-earmark-pdf me-1"></i> Import from PDF
+        </a>
+        <a href="{{ route('job-postings.create') }}" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
+            <i class="bi bi-plus-lg me-1"></i> New posting
+        </a>
+    </div>
 </div>
 
 <div class="row mb-3 g-2">
@@ -51,7 +56,8 @@
                     <th>Title</th>
                     <th>Place of assignment</th>
                     <th>Employment type</th>
-                    <th>Vacancies</th>
+                    <th class="text-nowrap">SG</th>
+                    <th class="text-center">Vacancies</th>
                     <th>Posted</th>
                     <th>Closes</th>
                     <th>Status</th>
@@ -64,7 +70,14 @@
                     <td class="fw-medium">{{ $posting->title }}</td>
                     <td>{{ $posting->place_of_assignment }}</td>
                     <td>{{ $posting->employment_type }}</td>
-                    <td>{{ $posting->vacancies }}</td>
+                    <td class="text-nowrap">
+                        @if ($posting->salary_grade)
+                            {{ Str::startsWith($posting->salary_grade, 'SG-') ? $posting->salary_grade : 'SG-' . $posting->salary_grade }}
+                        @else
+                            —
+                        @endif
+                    </td>
+                    <td class="text-center">{{ $posting->vacancies }}</td>
                     <td>{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</td>
                     <td>{{ $posting->closes_at ? \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') : '—' }}</td>
                     <td>

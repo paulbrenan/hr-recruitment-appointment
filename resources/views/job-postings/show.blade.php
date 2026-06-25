@@ -9,7 +9,7 @@
         <div class="d-flex justify-content-between align-items-start mb-3">
             <div>
                 <h5 class="mb-1">{{ $posting->title }}</h5>
-                <p class="text-muted small mb-0">{{ $posting->place_of_assignment }} &middot; {{ $posting->employment_type }}</p>
+                <p class="text-muted small mb-0">{{ $posting->place_of_assignment }} &middot; {{ $posting->employment_type }}@if ($posting->salary_grade) &middot; {{ Str::startsWith($posting->salary_grade, 'SG-') ? $posting->salary_grade : 'SG-' . $posting->salary_grade }}@endif</p>
             </div>
             <a href="{{ route('job-postings.edit', $posting->id) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-pencil me-1"></i> Edit
@@ -23,11 +23,11 @@
             </div>
             <div class="col-md-3">
                 <div class="text-muted small">Posted</div>
-                <div class="fw-medium">{{ \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') }}</div>
+                <div class="fw-medium">{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</div>
             </div>
             <div class="col-md-3">
                 <div class="text-muted small">Closes</div>
-                <div class="fw-medium">{{ \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') }}</div>
+                <div class="fw-medium">{{ $posting->closes_at ? \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') : '—' }}</div>
             </div>
             <div class="col-md-3">
                 <div class="text-muted small">Status</div>
@@ -47,7 +47,74 @@
         </div>
         <div>
             <div class="text-muted small mb-1">Qualification standards</div>
-            <p class="mb-0">{{ $posting->qualification_standards }}</p>
+            @if ($posting->qualification_education || $posting->qualification_training || $posting->qualification_experience || $posting->qualification_eligibility)
+                <div class="row g-2">
+                    @if ($posting->qualification_education)
+                        <div class="col-md-6">
+                            <div class="text-muted small">Education</div>
+                            <p class="mb-2">{{ $posting->qualification_education }}</p>
+                        </div>
+                    @endif
+                    @if ($posting->qualification_training)
+                        <div class="col-md-6">
+                            <div class="text-muted small">Training</div>
+                            <p class="mb-2">{{ $posting->qualification_training }}</p>
+                        </div>
+                    @endif
+                    @if ($posting->qualification_experience)
+                        <div class="col-md-6">
+                            <div class="text-muted small">Experience</div>
+                            <p class="mb-2">{{ $posting->qualification_experience }}</p>
+                        </div>
+                    @endif
+                    @if ($posting->qualification_eligibility)
+                        <div class="col-md-6">
+                            <div class="text-muted small">Eligibility</div>
+                            <p class="mb-2">{{ $posting->qualification_eligibility }}</p>
+                        </div>
+                    @endif
+                </div>
+            @elseif ($posting->qualification_standards)
+                <p class="mb-0">{{ $posting->qualification_standards }}</p>
+            @else
+                <p class="mb-0 text-muted">Not specified.</p>
+            @endif
+        </div>
+
+        <hr>
+
+        <div>
+            <div class="text-muted small mb-2">Requirements checklist</div>
+            @php
+                $mandatoryList = $posting->mandatoryRequirementsList();
+                $additionalList = $posting->additionalRequirementsList();
+            @endphp
+            @if (empty($mandatoryList) && empty($additionalList))
+                <p class="mb-0 text-muted small">No requirements specified for this posting.</p>
+            @else
+                <div class="row g-3">
+                    @if (!empty($mandatoryList))
+                        <div class="col-md-6">
+                            <div class="small fw-medium text-muted mb-2">Mandatory</div>
+                            <ul class="small mb-0 ps-3">
+                                @foreach ($mandatoryList as $item)
+                                    <li>{{ $item }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                    @if (!empty($additionalList))
+                        <div class="col-md-6">
+                            <div class="small fw-medium text-muted mb-2">Additional</div>
+                            <ul class="small mb-0 ps-3">
+                                @foreach ($additionalList as $item)
+                                    <li>{{ $item }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
 </div>
@@ -64,13 +131,17 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach ($applications as $app)
+                @forelse ($applications as $app)
                 <tr>
-                    <td>{{ $app->candidate_name }}</td>
-                    <td>{{ \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') }}</td>
+                    <td>{{ $app->candidate->full_name }}</td>
+                    <td>{{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}</td>
                     <td><span class="badge text-bg-info">{{ str_replace('_', ' ', ucfirst($app->status)) }}</span></td>
                 </tr>
-                @endforeach
+                @empty
+                <tr>
+                    <td colspan="3" class="text-muted small text-center py-3">No applications yet for this posting.</td>
+                </tr>
+                @endforelse
             </tbody>
         </table>
     </div>

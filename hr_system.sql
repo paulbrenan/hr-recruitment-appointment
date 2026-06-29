@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 24, 2026 at 09:47 AM
+-- Generation Time: Jun 25, 2026 at 10:34 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -43,18 +43,13 @@ CREATE TABLE `applications` (
 --
 
 INSERT INTO `applications` (`id`, `candidate_id`, `job_posting_id`, `status`, `applied_at`, `notes`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 'hired', '2026-05-10', 'dsadas', '2026-06-23 18:16:32', '2026-06-23 22:53:17'),
-(2, 2, 2, 'offer_accepted', '2026-05-15', NULL, '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
-(3, 3, 3, 'hired', '2026-05-20', 'Strong background, passed initial screening.', '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
-(4, 4, 4, 'hired', '2026-05-25', 'Interview confirmed with the candidate.', '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
-(5, 5, 5, 'offer_sent', '2026-06-01', 'Completed written assessment, awaiting ranking.', '2026-06-23 18:16:32', '2026-06-23 23:06:10'),
+(5, 5, 5, 'assessed', '2026-06-01', 'Completed written assessment, awaiting ranking.', '2026-06-23 18:16:32', '2026-06-24 21:11:19'),
 (6, 6, 6, 'offer_sent', '2026-06-05', 'Ranked among top candidates for the position.', '2026-06-23 18:16:32', '2026-06-23 22:06:25'),
 (7, 7, 7, 'offer_sent', '2026-06-08', 'Offer sent, awaiting response.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
 (8, 8, 8, 'offer_accepted', '2026-06-10', 'Candidate accepted the offer.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
-(9, 9, 9, 'offer_declined', '2026-06-12', 'Candidate declined the offer.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
+(9, 9, 9, 'offer_accepted', '2026-06-12', 'Candidate declined the offer.', '2026-06-23 18:16:32', '2026-06-24 21:10:29'),
 (10, 10, 10, 'hired', '2026-06-14', 'Excellent interview performance. Hired.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
-(11, 11, 11, 'rejected', '2026-06-18', 'Did not meet minimum qualifications.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
-(12, 12, 12, 'screening', '2026-06-20', NULL, '2026-06-23 18:16:32', '2026-06-23 18:16:32');
+(11, 11, 11, 'rejected', '2026-06-18', 'Did not meet minimum qualifications.', '2026-06-23 18:16:32', '2026-06-23 18:16:32');
 
 -- --------------------------------------------------------
 
@@ -91,15 +86,6 @@ CREATE TABLE `appointments` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `appointments`
---
-
-INSERT INTO `appointments` (`id`, `application_id`, `position_title`, `item_number`, `appointment_status`, `appointment_date`, `onboarding_date`, `appointment_paper_path`, `created_at`, `updated_at`) VALUES
-(1, 3, 'HR Assistant', 'OSEC-DECSB-HRA-001-2026', 'provisional', '2026-06-17', '2026-06-21', NULL, '2026-06-23 22:53:06', '2026-06-23 22:53:06'),
-(2, 4, 'Records Officer', 'OSEC-DECSB-AO2-002-2026', 'permanent', '2026-06-15', NULL, NULL, '2026-06-23 22:53:06', '2026-06-23 22:53:06'),
-(3, 1, 'Administrative Officer II', NULL, 'provisional', '2026-06-24', NULL, NULL, '2026-06-23 22:53:17', '2026-06-23 22:53:17');
-
 -- --------------------------------------------------------
 
 --
@@ -121,20 +107,8 @@ CREATE TABLE `assessment_criteria` (
 --
 
 INSERT INTO `assessment_criteria` (`id`, `job_posting_id`, `name`, `weight_percentage`, `description`, `created_at`, `updated_at`) VALUES
-(1, 1, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(2, 1, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(4, 2, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(5, 2, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(6, 2, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(7, 3, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(8, 3, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(9, 3, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(10, 4, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(11, 4, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(12, 4, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (13, 5, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (14, 5, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(15, 5, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (16, 6, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (17, 6, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (18, 6, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
@@ -152,15 +126,7 @@ INSERT INTO `assessment_criteria` (`id`, `job_posting_id`, `name`, `weight_perce
 (30, 10, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (31, 11, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (32, 11, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(33, 11, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(34, 12, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(35, 12, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(36, 12, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(37, 14, 'Technical skills', 40.00, 'Job-specific knowledge and competence', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(38, 14, 'Communication', 30.00, 'Clarity, listening, and interpersonal skills', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(39, 14, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(41, 1, 'Problem Solving', 20.00, NULL, '2026-06-23 21:58:50', '2026-06-23 21:58:50'),
-(42, 1, 'test', 10.00, NULL, '2026-06-23 21:58:57', '2026-06-23 21:58:57');
+(33, 11, 'Problem solving', 30.00, 'Analytical thinking and adaptability', '2026-06-23 21:50:33', '2026-06-23 21:50:33');
 
 -- --------------------------------------------------------
 
@@ -246,20 +212,8 @@ CREATE TABLE `candidate_assessments` (
 --
 
 INSERT INTO `candidate_assessments` (`id`, `application_id`, `assessment_criteria_id`, `score`, `evaluator_remarks`, `evaluated_by`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 32.80, NULL, NULL, '2026-06-23 21:50:33', '2026-06-23 21:59:22'),
-(2, 1, 2, 30.00, NULL, NULL, '2026-06-23 21:50:33', '2026-06-23 21:59:22'),
-(4, 2, 4, 28.40, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(5, 2, 5, 27.30, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(6, 2, 6, 28.20, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(7, 3, 7, 36.40, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(8, 3, 8, 23.40, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(9, 3, 9, 25.20, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(10, 4, 10, 34.80, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(11, 4, 11, 27.30, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(12, 4, 12, 26.40, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (13, 5, 13, 34.40, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (14, 5, 14, 23.40, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(15, 5, 15, 25.20, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (16, 6, 16, 32.40, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (17, 6, 17, 27.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (18, 6, 18, 25.20, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
@@ -277,12 +231,7 @@ INSERT INTO `candidate_assessments` (`id`, `application_id`, `assessment_criteri
 (30, 10, 30, 21.60, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (31, 11, 31, 38.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (32, 11, 32, 21.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(33, 11, 33, 24.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(34, 12, 34, 32.80, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(35, 12, 35, 26.70, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(36, 12, 36, 23.70, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(37, 1, 41, 20.00, NULL, NULL, '2026-06-23 21:59:22', '2026-06-23 21:59:22'),
-(38, 1, 42, 10.00, NULL, NULL, '2026-06-23 21:59:22', '2026-06-23 21:59:22');
+(33, 11, 33, 24.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33');
 
 -- --------------------------------------------------------
 
@@ -324,10 +273,6 @@ CREATE TABLE `interview_schedules` (
 --
 
 INSERT INTO `interview_schedules` (`id`, `application_id`, `type`, `scheduled_at`, `location`, `interviewer_name`, `status`, `remarks`, `created_at`, `updated_at`) VALUES
-(1, 1, 'interview', '2026-06-14 09:00:00', 'HR Conference Room', 'Mr. Alvarez', 'scheduled', NULL, '2026-06-23 18:40:21', '2026-06-23 18:40:21'),
-(2, 2, 'exam', '2026-06-16 10:00:00', 'Testing Room B', 'Ms. Cruz', 'scheduled', NULL, '2026-06-23 18:40:21', '2026-06-23 18:40:21'),
-(3, 3, 'open_ranking', '2026-06-19 11:00:00', 'Main Hall', 'HR Panel', 'completed', 'Session completed successfully.', '2026-06-23 18:40:21', '2026-06-23 18:40:21'),
-(4, 4, 'interview', '2026-06-21 12:00:00', 'HR Office', 'Mr. Santos', 'completed', 'Session completed successfully.', '2026-06-23 18:40:21', '2026-06-23 18:40:21'),
 (5, 5, 'exam', '2026-06-23 13:00:00', 'Conference Room A', 'Ms. Reyes', 'cancelled', 'Cancelled due to scheduling conflict.', '2026-06-23 18:40:21', '2026-06-23 18:40:21'),
 (6, 6, 'open_ranking', '2026-06-25 14:00:00', 'HR Conference Room', 'Mr. Alvarez', 'no_show', 'Candidate did not show up.', '2026-06-23 18:40:21', '2026-06-23 18:40:21'),
 (7, 7, 'interview', '2026-06-27 09:00:00', 'Testing Room B', 'Ms. Cruz', 'scheduled', NULL, '2026-06-23 18:40:21', '2026-06-23 18:40:21'),
@@ -394,7 +339,8 @@ CREATE TABLE `job_offers` (
 --
 
 INSERT INTO `job_offers` (`id`, `application_id`, `compensation`, `benefits`, `terms`, `offer_sent_at`, `response_deadline`, `status`, `created_at`, `updated_at`) VALUES
-(2, 5, 14634.00, NULL, NULL, '2026-06-24', '2026-06-25', 'sent', '2026-06-23 22:14:30', '2026-06-23 23:06:10');
+(2, 5, 14634.00, NULL, NULL, '2026-06-24', '2026-06-25', 'sent', '2026-06-23 22:14:30', '2026-06-23 23:06:10'),
+(3, 9, 14634.00, NULL, NULL, '2026-06-25', '2026-07-08', 'accepted', '2026-06-24 00:51:46', '2026-06-24 21:10:29');
 
 -- --------------------------------------------------------
 
@@ -408,8 +354,15 @@ CREATE TABLE `job_postings` (
   `description` text DEFAULT NULL,
   `duties_responsibilities` text DEFAULT NULL,
   `qualification_standards` text DEFAULT NULL,
+  `qualification_education` text DEFAULT NULL,
+  `qualification_training` text DEFAULT NULL,
+  `qualification_experience` text DEFAULT NULL,
+  `qualification_eligibility` text DEFAULT NULL,
+  `mandatory_requirements` text DEFAULT NULL,
+  `additional_requirements` text DEFAULT NULL,
   `place_of_assignment` varchar(255) DEFAULT NULL,
   `employment_type` varchar(255) DEFAULT NULL,
+  `salary_grade` varchar(255) DEFAULT NULL,
   `vacancies` int(11) NOT NULL DEFAULT 1,
   `posted_at` date DEFAULT NULL,
   `closes_at` date DEFAULT NULL,
@@ -422,20 +375,15 @@ CREATE TABLE `job_postings` (
 -- Dumping data for table `job_postings`
 --
 
-INSERT INTO `job_postings` (`id`, `title`, `description`, `duties_responsibilities`, `qualification_standards`, `place_of_assignment`, `employment_type`, `vacancies`, `posted_at`, `closes_at`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'Administrative Officer II', 'Responsible for administrative support and records management for the office.', 'Maintain accurate records and filing systems.\nPrepare correspondence and reports.\nAssist in scheduling meetings and appointments.\nCoordinate with other departments as needed.', 'Bachelor\'s degree relevant to the job.\nAt least 1 year of relevant work experience.\nCivil Service eligibility (Professional) preferred.', 'Main Office', 'Regular', 2, '2026-06-01', '2026-07-01', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(2, 'IT Support Specialist', 'Provides technical support to staff and maintains office equipment and systems.', 'Troubleshoot hardware and software issues.\nManage helpdesk tickets and resolve within SLA.\nPerform routine maintenance on workstations and network equipment.\nAssist in onboarding new employees with IT setup.', 'Bachelor\'s degree in Information Technology, Computer Science, or related field.\nFamiliarity with Windows and basic networking.\nGood communication and problem-solving skills.', 'IT Department', 'Job Order', 1, '2026-06-05', '2026-06-30', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(3, 'HR Assistant', 'Supports HR operations including recruitment, onboarding, and employee records.', 'Screen applications and shortlist candidates.\nSchedule interviews and coordinate with panel members.\nPrepare employment documents and contracts.\nMaintain 201 files and HR database.', 'Bachelor\'s degree in Human Resource Management, Psychology, or related field.\nStrong organizational and interpersonal skills.\nProficient in MS Office applications.', 'HR Department', 'Provisional', 1, '2026-05-15', '2026-06-15', 'filled', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(4, 'Records Officer', 'Manages document filing, archiving, and retrieval systems for the office.', 'File and organize incoming and outgoing documents.\nRespond to records requests from staff and external parties.\nMaintain confidentiality of sensitive files.\nAssist in digitization of paper records.', 'At least high school graduate with relevant clerical training.\nAttention to detail and good organizational skills.\nBasic computer literacy.', 'Records Section', 'Casual', 1, '2026-04-20', '2026-05-20', 'closed', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(5, 'Budget Analyst', 'Prepares and monitors budget proposals and financial reports for the office.', 'Prepare annual budget proposals and work plans.\nMonitor fund utilization against approved budget.\nPrepare financial and variance reports.\nCoordinate with accounting and finance units.', 'Bachelor\'s degree in Accountancy, Finance, Economics, or related field.\nAt least 1 year of experience in budgeting or financial analysis.\nProficient in spreadsheet applications.', 'Budget Office', 'Regular', 1, '2026-06-10', '2026-07-10', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(6, 'Procurement Aide', 'Assists in the procurement of goods, services, and supplies for the office.', 'Prepare purchase requests and canvass forms.\nAssist in bidding and supplier documentation.\nMonitor delivery schedules and inventory of supplies.\nCoordinate with the Bids and Awards Committee.', 'Bachelor\'s degree preferred, or relevant work experience.\nFamiliarity with procurement processes is an advantage.\nDetail-oriented and organized.', 'Procurement Office', 'Job Order', 2, '2026-06-12', '2026-07-12', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(7, 'Network Administrator', 'Manages and maintains the office network infrastructure and server systems.', 'Monitor network performance and uptime.\nConfigure and maintain routers, switches, and firewalls.\nImplement security policies and backup procedures.\nProvide Tier 2 technical support for network issues.', 'Bachelor\'s degree in IT, Computer Engineering, or related field.\nAt least 2 years of experience in network administration.\nCertifications such as CCNA are an advantage.', 'IT Department', 'Regular', 1, '2026-05-01', '2026-06-01', 'filled', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(8, 'Customer Service Representative', 'Handles front-desk inquiries and assists clients with their concerns.', 'Attend to walk-in and phone inquiries.\nProcess client requests and route concerns to proper units.\nMaintain a log of inquiries and resolutions.\nProvide excellent and courteous service at all times.', 'At least 2 years of college education.\nGood communication skills, both written and verbal.\nPleasant disposition and customer-service orientation.', 'Front Desk', 'Casual', 3, '2026-06-18', '2026-07-18', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(9, 'Graphic Design Intern', 'Assists the communications team with visual materials for office campaigns.', 'Design posters, social media graphics, and presentation materials.\nAssist in photo and video documentation of office events.\nSupport the communications team in branding consistency.', 'Currently enrolled in a relevant college course (e.g. Multimedia Arts, Fine Arts, IT).\nProficient in design tools such as Canva, Photoshop, or Illustrator.\nCreative and able to work under minimal supervision.', 'Communications Unit', 'On-the-Job Trainee', 2, '2026-06-20', '2026-07-20', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(10, 'Legal Researcher', 'Conducts legal research and drafts documents in support of the legal office.', 'Conduct legal research on relevant laws, rules, and jurisprudence.\nDraft legal opinions, memos, and contracts under supervision.\nAssist in case documentation and record-keeping.\nAttend hearings or meetings as needed.', 'Bachelor\'s degree in Political Science, Legal Management, or related field.\nLaw graduate or law student preferred but not required.\nStrong research and writing skills.', 'Legal Office', 'Provisional', 1, '2026-06-08', '2026-07-08', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(11, 'Maintenance Worker', 'Performs general maintenance and upkeep of office facilities and grounds.', 'Perform minor repairs on office facilities and equipment.\nMaintain cleanliness and orderliness of premises and grounds.\nMonitor and report facility issues to the administrative unit.\nAssist in setup for office events.', 'At least elementary or high school graduate.\nBasic skills in carpentry, plumbing, or electrical work an advantage.\nPhysically fit and reliable.', 'General Services Unit', 'Casual', 2, '2026-03-01', '2026-03-31', 'closed', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(12, 'Data Encoder', 'Encodes and validates data for various office records and systems.', 'Encode data accurately into office databases and systems.\nValidate and cross-check entries against source documents.\nGenerate basic reports from encoded data.\nMaintain data confidentiality and integrity.', 'At least 2 years of college education.\nFast and accurate typing skills.\nFamiliarity with spreadsheet and database applications.', 'Management Information Systems Office', 'Job Order', 2, '2026-06-22', '2026-07-22', 'draft', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(14, 'sdsad', NULL, NULL, NULL, 'dsadsa', 'Regular', 1, '2026-06-10', '2026-06-27', 'draft', '2026-06-23 18:07:41', '2026-06-23 18:07:41');
+INSERT INTO `job_postings` (`id`, `title`, `description`, `duties_responsibilities`, `qualification_standards`, `qualification_education`, `qualification_training`, `qualification_experience`, `qualification_eligibility`, `mandatory_requirements`, `additional_requirements`, `place_of_assignment`, `employment_type`, `salary_grade`, `vacancies`, `posted_at`, `closes_at`, `status`, `created_at`, `updated_at`) VALUES
+(5, 'Administrative Aide I', 'Prepares and monitors budget proposals and financial reports for the office.', 'Prepare annual budget proposals and work plans.\r\nMonitor fund utilization against approved budget.\r\nPrepare financial and variance reports.\r\nCoordinate with accounting and finance units.', 'Bachelor\'s degree in Accountancy, Finance, Economics, or related field.\r\nAt least 1 year of experience in budgeting or financial analysis.\r\nProficient in spreadsheet applications.', NULL, NULL, NULL, NULL, NULL, NULL, 'sadsadsdsad', 'Regular', 'SG-6', 1, '2026-06-10', '2026-07-10', 'open', '2026-06-23 18:00:17', '2026-06-24 19:53:26'),
+(6, 'Procurement Aide', 'Assists in the procurement of goods, services, and supplies for the office.', 'Prepare purchase requests and canvass forms.\nAssist in bidding and supplier documentation.\nMonitor delivery schedules and inventory of supplies.\nCoordinate with the Bids and Awards Committee.', 'Bachelor\'s degree preferred, or relevant work experience.\nFamiliarity with procurement processes is an advantage.\nDetail-oriented and organized.', NULL, NULL, NULL, NULL, NULL, NULL, 'Procurement Office', 'Job Order', NULL, 2, '2026-06-12', '2026-07-12', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(7, 'Network Administrator', 'Manages and maintains the office network infrastructure and server systems.', 'Monitor network performance and uptime.\nConfigure and maintain routers, switches, and firewalls.\nImplement security policies and backup procedures.\nProvide Tier 2 technical support for network issues.', 'Bachelor\'s degree in IT, Computer Engineering, or related field.\nAt least 2 years of experience in network administration.\nCertifications such as CCNA are an advantage.', NULL, NULL, NULL, NULL, NULL, NULL, 'IT Department', 'Regular', NULL, 1, '2026-05-01', '2026-06-01', 'filled', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(8, 'Customer Service Representative', 'Handles front-desk inquiries and assists clients with their concerns.', 'Attend to walk-in and phone inquiries.\nProcess client requests and route concerns to proper units.\nMaintain a log of inquiries and resolutions.\nProvide excellent and courteous service at all times.', 'At least 2 years of college education.\nGood communication skills, both written and verbal.\nPleasant disposition and customer-service orientation.', NULL, NULL, NULL, NULL, NULL, NULL, 'Front Desk', 'Casual', NULL, 3, '2026-06-18', '2026-07-18', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(9, 'Graphic Design Intern', 'Assists the communications team with visual materials for office campaigns.', 'Design posters, social media graphics, and presentation materials.\nAssist in photo and video documentation of office events.\nSupport the communications team in branding consistency.', 'Currently enrolled in a relevant college course (e.g. Multimedia Arts, Fine Arts, IT).\nProficient in design tools such as Canva, Photoshop, or Illustrator.\nCreative and able to work under minimal supervision.', NULL, NULL, NULL, NULL, NULL, NULL, 'Communications Unit', 'On-the-Job Trainee', NULL, 2, '2026-06-20', '2026-07-20', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(10, 'Legal Researcher', 'Conducts legal research and drafts documents in support of the legal office.', 'Conduct legal research on relevant laws, rules, and jurisprudence.\nDraft legal opinions, memos, and contracts under supervision.\nAssist in case documentation and record-keeping.\nAttend hearings or meetings as needed.', 'Bachelor\'s degree in Political Science, Legal Management, or related field.\nLaw graduate or law student preferred but not required.\nStrong research and writing skills.', NULL, NULL, NULL, NULL, NULL, NULL, 'Legal Office', 'Provisional', NULL, 1, '2026-06-08', '2026-07-08', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(11, 'Maintenance Worker', 'Performs general maintenance and upkeep of office facilities and grounds.', 'Perform minor repairs on office facilities and equipment.\nMaintain cleanliness and orderliness of premises and grounds.\nMonitor and report facility issues to the administrative unit.\nAssist in setup for office events.', 'At least elementary or high school graduate.\nBasic skills in carpentry, plumbing, or electrical work an advantage.\nPhysically fit and reliable.', NULL, NULL, NULL, NULL, NULL, NULL, 'General Services Unit', 'Casual', NULL, 2, '2026-03-01', '2026-03-31', 'closed', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(16, 'Contract of Service (COS)', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Alfonso Integrated High School', 'Regular', 'SG-7', 1, NULL, NULL, 'draft', '2026-06-24 19:31:30', '2026-06-24 19:31:30');
 
 -- --------------------------------------------------------
 
@@ -466,7 +414,14 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (10, '2026_06_24_000007_create_candidate_assessments_table', 2),
 (11, '2026_06_24_000008_create_job_offers_table', 2),
 (12, '2026_06_24_000009_create_talent_pools_table', 2),
-(13, '2026_06_24_000010_create_appointments_table', 2);
+(13, '2026_06_24_000010_create_appointments_table', 2),
+(14, '2026_06_25_000001_add_salary_grade_to_job_postings_table', 3),
+(15, '2026_06_25_140000_add_qualification_breakdown_to_job_postings_table', 4),
+(16, '2026_06_25_150000_create_requirement_items_table', 5),
+(17, '2026_06_25_150100_create_job_posting_requirement_item_table', 5),
+(18, '2026_06_25_200000_drop_job_posting_requirement_item_table', 6),
+(19, '2026_06_25_200001_drop_requirement_items_table', 6),
+(20, '2026_06_25_200002_add_requirements_text_to_job_postings_table', 6);
 
 -- --------------------------------------------------------
 
@@ -500,7 +455,7 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('Xf866A2eh9AsVZu5tQHDcjeQrBI6UIBbaFeXymCg', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiVTMzb0x1VzliM1JnZnVJSExGQ3dLMXFtbEtGZnRKaDFJQ25NR2J3bSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzE6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9kYXNoYm9hcmQiO3M6NToicm91dGUiO3M6OToiZGFzaGJvYXJkIjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319fQ==', 1782285589);
+('QKFZfzhIjnmWVU64fJl7C73ECCv0l0JIsQUKwcXq', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiRHZsV09najF5MllBYldoSFNMWUFXQUhEWWljZ2xZamRxZEJiQWhycSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzE6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9kYXNoYm9hcmQiO3M6NToicm91dGUiO3M6OToiZGFzaGJvYXJkIjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319fQ==', 1782374679);
 
 -- --------------------------------------------------------
 
@@ -517,6 +472,13 @@ CREATE TABLE `talent_pools` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `talent_pools`
+--
+
+INSERT INTO `talent_pools` (`id`, `candidate_id`, `tags`, `notes`, `added_at`, `created_at`, `updated_at`) VALUES
+(1, 7, NULL, NULL, '2026-06-25', '2026-06-24 16:34:50', '2026-06-24 16:34:50');
 
 -- --------------------------------------------------------
 
@@ -733,25 +695,25 @@ ALTER TABLE `jobs`
 -- AUTO_INCREMENT for table `job_offers`
 --
 ALTER TABLE `job_offers`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `job_postings`
 --
 ALTER TABLE `job_postings`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `talent_pools`
 --
 ALTER TABLE `talent_pools`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `users`

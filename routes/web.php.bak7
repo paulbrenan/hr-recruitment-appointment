@@ -22,6 +22,8 @@ Route::post('/register', [AuthController::class, 'register'])->name('register.at
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Applicant portal authentication
+Route::get('/portal/login', [CandidateAuthController::class, 'showLogin'])->name('portal.login');
+Route::post('/portal/login', [CandidateAuthController::class, 'login'])->name('portal.login.attempt');
 Route::get('/portal/register', [CandidateAuthController::class, 'showRegister'])->name('portal.register');
 Route::post('/portal/register', [CandidateAuthController::class, 'register'])->name('portal.register.attempt');
 Route::post('/portal/logout', [CandidateAuthController::class, 'logout'])->name('portal.logout');

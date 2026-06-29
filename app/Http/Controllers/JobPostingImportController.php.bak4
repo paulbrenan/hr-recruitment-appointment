@@ -1,41 +1,4 @@
 <?php
-/**
- * pdf_import_ocr.php
- * Replaces the extract() method in JobPostingImportController with an OCR
- * pipeline: pdftoppm (PDF→images) + tesseract (images→text).
- * Drop in project root, run once: php pdf_import_ocr.php
- * Delete after confirming the import page works.
- */
-
-$controllerPath = __DIR__ . '/app/Http/Controllers/JobPostingImportController.php';
-
-if (!file_exists($controllerPath)) {
-    die("ERROR: Cannot find JobPostingImportController.php\n");
-}
-
-$original = file_get_contents($controllerPath);
-
-// ── Backup ────────────────────────────────────────────────────────────────────
-$bak = $controllerPath . '.bak';
-$i   = 2;
-while (file_exists($bak)) { $bak = $controllerPath . '.bak' . $i++; }
-file_put_contents($bak, $original);
-echo "Backed up to: $bak\n";
-
-// ── apply_patch ───────────────────────────────────────────────────────────────
-function apply_patch(string &$src, string $find, string $replace, string $label): void {
-    $count = substr_count($src, $find);
-    if ($count === 0) { die("ERROR [$label]: Target string not found — aborting, no changes written.\n"); }
-    if ($count  > 1) { die("ERROR [$label]: Found $count matches (expected 1) — aborting.\n"); }
-    $src = str_replace($find, $replace, $src);
-    echo "OK [$label]\n";
-}
-
-// ── New controller content ────────────────────────────────────────────────────
-// We replace the entire class body so there's no fragile method-level patching.
-
-$newController = <<<'CONTROLLER'
-<?php
 
 namespace App\Http\Controllers;
 
@@ -62,7 +25,8 @@ class JobPostingImportController extends Controller
             return back()->withErrors(['pdf_file' => 'Could not create temporary directory for processing.']);
         }
 
-        $pdfPath = $tmpDir . DIRECTORY_SEPARATOR . 'input.pdf';
+        $pdfPath      = $tmpDir . DIRECTORY_SEPARATOR . 'input.pdf';
+        $originalName = $request->file('pdf_file')->getClientOriginalName();
         $request->file('pdf_file')->move($tmpDir, 'input.pdf');
 
         // ── 2. Convert PDF pages to PNG images via pdftoppm ──────────────────
@@ -72,7 +36,7 @@ class JobPostingImportController extends Controller
         // -r 200  → 200 DPI (good OCR quality without being huge)
         // -png    → PNG output
         $pdftoppmCmd = sprintf(
-            'pdftoppm -r 200 -png %s %s 2>&1',
+            '"C:\\poppler-26.02.0\\Library\\bin\\pdftoppm.exe" -r 200 -png %s %s 2>&1',
             escapeshellarg($pdfPath),
             escapeshellarg($imagePrefix)
         );
@@ -100,7 +64,7 @@ class JobPostingImportController extends Controller
 
             // tesseract writes to outBase.txt automatically
             $tesseractCmd = sprintf(
-                'tesseract %s %s -l eng 2>&1',
+                '"C:\\Program Files\\Tesseract-OCR\\tesseract.exe" %s %s -l eng 2>&1',
                 escapeshellarg($imagePath),
                 escapeshellarg($outBase)
             );
@@ -120,7 +84,8 @@ class JobPostingImportController extends Controller
         $this->cleanupTmp($tmpDir);
 
         // ── 5. Pass to view ───────────────────────────────────────────────────
-        return view('job-postings.import.extracted', compact('pages'));
+        $pageCount = count($pages);
+        return view('job-postings.import.extracted', compact('pages', 'originalName', 'pageCount'));
     }
 
     // ── Helper: recursively delete temp directory ─────────────────────────────
@@ -136,12 +101,3 @@ class JobPostingImportController extends Controller
         rmdir($dir);
     }
 }
-CONTROLLER;
-
-// ── Write ─────────────────────────────────────────────────────────────────────
-file_put_contents($controllerPath, $newController);
-echo "OK [replaced JobPostingImportController with OCR pipeline]\n";
-
-echo "\nDone. No migration needed.\n";
-echo "Visit /job-postings/import, upload a sample PDF, and check the extracted text per page.\n";
-echo "Delete this script when confirmed working.\n";

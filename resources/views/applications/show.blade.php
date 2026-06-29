@@ -21,6 +21,19 @@
                 <p class="small text-muted mb-1">Applying for</p>
                 <p class="fw-medium mb-0">{{ $application->jobPosting->title }}</p>
                 <hr>
+                @if($application->status === 'rejected')
+       @if($application->talentPool)
+           <span class="badge bg-success">Already in Talent Pool</span>
+       @else
+           <form action="{{ route('talent-pool.store-from-application', $application->id) }}" method="POST">
+               @csrf
+               <button type="submit" class="btn btn-sm btn-outline-primary w-100">
+                   <i class="bi bi-bookmark-plus me-1"></i> Add to Talent Pool
+               </button>
+           </form>
+       @endif
+       <hr>
+   @endif
                 <form action="{{ route('applications.destroy', $application->id) }}" method="POST" onsubmit="return confirm('Delete this application? This will also delete any linked documents, interview schedules, assessments, job offers, and appointments. This cannot be undone.')">
                     @csrf
                     @method('DELETE')

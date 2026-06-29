@@ -11,11 +11,17 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 @endif
+@if (session('info'))
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        {{ session('info') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+@endif
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <p class="text-muted mb-0 small">Candidates kept on file for future openings</p>
     <div class="d-flex gap-2">
-        <input type="text" id="talentSearch" class="form-control form-control-sm" style="width: 240px;" placeholder="Search by name or tag...">
+        <input type="text" id="talentSearch" class="form-control form-control-sm" style="width: 240px;" placeholder="Search by name or skill...">
         <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addTalentModal">
             <i class="bi bi-plus-lg"></i> Add to pool
         </button>
@@ -25,25 +31,26 @@
 <div class="row g-3" id="talentPoolGrid">
     @forelse ($pool as $p)
     @php
-        $tags = $p->tags ? array_filter(array_map('trim', explode(',', $p->tags))) : [];
+        $skills = $p->skills ? array_filter(array_map('trim', explode(',', $p->skills))) : [];
     @endphp
     <div class="col-md-4 talent-card"
-         data-name="{{ strtolower($p->candidate->full_name) }}"
-         data-email="{{ strtolower($p->candidate->email) }}"
-         data-tags="{{ strtolower($p->tags ?? '') }}">
+         data-name="{{ strtolower($p->full_name) }}"
+         data-email="{{ strtolower($p->email ?? '') }}"
+         data-skills="{{ strtolower($p->skills ?? '') }}"
+         data-position="{{ strtolower($p->position_applied ?? '') }}">
         <div class="card h-100">
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
-                        <div class="fw-medium">{{ $p->candidate->full_name }}</div>
-                        <div class="text-muted small">{{ $p->candidate->email }}</div>
+                        <div class="fw-medium">{{ $p->full_name }}</div>
+                        <div class="text-muted small">{{ $p->email }}</div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-bookmark-star text-warning"></i>
                         <button type="button" class="btn btn-link btn-sm p-0 text-secondary"
                             data-bs-toggle="modal" data-bs-target="#editTalentModal"
                             data-id="{{ $p->id }}"
-                            data-tags="{{ $p->tags }}"
+                            data-skills="{{ $p->skills }}"
                             data-notes="{{ $p->notes }}"
                             data-added_at="{{ $p->added_at?->format('Y-m-d') }}"
                             title="Edit">
@@ -51,11 +58,18 @@
                         </button>
                     </div>
                 </div>
+
+                @if($p->position_applied)
+                    <div class="text-muted small mb-2">
+                        <i class="bi bi-briefcase"></i> Applied for: {{ $p->position_applied }}
+                    </div>
+                @endif
+
                 <div class="mb-2">
-                    @forelse ($tags as $tag)
-                        <span class="badge text-bg-light text-dark border me-1">{{ $tag }}</span>
+                    @forelse ($skills as $skill)
+                        <span class="badge text-bg-light text-dark border me-1">{{ $skill }}</span>
                     @empty
-                        <span class="text-muted small">No tags</span>
+                        <span class="text-muted small">No skills listed</span>
                     @endforelse
                 </div>
                 <p class="small text-muted mb-2">{{ $p->notes ?: 'No notes.' }}</p>
@@ -108,8 +122,8 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Tags</label>
-                            <input type="text" name="tags" class="form-control" placeholder="e.g. IT, Networking">
+                            <label class="form-label">Skills</label>
+                            <input type="text" name="skills" class="form-control" placeholder="e.g. IT, Networking">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Notes</label>
@@ -145,8 +159,8 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Tags</label>
-                        <input type="text" name="tags" id="edit_tags" class="form-control">
+                        <label class="form-label">Skills</label>
+                        <input type="text" name="skills" id="edit_skills" class="form-control">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Notes</label>
@@ -170,13 +184,13 @@
 document.getElementById('editTalentModal').addEventListener('show.bs.modal', function (event) {
     const button = event.relatedTarget;
     const id = button.getAttribute('data-id');
-    const tags = button.getAttribute('data-tags') || '';
+    const skills = button.getAttribute('data-skills') || '';
     const notes = button.getAttribute('data-notes') || '';
     const addedAt = button.getAttribute('data-added_at') || '';
 
     const form = document.getElementById('editTalentForm');
     form.action = '/talent-pool/' + id;
-    document.getElementById('edit_tags').value = tags;
+    document.getElementById('edit_skills').value = skills;
     document.getElementById('edit_notes').value = notes;
     document.getElementById('edit_added_at').value = addedAt;
 });
@@ -184,7 +198,7 @@ document.getElementById('editTalentModal').addEventListener('show.bs.modal', fun
 document.getElementById('talentSearch').addEventListener('input', function () {
     const query = this.value.trim().toLowerCase();
     document.querySelectorAll('.talent-card').forEach(function (card) {
-        const haystack = card.dataset.name + ' ' + card.dataset.email + ' ' + card.dataset.tags;
+        const haystack = card.dataset.name + ' ' + card.dataset.email + ' ' + card.dataset.skills + ' ' + card.dataset.position;
         card.style.display = haystack.includes(query) ? '' : 'none';
     });
 });

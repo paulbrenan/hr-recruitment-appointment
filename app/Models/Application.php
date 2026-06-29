@@ -21,6 +21,11 @@ class Application extends Model
         'applied_at' => 'date',
     ];
 
+    public function talentPool()
+{
+    return $this->hasOne(\App\Models\TalentPool::class);
+}
+
     public function candidate(): BelongsTo
     {
         return $this->belongsTo(Candidate::class);

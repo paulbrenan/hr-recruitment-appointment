@@ -57,6 +57,13 @@ Route::delete('/offers/{id}', [JobOfferController::class, 'destroy'])->name('off
 
 // Talent pool
 Route::get('/talent-pool', [TalentPoolController::class, 'index'])->name('talent-pool.index');
+Route::post('/talent-pool', [TalentPoolController::class, 'store'])->name('talent-pool.store');
+Route::get('/talent-pool/{id}', [TalentPoolController::class, 'show'])->name('talent-pool.show');
+Route::get('/talent-pool/{id}/edit', [TalentPoolController::class, 'edit'])->name('talent-pool.edit');
+Route::put('/talent-pool/{id}', [TalentPoolController::class, 'update'])->name('talent-pool.update');
+Route::delete('/talent-pool/{id}', [TalentPoolController::class, 'destroy'])->name('talent-pool.destroy');
+// Triggered by the "Add to Talent Pool" button on a rejected application
+Route::post('/applications/{id}/add-to-talent-pool', [TalentPoolController::class, 'storeFromApplication'])->name('talent-pool.store-from-application');
 
 // Appointment & onboarding
 Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');

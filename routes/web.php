@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CandidateAuthController;
+use App\Http\Controllers\PortalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\JobPostingImportController;
@@ -17,18 +18,24 @@ use App\Http\Controllers\RankingController;
 // Admin (HR staff) authentication
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
-Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-Route::post('/register', [AuthController::class, 'register'])->name('register.attempt');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Applicant portal authentication
 Route::get('/portal/register', [CandidateAuthController::class, 'showRegister'])->name('portal.register');
 Route::post('/portal/register', [CandidateAuthController::class, 'register'])->name('portal.register.attempt');
+Route::get('/portal/login', [CandidateAuthController::class, 'showLogin'])->name('portal.login');
+Route::post('/portal/login', [CandidateAuthController::class, 'login'])->name('portal.login.attempt');
 Route::post('/portal/logout', [CandidateAuthController::class, 'logout'])->name('portal.logout');
-Route::get('/portal/dashboard', [CandidateAuthController::class, 'dashboard'])->name('portal.dashboard')->middleware('auth:candidate');
+
+Route::middleware('auth:candidate')->prefix('portal')->name('portal.')->group(function () {
+    Route::get('/dashboard', [CandidateAuthController::class, 'dashboard'])->name('dashboard');
+    Route::get('/jobs', [PortalController::class, 'index'])->name('jobs.index');
+    Route::get('/jobs/{id}', [PortalController::class, 'showJob'])->name('jobs.show');
+    Route::post('/jobs/{id}/apply', [PortalController::class, 'apply'])->name('apply');
+    Route::get('/my-applications', [PortalController::class, 'myApplications'])->name('my-applications');
+});
 
 Route::get('/', function () {
-    return redirect()->route('dashboard');
+    return redirect('/portal/register');
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Application extends Model
 {
     protected $fillable = [
+        'transaction_number',
         'candidate_id',
         'job_posting_id',
         'status',
@@ -56,5 +57,22 @@ class Application extends Model
     public function appointment(): HasOne
     {
         return $this->hasOne(Appointment::class);
+    }
+
+    /**
+     * Generate a unique, human-readable transaction number.
+     * Format: APP-YYYYMMDD-XXXXXX
+     *
+     * Loops until a collision-free value is found (practically instant —
+     * 36^6 = ~2.1 billion combinations).
+     */
+    public static function generateTransactionNumber(): string
+    {
+        do {
+            $suffix = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6));
+            $number = 'APP-' . date('Ymd') . '-' . $suffix;
+        } while (static::where('transaction_number', $number)->exists());
+
+        return $number;
     }
 }

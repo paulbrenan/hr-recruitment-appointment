@@ -6,6 +6,7 @@ use App\Models\JobPosting;
 use App\Models\AssessmentCriterion;
 use App\Models\CandidateAssessment;
 use App\Models\Application;
+use App\Notifications\RankingResultNotification;
 use Illuminate\Http\Request;
 
 class AssessmentController extends Controller
@@ -31,6 +32,8 @@ class AssessmentController extends Controller
             ->where('job_posting_id', $selectedPostingId)
             ->get();
 
+        $selectedPosting = JobPosting::find($selectedPostingId);
+
         $rankedCandidates = $applications->map(function ($app) use ($criteria) {
             $scores = [];
             $total = 0;
@@ -46,13 +49,24 @@ class AssessmentController extends Controller
 
             return (object) [
                 'application_id' => $app->id,
+                'candidate'      => $app->candidate,
                 'candidate_name' => $app->candidate?->full_name ?? 'Unknown',
-                'scores' => $scores,
-                'total_score' => $total,
+                'scores'         => $scores,
+                'total_score'    => $total,
+                'notification_sent' => $app->status === 'ranking_sent',
             ];
         })->sortByDesc('total_score')->values();
 
-        return view('assessments.index', compact('criteria', 'rankedCandidates', 'postings', 'selectedPostingId', 'usedWeight', 'remainingWeight'));
+        // Attach rank and passed flag
+        $total_count = $rankedCandidates->count();
+        $rankedCandidates = $rankedCandidates->map(function ($cand, $i) use ($total_count) {
+            $cand->rank   = $i + 1;
+            $cand->passed = $cand->total_score >= 75;
+            $cand->total  = $total_count;
+            return $cand;
+        });
+
+        return view('assessments.index', compact('criteria', 'rankedCandidates', 'postings', 'selectedPostingId', 'selectedPosting', 'usedWeight', 'remainingWeight'));
     }
 
     public function storeCriterion(Request $request)
@@ -138,8 +152,169 @@ class AssessmentController extends Controller
             );
         }
 
+        // Auto-send ranking notification after scores are saved
+        $this->autoSendNotification($validated['application_id'], $validated['job_posting_id']);
+
         return redirect()
             ->route('assessments.index', ['job_posting' => $validated['job_posting_id']])
-            ->with('success', 'Scores saved.');
+            ->with('success', 'Scores saved and ranking notification sent to the applicant.');
+    }
+
+    /**
+     * Automatically compute and send ranking notification after scores are saved.
+     */
+    private function autoSendNotification(int $applicationId, int $jobPostingId): void
+    {
+        try {
+            $posting  = JobPosting::with('assessmentCriteria')->findOrFail($jobPostingId);
+            $criteria = AssessmentCriterion::where('job_posting_id', $jobPostingId)->get();
+
+            // Get ALL applications to compute correct rank
+            $allApps = Application::with(['candidate', 'assessments'])
+                ->where('job_posting_id', $jobPostingId)
+                ->whereHas('assessments')
+                ->get();
+
+            // Compute totals for all applicants
+            $ranked = $allApps->map(function ($app) use ($criteria) {
+                $total = 0;
+                foreach ($criteria as $c) {
+                    $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
+                    if ($assessment) $total += (float) $assessment->score;
+                }
+                return ['app' => $app, 'total' => $total];
+            })->sortByDesc('total')->values();
+
+            $totalCount = $ranked->count();
+
+            // Find this specific applicant in the ranked list
+            foreach ($ranked as $i => $item) {
+                if ($item['app']->id != $applicationId) continue;
+
+                $app = $item['app'];
+                if (! $app->candidate) break;
+
+                $rankedData = [
+                    'application_id' => $app->id,
+                    'candidate'      => $app->candidate,
+                    'weighted_score' => round($item['total'], 2),
+                    'rank'           => $i + 1,
+                    'total'          => $totalCount,
+                    'passed'         => $item['total'] >= 75,
+                ];
+
+                $app->candidate->notify(new RankingResultNotification($rankedData, $posting));
+                $app->update(['status' => 'ranking_sent']);
+                break;
+            }
+        } catch (\Exception $e) {
+            // Silently fail — don't block the score save if notification fails
+            \Log::error('Auto ranking notification failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send ranking notification to a single applicant.
+     */
+    public function sendOne(Request $request, Application $application)
+    {
+        $request->validate([
+            'job_posting_id' => 'required|exists:job_postings,id',
+        ]);
+
+        $posting  = JobPosting::with('assessmentCriteria')->findOrFail($request->job_posting_id);
+        $criteria = AssessmentCriterion::where('job_posting_id', $posting->id)->get();
+
+        $app = Application::with(['candidate', 'assessments'])
+            ->findOrFail($application->id);
+
+        $total = 0;
+        foreach ($criteria as $c) {
+            $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
+            if ($assessment) $total += (float) $assessment->score;
+        }
+
+        $allApps = Application::with(['candidate', 'assessments'])
+            ->where('job_posting_id', $posting->id)
+            ->get();
+
+        $totals = $allApps->map(fn($a) => $criteria->sum(fn($c) =>
+            (float) ($a->assessments->firstWhere('assessment_criteria_id', $c->id)?->score ?? 0)
+        ))->sort()->values()->reverse()->values();
+
+        $rank = $totals->search(fn($s) => $s === $total) + 1;
+
+        $ranked = [
+            'application_id' => $app->id,
+            'candidate'      => $app->candidate,
+            'weighted_score' => round($total, 2),
+            'rank'           => $rank,
+            'total'          => $allApps->count(),
+            'passed'         => $total >= 75,
+        ];
+
+        $app->candidate->notify(new RankingResultNotification($ranked, $posting));
+        $app->update(['status' => 'ranking_sent']);
+
+        return redirect()
+            ->route('assessments.index', ['job_posting' => $request->job_posting_id])
+            ->with('success', "Notification sent to {$app->candidate->full_name}.");
+    }
+
+    /**
+     * Send ranking notifications to ALL applicants of a posting.
+     */
+    public function sendAll(Request $request)
+    {
+        $request->validate([
+            'job_posting_id' => 'required|exists:job_postings,id',
+        ]);
+
+        $posting  = JobPosting::with('assessmentCriteria')->findOrFail($request->job_posting_id);
+        $criteria = AssessmentCriterion::where('job_posting_id', $posting->id)->get();
+
+        $applications = Application::with(['candidate', 'assessments'])
+            ->where('job_posting_id', $posting->id)
+            ->whereHas('assessments')
+            ->get();
+
+        if ($applications->isEmpty()) {
+            return back()->with('error', 'No assessed applicants found for this posting.');
+        }
+
+        // Compute totals and sort for ranking
+        $ranked = $applications->map(function ($app) use ($criteria) {
+            $total = 0;
+            foreach ($criteria as $c) {
+                $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
+                if ($assessment) $total += (float) $assessment->score;
+            }
+            return ['app' => $app, 'total' => $total];
+        })->sortByDesc('total')->values();
+
+        $totalCount = $ranked->count();
+        $sent = 0;
+
+        foreach ($ranked as $i => $item) {
+            $app = $item['app'];
+            if (! $app->candidate) continue;
+
+            $rankedData = [
+                'application_id' => $app->id,
+                'candidate'      => $app->candidate,
+                'weighted_score' => round($item['total'], 2),
+                'rank'           => $i + 1,
+                'total'          => $totalCount,
+                'passed'         => $item['total'] >= 75,
+            ];
+
+            $app->candidate->notify(new RankingResultNotification($rankedData, $posting));
+            $app->update(['status' => 'ranking_sent']);
+            $sent++;
+        }
+
+        return redirect()
+            ->route('assessments.index', ['job_posting' => $request->job_posting_id])
+            ->with('success', "Ranking notifications sent to {$sent} applicant(s).");
     }
 }

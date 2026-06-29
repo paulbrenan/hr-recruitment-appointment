@@ -3,7 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CandidateAuthController;
-use App\Http\Controllers\PortalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\JobPostingImportController;
@@ -18,24 +17,20 @@ use App\Http\Controllers\RankingController;
 // Admin (HR staff) authentication
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+Route::post('/register', [AuthController::class, 'register'])->name('register.attempt');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-Route::get('/portal/register', [CandidateAuthController::class, 'showRegister'])->name('portal.register');
-Route::post('/portal/register', [CandidateAuthController::class, 'register'])->name('portal.register.attempt');
+// Applicant portal authentication
 Route::get('/portal/login', [CandidateAuthController::class, 'showLogin'])->name('portal.login');
 Route::post('/portal/login', [CandidateAuthController::class, 'login'])->name('portal.login.attempt');
+Route::get('/portal/register', [CandidateAuthController::class, 'showRegister'])->name('portal.register');
+Route::post('/portal/register', [CandidateAuthController::class, 'register'])->name('portal.register.attempt');
 Route::post('/portal/logout', [CandidateAuthController::class, 'logout'])->name('portal.logout');
-
-Route::middleware('auth:candidate')->prefix('portal')->name('portal.')->group(function () {
-    Route::get('/dashboard', [CandidateAuthController::class, 'dashboard'])->name('dashboard');
-    Route::get('/jobs', [PortalController::class, 'index'])->name('jobs.index');
-    Route::get('/jobs/{id}', [PortalController::class, 'showJob'])->name('jobs.show');
-    Route::post('/jobs/{id}/apply', [PortalController::class, 'apply'])->name('apply');
-    Route::get('/my-applications', [PortalController::class, 'myApplications'])->name('my-applications');
-});
+Route::get('/portal/dashboard', [CandidateAuthController::class, 'dashboard'])->name('portal.dashboard')->middleware('auth:candidate');
 
 Route::get('/', function () {
-    return redirect('/portal/register');
+    return redirect()->route('dashboard');
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -86,13 +81,6 @@ Route::delete('/offers/{id}', [JobOfferController::class, 'destroy'])->name('off
 
 // Talent pool
 Route::get('/talent-pool', [TalentPoolController::class, 'index'])->name('talent-pool.index');
-Route::post('/talent-pool', [TalentPoolController::class, 'store'])->name('talent-pool.store');
-Route::get('/talent-pool/{id}', [TalentPoolController::class, 'show'])->name('talent-pool.show');
-Route::get('/talent-pool/{id}/edit', [TalentPoolController::class, 'edit'])->name('talent-pool.edit');
-Route::put('/talent-pool/{id}', [TalentPoolController::class, 'update'])->name('talent-pool.update');
-Route::delete('/talent-pool/{id}', [TalentPoolController::class, 'destroy'])->name('talent-pool.destroy');
-// Triggered by the "Add to Talent Pool" button on a rejected application
-Route::post('/applications/{id}/add-to-talent-pool', [TalentPoolController::class, 'storeFromApplication'])->name('talent-pool.store-from-application');
 
 // Appointment & onboarding
 Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');

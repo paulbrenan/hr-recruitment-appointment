@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 24, 2026 at 09:47 AM
+-- Generation Time: Jun 29, 2026 at 03:46 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -31,9 +31,10 @@ CREATE TABLE `applications` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `candidate_id` bigint(20) UNSIGNED NOT NULL,
   `job_posting_id` bigint(20) UNSIGNED NOT NULL,
-  `status` enum('submitted','screening','shortlisted','interview_scheduled','assessed','ranked','offer_sent','offer_accepted','offer_declined','hired','rejected') NOT NULL DEFAULT 'submitted',
+  `status` enum('submitted','screening','shortlisted','interview','assessed','ranked','ranking_sent','offer','hired','rejected') DEFAULT NULL,
   `applied_at` date DEFAULT NULL,
   `notes` text DEFAULT NULL,
+  `ranking_notified_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -42,19 +43,19 @@ CREATE TABLE `applications` (
 -- Dumping data for table `applications`
 --
 
-INSERT INTO `applications` (`id`, `candidate_id`, `job_posting_id`, `status`, `applied_at`, `notes`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 'hired', '2026-05-10', 'dsadas', '2026-06-23 18:16:32', '2026-06-23 22:53:17'),
-(2, 2, 2, 'offer_accepted', '2026-05-15', NULL, '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
-(3, 3, 3, 'hired', '2026-05-20', 'Strong background, passed initial screening.', '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
-(4, 4, 4, 'hired', '2026-05-25', 'Interview confirmed with the candidate.', '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
-(5, 5, 5, 'offer_sent', '2026-06-01', 'Completed written assessment, awaiting ranking.', '2026-06-23 18:16:32', '2026-06-23 23:06:10'),
-(6, 6, 6, 'offer_sent', '2026-06-05', 'Ranked among top candidates for the position.', '2026-06-23 18:16:32', '2026-06-23 22:06:25'),
-(7, 7, 7, 'offer_sent', '2026-06-08', 'Offer sent, awaiting response.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
-(8, 8, 8, 'offer_accepted', '2026-06-10', 'Candidate accepted the offer.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
-(9, 9, 9, 'offer_declined', '2026-06-12', 'Candidate declined the offer.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
-(10, 10, 10, 'hired', '2026-06-14', 'Excellent interview performance. Hired.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
-(11, 11, 11, 'rejected', '2026-06-18', 'Did not meet minimum qualifications.', '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
-(12, 12, 12, 'screening', '2026-06-20', NULL, '2026-06-23 18:16:32', '2026-06-23 18:16:32');
+INSERT INTO `applications` (`id`, `candidate_id`, `job_posting_id`, `status`, `applied_at`, `notes`, `ranking_notified_at`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 'ranking_sent', '2026-05-10', 'dsadas', NULL, '2026-06-23 18:16:32', '2026-06-25 19:47:47'),
+(2, 2, 2, '', '2026-05-15', NULL, NULL, '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
+(3, 3, 3, 'hired', '2026-05-20', 'Strong background, passed initial screening.', NULL, '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
+(4, 4, 4, 'hired', '2026-05-25', 'Interview confirmed with the candidate.', NULL, '2026-06-23 18:16:32', '2026-06-23 22:53:06'),
+(5, 5, 5, 'ranking_sent', '2026-06-01', 'Completed written assessment, awaiting ranking.', NULL, '2026-06-23 18:16:32', '2026-06-25 21:16:23'),
+(6, 6, 6, '', '2026-06-05', 'Ranked among top candidates for the position.', NULL, '2026-06-23 18:16:32', '2026-06-23 22:06:25'),
+(7, 7, 7, '', '2026-06-08', 'Offer sent, awaiting response.', NULL, '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
+(8, 8, 8, 'ranking_sent', '2026-06-10', 'Candidate accepted the offer.', NULL, '2026-06-23 18:16:32', '2026-06-25 21:17:51'),
+(9, 9, 9, 'ranking_sent', '2026-06-12', 'Candidate declined the offer.', NULL, '2026-06-23 18:16:32', '2026-06-25 21:29:16'),
+(10, 10, 10, 'hired', '2026-06-14', 'Excellent interview performance. Hired.', NULL, '2026-06-23 18:16:32', '2026-06-23 18:16:32'),
+(11, 11, 11, 'ranking_sent', '2026-06-18', 'Did not meet minimum qualifications.', NULL, '2026-06-23 18:16:32', '2026-06-25 21:28:09'),
+(12, 12, 12, 'ranking_sent', '2026-06-20', NULL, NULL, '2026-06-23 18:16:32', '2026-06-25 21:22:00');
 
 -- --------------------------------------------------------
 
@@ -211,7 +212,7 @@ CREATE TABLE `candidates` (
 --
 
 INSERT INTO `candidates` (`id`, `first_name`, `middle_name`, `last_name`, `email`, `phone`, `address`, `resume_path`, `photo_path`, `created_at`, `updated_at`) VALUES
-(1, 'Maria', 'Lopez', 'Santos', 'maria.santos@email.com', '0917-123-4567', 'Imus, Cavite', NULL, NULL, '2026-06-23 18:16:31', '2026-06-23 18:16:31'),
+(1, 'Maria', 'Lopez', 'Santos', 'therable13@gmail.com', '0917-123-4567', 'Imus, Cavite', NULL, NULL, '2026-06-23 18:16:31', '2026-06-23 18:16:31'),
 (2, 'Juan', NULL, 'Dela Cruz', 'juan.delacruz@email.com', '0918-234-5678', 'Bacoor, Cavite', NULL, NULL, '2026-06-23 18:16:31', '2026-06-23 18:16:31'),
 (3, 'Ana', 'Marie', 'Reyes', 'ana.reyes@email.com', '0919-345-6789', 'Dasmariñas, Cavite', NULL, NULL, '2026-06-23 18:16:31', '2026-06-23 18:16:31'),
 (4, 'Pedro', NULL, 'Garcia', 'pedro.garcia@email.com', '0920-456-7890', 'Trece Martires, Cavite', NULL, NULL, '2026-06-23 18:16:31', '2026-06-23 18:16:31'),
@@ -269,18 +270,18 @@ INSERT INTO `candidate_assessments` (`id`, `application_id`, `assessment_criteri
 (22, 8, 22, 35.60, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (23, 8, 23, 27.30, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (24, 8, 24, 26.10, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(25, 9, 25, 29.20, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(26, 9, 26, 27.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(27, 9, 27, 25.50, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
+(25, 9, 25, 10.00, NULL, NULL, '2026-06-23 21:50:33', '2026-06-25 21:29:10'),
+(26, 9, 26, 10.00, NULL, NULL, '2026-06-23 21:50:33', '2026-06-25 21:29:10'),
+(27, 9, 27, 10.00, NULL, NULL, '2026-06-23 21:50:33', '2026-06-25 21:29:10'),
 (28, 10, 28, 33.20, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (29, 10, 29, 24.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (30, 10, 30, 21.60, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (31, 11, 31, 38.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (32, 11, 32, 21.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
 (33, 11, 33, 24.00, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(34, 12, 34, 32.80, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(35, 12, 35, 26.70, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
-(36, 12, 36, 23.70, 'Seeded sample evaluation.', 'HR Panel', '2026-06-23 21:50:33', '2026-06-23 21:50:33'),
+(34, 12, 34, 32.80, NULL, NULL, '2026-06-23 21:50:33', '2026-06-25 21:21:55'),
+(35, 12, 35, 30.00, NULL, NULL, '2026-06-23 21:50:33', '2026-06-25 21:21:55'),
+(36, 12, 36, 23.70, NULL, NULL, '2026-06-23 21:50:33', '2026-06-25 21:21:55'),
 (37, 1, 41, 20.00, NULL, NULL, '2026-06-23 21:59:22', '2026-06-23 21:59:22'),
 (38, 1, 42, 10.00, NULL, NULL, '2026-06-23 21:59:22', '2026-06-23 21:59:22');
 
@@ -408,8 +409,15 @@ CREATE TABLE `job_postings` (
   `description` text DEFAULT NULL,
   `duties_responsibilities` text DEFAULT NULL,
   `qualification_standards` text DEFAULT NULL,
+  `qualification_education` text DEFAULT NULL,
+  `qualification_training` text DEFAULT NULL,
+  `qualification_experience` text DEFAULT NULL,
+  `qualification_eligibility` text DEFAULT NULL,
+  `mandatory_requirements` text DEFAULT NULL,
+  `additional_requirements` text DEFAULT NULL,
   `place_of_assignment` varchar(255) DEFAULT NULL,
   `employment_type` varchar(255) DEFAULT NULL,
+  `salary_grade` varchar(255) DEFAULT NULL,
   `vacancies` int(11) NOT NULL DEFAULT 1,
   `posted_at` date DEFAULT NULL,
   `closes_at` date DEFAULT NULL,
@@ -422,20 +430,20 @@ CREATE TABLE `job_postings` (
 -- Dumping data for table `job_postings`
 --
 
-INSERT INTO `job_postings` (`id`, `title`, `description`, `duties_responsibilities`, `qualification_standards`, `place_of_assignment`, `employment_type`, `vacancies`, `posted_at`, `closes_at`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'Administrative Officer II', 'Responsible for administrative support and records management for the office.', 'Maintain accurate records and filing systems.\nPrepare correspondence and reports.\nAssist in scheduling meetings and appointments.\nCoordinate with other departments as needed.', 'Bachelor\'s degree relevant to the job.\nAt least 1 year of relevant work experience.\nCivil Service eligibility (Professional) preferred.', 'Main Office', 'Regular', 2, '2026-06-01', '2026-07-01', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(2, 'IT Support Specialist', 'Provides technical support to staff and maintains office equipment and systems.', 'Troubleshoot hardware and software issues.\nManage helpdesk tickets and resolve within SLA.\nPerform routine maintenance on workstations and network equipment.\nAssist in onboarding new employees with IT setup.', 'Bachelor\'s degree in Information Technology, Computer Science, or related field.\nFamiliarity with Windows and basic networking.\nGood communication and problem-solving skills.', 'IT Department', 'Job Order', 1, '2026-06-05', '2026-06-30', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(3, 'HR Assistant', 'Supports HR operations including recruitment, onboarding, and employee records.', 'Screen applications and shortlist candidates.\nSchedule interviews and coordinate with panel members.\nPrepare employment documents and contracts.\nMaintain 201 files and HR database.', 'Bachelor\'s degree in Human Resource Management, Psychology, or related field.\nStrong organizational and interpersonal skills.\nProficient in MS Office applications.', 'HR Department', 'Provisional', 1, '2026-05-15', '2026-06-15', 'filled', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(4, 'Records Officer', 'Manages document filing, archiving, and retrieval systems for the office.', 'File and organize incoming and outgoing documents.\nRespond to records requests from staff and external parties.\nMaintain confidentiality of sensitive files.\nAssist in digitization of paper records.', 'At least high school graduate with relevant clerical training.\nAttention to detail and good organizational skills.\nBasic computer literacy.', 'Records Section', 'Casual', 1, '2026-04-20', '2026-05-20', 'closed', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(5, 'Budget Analyst', 'Prepares and monitors budget proposals and financial reports for the office.', 'Prepare annual budget proposals and work plans.\nMonitor fund utilization against approved budget.\nPrepare financial and variance reports.\nCoordinate with accounting and finance units.', 'Bachelor\'s degree in Accountancy, Finance, Economics, or related field.\nAt least 1 year of experience in budgeting or financial analysis.\nProficient in spreadsheet applications.', 'Budget Office', 'Regular', 1, '2026-06-10', '2026-07-10', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(6, 'Procurement Aide', 'Assists in the procurement of goods, services, and supplies for the office.', 'Prepare purchase requests and canvass forms.\nAssist in bidding and supplier documentation.\nMonitor delivery schedules and inventory of supplies.\nCoordinate with the Bids and Awards Committee.', 'Bachelor\'s degree preferred, or relevant work experience.\nFamiliarity with procurement processes is an advantage.\nDetail-oriented and organized.', 'Procurement Office', 'Job Order', 2, '2026-06-12', '2026-07-12', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(7, 'Network Administrator', 'Manages and maintains the office network infrastructure and server systems.', 'Monitor network performance and uptime.\nConfigure and maintain routers, switches, and firewalls.\nImplement security policies and backup procedures.\nProvide Tier 2 technical support for network issues.', 'Bachelor\'s degree in IT, Computer Engineering, or related field.\nAt least 2 years of experience in network administration.\nCertifications such as CCNA are an advantage.', 'IT Department', 'Regular', 1, '2026-05-01', '2026-06-01', 'filled', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(8, 'Customer Service Representative', 'Handles front-desk inquiries and assists clients with their concerns.', 'Attend to walk-in and phone inquiries.\nProcess client requests and route concerns to proper units.\nMaintain a log of inquiries and resolutions.\nProvide excellent and courteous service at all times.', 'At least 2 years of college education.\nGood communication skills, both written and verbal.\nPleasant disposition and customer-service orientation.', 'Front Desk', 'Casual', 3, '2026-06-18', '2026-07-18', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(9, 'Graphic Design Intern', 'Assists the communications team with visual materials for office campaigns.', 'Design posters, social media graphics, and presentation materials.\nAssist in photo and video documentation of office events.\nSupport the communications team in branding consistency.', 'Currently enrolled in a relevant college course (e.g. Multimedia Arts, Fine Arts, IT).\nProficient in design tools such as Canva, Photoshop, or Illustrator.\nCreative and able to work under minimal supervision.', 'Communications Unit', 'On-the-Job Trainee', 2, '2026-06-20', '2026-07-20', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(10, 'Legal Researcher', 'Conducts legal research and drafts documents in support of the legal office.', 'Conduct legal research on relevant laws, rules, and jurisprudence.\nDraft legal opinions, memos, and contracts under supervision.\nAssist in case documentation and record-keeping.\nAttend hearings or meetings as needed.', 'Bachelor\'s degree in Political Science, Legal Management, or related field.\nLaw graduate or law student preferred but not required.\nStrong research and writing skills.', 'Legal Office', 'Provisional', 1, '2026-06-08', '2026-07-08', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(11, 'Maintenance Worker', 'Performs general maintenance and upkeep of office facilities and grounds.', 'Perform minor repairs on office facilities and equipment.\nMaintain cleanliness and orderliness of premises and grounds.\nMonitor and report facility issues to the administrative unit.\nAssist in setup for office events.', 'At least elementary or high school graduate.\nBasic skills in carpentry, plumbing, or electrical work an advantage.\nPhysically fit and reliable.', 'General Services Unit', 'Casual', 2, '2026-03-01', '2026-03-31', 'closed', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(12, 'Data Encoder', 'Encodes and validates data for various office records and systems.', 'Encode data accurately into office databases and systems.\nValidate and cross-check entries against source documents.\nGenerate basic reports from encoded data.\nMaintain data confidentiality and integrity.', 'At least 2 years of college education.\nFast and accurate typing skills.\nFamiliarity with spreadsheet and database applications.', 'Management Information Systems Office', 'Job Order', 2, '2026-06-22', '2026-07-22', 'draft', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
-(14, 'sdsad', NULL, NULL, NULL, 'dsadsa', 'Regular', 1, '2026-06-10', '2026-06-27', 'draft', '2026-06-23 18:07:41', '2026-06-23 18:07:41');
+INSERT INTO `job_postings` (`id`, `title`, `description`, `duties_responsibilities`, `qualification_standards`, `qualification_education`, `qualification_training`, `qualification_experience`, `qualification_eligibility`, `mandatory_requirements`, `additional_requirements`, `place_of_assignment`, `employment_type`, `salary_grade`, `vacancies`, `posted_at`, `closes_at`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'Administrative Officer II', 'Responsible for administrative support and records management for the office.', 'Maintain accurate records and filing systems.\nPrepare correspondence and reports.\nAssist in scheduling meetings and appointments.\nCoordinate with other departments as needed.', 'Bachelor\'s degree relevant to the job.\nAt least 1 year of relevant work experience.\nCivil Service eligibility (Professional) preferred.', NULL, NULL, NULL, NULL, NULL, NULL, 'Main Office', 'Regular', NULL, 2, '2026-06-01', '2026-07-01', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(2, 'IT Support Specialist', 'Provides technical support to staff and maintains office equipment and systems.', 'Troubleshoot hardware and software issues.\nManage helpdesk tickets and resolve within SLA.\nPerform routine maintenance on workstations and network equipment.\nAssist in onboarding new employees with IT setup.', 'Bachelor\'s degree in Information Technology, Computer Science, or related field.\nFamiliarity with Windows and basic networking.\nGood communication and problem-solving skills.', NULL, NULL, NULL, NULL, NULL, NULL, 'IT Department', 'Job Order', NULL, 1, '2026-06-05', '2026-06-30', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(3, 'HR Assistant', 'Supports HR operations including recruitment, onboarding, and employee records.', 'Screen applications and shortlist candidates.\nSchedule interviews and coordinate with panel members.\nPrepare employment documents and contracts.\nMaintain 201 files and HR database.', 'Bachelor\'s degree in Human Resource Management, Psychology, or related field.\nStrong organizational and interpersonal skills.\nProficient in MS Office applications.', NULL, NULL, NULL, NULL, NULL, NULL, 'HR Department', 'Provisional', NULL, 1, '2026-05-15', '2026-06-15', 'filled', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(4, 'Records Officer', 'Manages document filing, archiving, and retrieval systems for the office.', 'File and organize incoming and outgoing documents.\nRespond to records requests from staff and external parties.\nMaintain confidentiality of sensitive files.\nAssist in digitization of paper records.', 'At least high school graduate with relevant clerical training.\nAttention to detail and good organizational skills.\nBasic computer literacy.', NULL, NULL, NULL, NULL, NULL, NULL, 'Records Section', 'Casual', NULL, 1, '2026-04-20', '2026-05-20', 'closed', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(5, 'Budget Analyst', 'Prepares and monitors budget proposals and financial reports for the office.', 'Prepare annual budget proposals and work plans.\nMonitor fund utilization against approved budget.\nPrepare financial and variance reports.\nCoordinate with accounting and finance units.', 'Bachelor\'s degree in Accountancy, Finance, Economics, or related field.\nAt least 1 year of experience in budgeting or financial analysis.\nProficient in spreadsheet applications.', NULL, NULL, NULL, NULL, NULL, NULL, 'Budget Office', 'Regular', NULL, 1, '2026-06-10', '2026-07-10', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(6, 'Procurement Aide', 'Assists in the procurement of goods, services, and supplies for the office.', 'Prepare purchase requests and canvass forms.\nAssist in bidding and supplier documentation.\nMonitor delivery schedules and inventory of supplies.\nCoordinate with the Bids and Awards Committee.', 'Bachelor\'s degree preferred, or relevant work experience.\nFamiliarity with procurement processes is an advantage.\nDetail-oriented and organized.', NULL, NULL, NULL, NULL, NULL, NULL, 'Procurement Office', 'Job Order', NULL, 2, '2026-06-12', '2026-07-12', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(7, 'Network Administrator', 'Manages and maintains the office network infrastructure and server systems.', 'Monitor network performance and uptime.\nConfigure and maintain routers, switches, and firewalls.\nImplement security policies and backup procedures.\nProvide Tier 2 technical support for network issues.', 'Bachelor\'s degree in IT, Computer Engineering, or related field.\nAt least 2 years of experience in network administration.\nCertifications such as CCNA are an advantage.', NULL, NULL, NULL, NULL, NULL, NULL, 'IT Department', 'Regular', NULL, 1, '2026-05-01', '2026-06-01', 'filled', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(8, 'Customer Service Representative', 'Handles front-desk inquiries and assists clients with their concerns.', 'Attend to walk-in and phone inquiries.\nProcess client requests and route concerns to proper units.\nMaintain a log of inquiries and resolutions.\nProvide excellent and courteous service at all times.', 'At least 2 years of college education.\nGood communication skills, both written and verbal.\nPleasant disposition and customer-service orientation.', NULL, NULL, NULL, NULL, NULL, NULL, 'Front Desk', 'Casual', NULL, 3, '2026-06-18', '2026-07-18', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(9, 'Graphic Design Intern', 'Assists the communications team with visual materials for office campaigns.', 'Design posters, social media graphics, and presentation materials.\nAssist in photo and video documentation of office events.\nSupport the communications team in branding consistency.', 'Currently enrolled in a relevant college course (e.g. Multimedia Arts, Fine Arts, IT).\nProficient in design tools such as Canva, Photoshop, or Illustrator.\nCreative and able to work under minimal supervision.', NULL, NULL, NULL, NULL, NULL, NULL, 'Communications Unit', 'On-the-Job Trainee', NULL, 2, '2026-06-20', '2026-07-20', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(10, 'Legal Researcher', 'Conducts legal research and drafts documents in support of the legal office.', 'Conduct legal research on relevant laws, rules, and jurisprudence.\nDraft legal opinions, memos, and contracts under supervision.\nAssist in case documentation and record-keeping.\nAttend hearings or meetings as needed.', 'Bachelor\'s degree in Political Science, Legal Management, or related field.\nLaw graduate or law student preferred but not required.\nStrong research and writing skills.', NULL, NULL, NULL, NULL, NULL, NULL, 'Legal Office', 'Provisional', NULL, 1, '2026-06-08', '2026-07-08', 'open', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(11, 'Maintenance Worker', 'Performs general maintenance and upkeep of office facilities and grounds.', 'Perform minor repairs on office facilities and equipment.\nMaintain cleanliness and orderliness of premises and grounds.\nMonitor and report facility issues to the administrative unit.\nAssist in setup for office events.', 'At least elementary or high school graduate.\nBasic skills in carpentry, plumbing, or electrical work an advantage.\nPhysically fit and reliable.', NULL, NULL, NULL, NULL, NULL, NULL, 'General Services Unit', 'Casual', NULL, 2, '2026-03-01', '2026-03-31', 'closed', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(12, 'Data Encoder', 'Encodes and validates data for various office records and systems.', 'Encode data accurately into office databases and systems.\nValidate and cross-check entries against source documents.\nGenerate basic reports from encoded data.\nMaintain data confidentiality and integrity.', 'At least 2 years of college education.\nFast and accurate typing skills.\nFamiliarity with spreadsheet and database applications.', NULL, NULL, NULL, NULL, NULL, NULL, 'Management Information Systems Office', 'Job Order', NULL, 2, '2026-06-22', '2026-07-22', 'draft', '2026-06-23 18:00:17', '2026-06-23 18:00:17'),
+(14, 'sdsad', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'dsadsa', 'Regular', NULL, 1, '2026-06-10', '2026-06-27', 'draft', '2026-06-23 18:07:41', '2026-06-23 18:07:41');
 
 -- --------------------------------------------------------
 
@@ -466,7 +474,15 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES
 (10, '2026_06_24_000007_create_candidate_assessments_table', 2),
 (11, '2026_06_24_000008_create_job_offers_table', 2),
 (12, '2026_06_24_000009_create_talent_pools_table', 2),
-(13, '2026_06_24_000010_create_appointments_table', 2);
+(13, '2026_06_24_000010_create_appointments_table', 2),
+(14, '2025_06_26_000001_add_notified_at_to_applications_table', 3),
+(15, '2026_06_25_000001_add_salary_grade_to_job_postings_table', 3),
+(16, '2026_06_25_140000_add_qualification_breakdown_to_job_postings_table', 3),
+(17, '2026_06_25_150000_create_requirement_items_table', 3),
+(18, '2026_06_25_150100_create_job_posting_requirement_item_table', 3),
+(19, '2026_06_25_200000_drop_job_posting_requirement_item_table', 3),
+(20, '2026_06_25_200001_drop_requirement_items_table', 3),
+(21, '2026_06_25_200002_add_requirements_text_to_job_postings_table', 3);
 
 -- --------------------------------------------------------
 
@@ -500,7 +516,13 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('Xf866A2eh9AsVZu5tQHDcjeQrBI6UIBbaFeXymCg', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiVTMzb0x1VzliM1JnZnVJSExGQ3dLMXFtbEtGZnRKaDFJQ25NR2J3bSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzE6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9kYXNoYm9hcmQiO3M6NToicm91dGUiO3M6OToiZGFzaGJvYXJkIjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319fQ==', 1782285589);
+('EZ8fiuzKgAdanSEB9D4QRllrmOJ4IMS7vne0s8qW', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiaVRBQndSVVdCdFNCSlRWcTdzVlI0VDdtSWs0VzFaeFZlZXVoeGRvTyI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzQ6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcHBsaWNhdGlvbnMiO3M6NToicm91dGUiO3M6MTg6ImFwcGxpY2F0aW9ucy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1782451789),
+('JVlhzFlKijxChVpfoliioVeBPgforHYyPSVaPGpH', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiQldzVTlEeFJXVzJ5S25ndnREREU1RHFFVEhHamFqMFc2Nk1kRm5wTSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzQ6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcHBsaWNhdGlvbnMiO3M6NToicm91dGUiO3M6MTg6ImFwcGxpY2F0aW9ucy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1782693944),
+('MKdLIw1YNXITapt9RbB3z7K1IkTaYL4NudtlwMiM', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiZ0JnakI2a2RUbnByMTZENHZvNTBmSE1nbFQ3VE1nRk1yNXNpZG9FciI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzM6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hc3Nlc3NtZW50cyI7czo1OiJyb3V0ZSI7czoxNzoiYXNzZXNzbWVudHMuaW5kZXgiO31zOjY6Il9mbGFzaCI7YToyOntzOjM6Im9sZCI7YTowOnt9czozOiJuZXciO2E6MDp7fX19', 1782446841),
+('ofdC7GsKfuY6zSQNqh5lQKEefN55NwZkwt1HkZwa', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoieEVtQWxzOExSejhnYlljRkd2UkR5emhKNU1UcTk1ZG02ZHRtS0ZMQiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDg6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hc3Nlc3NtZW50cz9qb2JfcG9zdGluZz0xMiI7czo1OiJyb3V0ZSI7czoxNzoiYXNzZXNzbWVudHMuaW5kZXgiO31zOjY6Il9mbGFzaCI7YToyOntzOjM6Im9sZCI7YTowOnt9czozOiJuZXciO2E6MDp7fX19', 1782451321),
+('Xf866A2eh9AsVZu5tQHDcjeQrBI6UIBbaFeXymCg', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiVTMzb0x1VzliM1JnZnVJSExGQ3dLMXFtbEtGZnRKaDFJQ25NR2J3bSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzE6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9kYXNoYm9hcmQiO3M6NToicm91dGUiO3M6OToiZGFzaGJvYXJkIjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319fQ==', 1782285589),
+('xSc9btiov79qYOUsLjqn1h6XO5SJrR9JIyeOgyPT', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoieEdSVG9lYk5MZFJ2Vm84QVV5VEQ0M0pKUnhNeU9hbTNvdzI0UE03MSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzQ6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcHBsaWNhdGlvbnMiO3M6NToicm91dGUiO3M6MTg6ImFwcGxpY2F0aW9ucy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1782693945),
+('ZZZfHEbCqCU1X1pDsq2Bl6n3Ba6zWo4WI1Cvx4B6', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiWXd5TEJUR2ptQnV6RVA2OGhQS1ZRQ2k1S3JQUmFWbDRMY0EzSnpkbiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6MzQ6Imh0dHA6Ly8xMjcuMC4wLjE6ODAwMC9hcHBsaWNhdGlvbnMiO3M6NToicm91dGUiO3M6MTg6ImFwcGxpY2F0aW9ucy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1782697071);
 
 -- --------------------------------------------------------
 
@@ -745,7 +767,7 @@ ALTER TABLE `job_postings`
 -- AUTO_INCREMENT for table `migrations`
 --
 ALTER TABLE `migrations`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `talent_pools`

@@ -2,22 +2,45 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
-class Candidate extends Model
+class Candidate extends Authenticatable
 {
+    use Notifiable;
+
     protected $fillable = [
         'first_name',
         'middle_name',
         'last_name',
         'email',
+        'password',
         'phone',
         'address',
         'resume_path',
         'photo_path',
     ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected $casts = [
+        'password' => 'hashed',
+    ];
+
+    public function routeNotificationForMail(): string
+    {
+        return $this->email;
+    }
+
+    public function routeNotificationForVonage(): string
+    {
+        return $this->phone; // e.g. "+639171234567"
+    }
 
     public function applications(): HasMany
     {

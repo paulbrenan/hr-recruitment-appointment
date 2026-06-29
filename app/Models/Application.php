@@ -15,10 +15,12 @@ class Application extends Model
         'status',
         'applied_at',
         'notes',
+        'ranking_notified_at' => 'datetime',
     ];
 
     protected $casts = [
         'applied_at' => 'date',
+        'ranking_notified_at'   => 'datetime',
     ];
 
     public function candidate(): BelongsTo

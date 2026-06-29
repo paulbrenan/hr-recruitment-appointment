@@ -57,7 +57,7 @@ class JobPostingImportController extends Controller
         $imageFiles = array_values($imageFiles);
 
         // ── 3. Run Tesseract on each page image ───────────────────────────────
-        $pageTexts = [];
+        $pages = [];
 
         foreach ($imageFiles as $index => $imagePath) {
             $outBase = $tmpDir . DIRECTORY_SEPARATOR . 'ocr_page_' . ($index + 1);
@@ -74,7 +74,7 @@ class JobPostingImportController extends Controller
             $txtFile = $outBase . '.txt';
             $text    = file_exists($txtFile) ? file_get_contents($txtFile) : '';
 
-            $pageTexts[] = [
+            $pages[] = [
                 'number' => $index + 1,
                 'text'   => $text,
             ];
@@ -84,8 +84,8 @@ class JobPostingImportController extends Controller
         $this->cleanupTmp($tmpDir);
 
         // ── 5. Pass to view ───────────────────────────────────────────────────
-        $pageCount = count($pageTexts);
-        return view('job-postings.import.extracted', compact('pageTexts', 'originalName', 'pageCount'));
+        $pageCount = count($pages);
+        return view('job-postings.import.extracted', compact('pages', 'originalName', 'pageCount'));
     }
 
     // ── Helper: recursively delete temp directory ─────────────────────────────

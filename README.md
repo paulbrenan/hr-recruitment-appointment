@@ -15,8 +15,9 @@ Built independently from the existing Human Resource Management System (HRMS) an
 ## Intended Scope
 
 This module is being built against the following requirements. Items already implemented are marked ✅; everything else is planned but not yet built.
-### Refer to these for the progress:
-https://docs.google.com/document/d/1kL4YyphK1jfMKHI7WebY7tL8HsnZdrdT58G_clwdcFE/edit?usp=sharing
+
+### Documentation:
+https://docs.google.com/document/d/1Sr5fsCJcqEC29AfBEqkGtpiUxWYWlPcL17MIvnnCJ6M/edit?usp=sharing
 
 ### Job Posting and Management
 - ✅ Create, view, edit, and delete job postings — descriptions, duties & responsibilities, qualification standards, place of assignment

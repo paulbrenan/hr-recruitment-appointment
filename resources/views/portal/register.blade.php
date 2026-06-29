@@ -33,6 +33,23 @@
   .login-link { text-align:center; margin-top:18px; font-size:.85rem; }
   .is-invalid-custom { border-color:#dc3545 !important; }
 </style>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<style>
+  .select2-container .select2-selection--single {
+      height: 38px;
+      border-color: #d0d7de;
+      border-radius: 6px;
+      font-size: .88rem;
+  }
+  .select2-container--default .select2-selection--single .select2-selection__rendered {
+      line-height: 36px;
+      color: #333;
+  }
+  .select2-container--default .select2-selection--single .select2-selection__arrow {
+      height: 36px;
+  }
+  .select2-container { width: 100% !important; }
+</style>
 </head>
 <body>
 
@@ -95,57 +112,51 @@
 
       {{-- 2. Position --}}
       <div class="mb-4">
-        <label class="form-label d-block"><span class="q-num">2.</span> Position Applying For <span class="required-star">*</span></label>
-        @error('position_applied')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
-        <div class="position-list">
-          @php
-            $positions = [
-              'Contract of Service (COS)',
-              'Accountant I','Accountant III',
-              'Administrative Aide I','Administrative Aide III','Administrative Aide IV','Administrative Aide VI',
-              'Administrative Assistant I','Administrative Assistant II',
-              'Administrative Assistant II (Disbursing Officer)','Administrative Assistant II (Verifier)',
-              'Administrative Assistant III','Administrative Assistant III (Senior Bookkeeper)',
-              'Administrative Officer I','Administrative Officer II','Administrative Officer IV','Administrative Officer V',
-              'Assistant School Principal II',
-              'Attorney III',
-              'Chief Education Program Supervisor',
-              'Dental Aide','Dentist II',
-              'Driver',
-              'Education Program Specialist','Education Program Supervisor',
-              'Engineer III',
-              'Farmworker I',
-              'Guidance Coordinator I','Guidance Coordinator II','Guidance Coordinator III',
-              'Guidance Counselor I','Guidance Counselor II','Guidance Counselor III',
-              'Handicraft Worker',
-              'Head Teacher I','Head Teacher II','Head Teacher III','Head Teacher IV','Head Teacher V','Head Teacher VI',
-              'Information Technology Officer I',
-              'Legal Assistant I',
-              'Medical Officer III',
-              'Nurse II',
-              'Planning Officer III',
-              'Project Development Officer I','Project Development Officer II',
-              'Public Schools District Supervisor',
-              'Registrar I',
-              'School Librarian I','School Librarian II',
-              'School Principal I','School Principal II','School Principal III',
-              'Security Guard I','Security Guard II',
-              'Senior Education Program Specialist',
-              'Teacher I','Teacher II','Teacher III',
-              'Master Teacher I','Master Teacher II',
-              'Special Science Teacher I',
-              'Special Education Teacher I','Special Education Teacher II','Special Education Teacher III',
-              'Watchman I',
-            ];
-          @endphp
-          @foreach($positions as $pos)
-          <label class="radio-option" onclick="this.classList.toggle('selected',this.querySelector('input').checked)">
-            <input type="radio" name="position_applied" value="{{ $pos }}"
-              {{ old('position_applied') === $pos ? 'checked' : '' }} required>
-            {{ $pos }}
-          </label>
-          @endforeach
-        </div>
+        <label class="form-label"><span class="q-num">2.</span> Position Applying For <span class="required-star">*</span></label>
+        @error('position_applied')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
+        @php
+        $positions = [
+            'Contract of Service (COS)',
+            'Accountant I','Accountant III',
+            'Administrative Aide I','Administrative Aide III','Administrative Aide IV','Administrative Aide VI',
+            'Administrative Assistant I','Administrative Assistant II',
+            'Administrative Assistant II (Disbursing Officer)','Administrative Assistant II (Verifier)',
+            'Administrative Assistant III','Administrative Assistant III (Senior Bookkeeper)',
+            'Administrative Officer I','Administrative Officer II','Administrative Officer IV','Administrative Officer V',
+            'Assistant School Principal II','Attorney III',
+            'Chief Education Program Supervisor',
+            'Dental Aide','Dentist II','Driver',
+            'Education Program Specialist','Education Program Supervisor','Engineer III',
+            'Farmworker I',
+            'Guidance Coordinator I','Guidance Coordinator II','Guidance Coordinator III',
+            'Guidance Counselor I','Guidance Counselor II','Guidance Counselor III',
+            'Handicraft Worker',
+            'Head Teacher I','Head Teacher II','Head Teacher III','Head Teacher IV','Head Teacher V','Head Teacher VI',
+            'Information Technology Officer I','Legal Assistant I',
+            'Medical Officer III','Nurse II','Planning Officer III',
+            'Project Development Officer I','Project Development Officer II',
+            'Public Schools District Supervisor','Registrar I',
+            'School Librarian I','School Librarian II',
+            'School Principal I','School Principal II','School Principal III',
+            'Security Guard I','Security Guard II',
+            'Senior Education Program Specialist',
+            'Teacher I','Teacher II','Teacher III',
+            'Master Teacher I','Master Teacher II',
+            'Special Science Teacher I',
+            'Special Education Teacher I','Special Education Teacher II','Special Education Teacher III',
+            'Watchman I',
+          ];
+      @endphp
+        <select name="position_applied"
+            class="form-select @error('position_applied') is-invalid @enderror"
+              required>
+            <option value="" disabled {{ old('position_applied') ? '' : 'selected' }}>— Select a position —</option>
+                @foreach($positions as $pos)
+              <option value="{{ $pos }}" {{ old('position_applied') === $pos ? 'selected' : '' }}>
+                {{ $pos }}
+              </option>
+            @endforeach
+        </select>
       </div>
 
       {{-- 3. Address --}}
@@ -323,9 +334,6 @@
       <button type="submit" class="btn-submit">Submit</button>
     </form>
 
-    <div class="login-link">
-      Already have an account? <a href="{{ route('portal.login') }}" style="color:var(--teal);font-weight:600;">Log in here</a>
-    </div>
   </div>
 
   <div class="form-footer">
@@ -345,5 +353,15 @@ document.querySelectorAll('.radio-option input[type=radio]').forEach(r => {
 });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+  $(document).ready(function() {
+      $('select[name="position_applied"]').select2({
+          placeholder: '— Select a position —',
+          allowClear: true,
+      });
+  });
+</script>
 </body>
 </html>

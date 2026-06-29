@@ -5,9 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Notifications\Notifiable;
 
 class Candidate extends Model
 {
+    use Notifiable;
+
     protected $fillable = [
         'first_name',
         'middle_name',
@@ -18,6 +21,17 @@ class Candidate extends Model
         'resume_path',
         'photo_path',
     ];
+
+    
+    public function routeNotificationForMail(): string
+    {
+        return $this->email;
+    }
+
+    public function routeNotificationForVonage(): string
+    {
+        return $this->phone; // e.g. "+639171234567"
+    }
 
     public function applications(): HasMany
     {

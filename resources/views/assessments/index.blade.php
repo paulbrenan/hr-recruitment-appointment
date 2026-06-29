@@ -10,17 +10,38 @@
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 @endif
+@if (session('error'))
+<div class="alert alert-danger alert-dismissible fade show small py-2" role="alert">
+    {{ session('error') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+@endif
 
-<form method="GET" action="{{ route('assessments.index') }}" class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3">
     <p class="text-muted mb-0 small">Comparative ranking based on weighted assessment criteria</p>
-    <select name="job_posting" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-        @forelse ($postings as $p)
-            <option value="{{ $p->id }}" {{ (string) $selectedPostingId === (string) $p->id ? 'selected' : '' }}>{{ $p->title }}</option>
-        @empty
-            <option>No job postings yet</option>
-        @endforelse
-    </select>
-</form>
+    <div class="d-flex align-items-center gap-2">
+        @if ($rankedCandidates->isNotEmpty())
+        <form method="POST" action="{{ route('assessments.send-all') }}" class="m-0">
+            @csrf
+            <input type="hidden" name="job_posting_id" value="{{ $selectedPostingId }}">
+            <button type="submit"
+                onclick="return confirm('Send ranking notifications to all {{ $rankedCandidates->count() }} applicant(s)?')"
+                class="btn btn-sm" style="background-color: var(--hr-primary); color:#fff;">
+                <i class="bi bi-envelope me-1"></i> Send all notifications
+            </button>
+        </form>
+        @endif
+        <form method="GET" action="{{ route('assessments.index') }}" class="m-0">
+            <select name="job_posting" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                @forelse ($postings as $p)
+                    <option value="{{ $p->id }}" {{ (string) $selectedPostingId === (string) $p->id ? 'selected' : '' }}>{{ $p->title }}</option>
+                @empty
+                    <option>No job postings yet</option>
+                @endforelse
+            </select>
+        </form>
+    </div>
+</div>
 
 <div class="card">
     <div class="table-responsive">
@@ -33,6 +54,7 @@
                         <th>{{ $c->name }} <span class="text-muted">({{ rtrim(rtrim(number_format($c->weight_percentage, 2), '0'), '.') }}%)</span></th>
                     @endforeach
                     <th>Total score</th>
+                    <th>Notified</th>
                     <th></th>
                 </tr>
             </thead>
@@ -51,19 +73,38 @@
                         <td>{{ $cand->scores[$c->id] ?? '-' }}</td>
                     @endforeach
                     <td class="fw-semibold">{{ $cand->total_score }}</td>
+                    <td>
+                        @if ($cand->notification_sent)
+                            <span class="text-success small"><i class="bi bi-check-lg"></i> Sent</span>
+                        @else
+                            <span class="text-muted small">—</span>
+                        @endif
+                    </td>
                     <td class="text-end">
-                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                            data-bs-toggle="modal" data-bs-target="#editScoresModal"
-                            data-application-id="{{ $cand->application_id }}"
-                            data-candidate-name="{{ $cand->candidate_name }}"
-                            data-scores="{{ json_encode($cand->scores) }}">
-                            <i class="bi bi-pencil"></i> Edit scores
-                        </button>
+                        <div class="d-flex justify-content-end gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                data-bs-toggle="modal" data-bs-target="#editScoresModal"
+                                data-application-id="{{ $cand->application_id }}"
+                                data-candidate-name="{{ $cand->candidate_name }}"
+                                data-scores="{{ json_encode($cand->scores) }}">
+                                <i class="bi bi-pencil"></i> Edit scores
+                            </button>
+                            <form method="POST" action="{{ route('assessments.send-one', $cand->application_id) }}" class="m-0">
+                                @csrf
+                                <input type="hidden" name="job_posting_id" value="{{ $selectedPostingId }}">
+                                <button type="submit"
+                                    {{ $cand->notification_sent ? 'disabled' : '' }}
+                                    onclick="return confirm('Send ranking notification to {{ $cand->candidate_name }}?')"
+                                    class="btn btn-sm {{ $cand->notification_sent ? 'btn-outline-secondary disabled' : 'btn-outline-primary' }}">
+                                    <i class="bi bi-envelope"></i> {{ $cand->notification_sent ? 'Sent' : 'Send' }}
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="{{ count($criteria) + 4 }}" class="text-center text-muted py-4">
+                    <td colspan="{{ count($criteria) + 5 }}" class="text-center text-muted py-4">
                         No applications for this posting yet.
                     </td>
                 </tr>

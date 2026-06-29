@@ -10,6 +10,7 @@ use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\JobOfferController;
 use App\Http\Controllers\TalentPoolController;
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\RankingController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -29,6 +30,10 @@ Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
 
+//Rankings
+Route::get('/rankings', [RankingController::class, 'index'])->name('rankings.index');
+Route::post('/rankings/send/{application}', [RankingController::class, 'sendOne'])->name('rankings.send-one');
+Route::post('/rankings/send-all', [RankingController::class, 'sendAll'])->name('rankings.send-all');
 
 // Applications
 Route::get('/applications', [ApplicationController::class, 'index'])->name('applications.index');
@@ -44,9 +49,11 @@ Route::delete('/interviews/{id}', [InterviewScheduleController::class, 'destroy'
 
 // Assessment & ranking
 Route::get('/assessments', [AssessmentController::class, 'index'])->name('assessments.index');
+Route::post('/assessments/send/{application}', [AssessmentController::class, 'sendOne'])->name('assessments.send-one');
 Route::post('/assessments/criteria', [AssessmentController::class, 'storeCriterion'])->name('assessments.criteria.store');
 Route::delete('/assessments/criteria/{id}', [AssessmentController::class, 'destroyCriterion'])->name('assessments.criteria.destroy');
 Route::post('/assessments/scores', [AssessmentController::class, 'saveScores'])->name('assessments.scores.save');
+Route::post('/assessments/send-all', [AssessmentController::class, 'sendAll'])->name('assessments.send-all');
 
 // Offer management
 Route::get('/offers', [JobOfferController::class, 'index'])->name('offers.index');

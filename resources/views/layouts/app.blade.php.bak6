@@ -8,9 +8,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         :root {
-            --hr-primary: #1a5f4f;
-            --hr-primary-dark: #134539;
-            --hr-accent: #2fae57;
+            --hr-primary: #2f4858;
+            --hr-primary-dark: #233843;
+            --hr-accent: #3f7d8c;
             --hr-bg: #f4f6f7;
             --hr-header-h: 56px;
         }

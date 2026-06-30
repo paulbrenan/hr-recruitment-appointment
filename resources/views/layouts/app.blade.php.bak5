@@ -8,9 +8,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         :root {
-            --hr-primary: #1a5f4f;
-            --hr-primary-dark: #134539;
-            --hr-accent: #2fae57;
+            --hr-primary: #2f4858;
+            --hr-primary-dark: #233843;
+            --hr-accent: #3f7d8c;
             --hr-bg: #f4f6f7;
             --hr-header-h: 56px;
         }
@@ -18,39 +18,49 @@
             background-color: var(--hr-bg);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
-        .hr-shell {
+        .hr-header {
+            height: var(--hr-header-h);
+            background-color: var(--hr-primary);
+            border-bottom: 1px solid var(--hr-primary-dark);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
             display: flex;
-            min-height: 100vh;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+        .hr-header-title {
+            color: #fff;
+            font-weight: 600;
+            font-size: 1.05rem;
+        }
+        .hr-header .btn-icon {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            color: #e8edf0;
+            border: 1px solid rgba(255,255,255,0.25);
+            background-color: transparent;
+            text-decoration: none;
+        }
+        .hr-header .btn-icon:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .hr-body {
+            display: flex;
+            min-height: calc(100vh - var(--hr-header-h));
         }
         .hr-sidebar {
             width: 240px;
             flex-shrink: 0;
             background-color: var(--hr-primary);
             color: #e8edf0;
-            display: flex;
-            flex-direction: column;
-            position: sticky;
-            top: 0;
-            height: 100vh;
-            overflow-y: auto;
-        }
-        .hr-sidebar-brand {
-            height: var(--hr-header-h);
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            padding: 0 1.25rem;
-            color: #fff;
-            font-weight: 600;
-            font-size: 1.05rem;
-            border-bottom: 1px solid var(--hr-primary-dark);
-        }
-        .hr-sidebar.collapsed .hr-sidebar-brand {
-            justify-content: center;
-            padding: 0 0.5rem;
-        }
-        .hr-sidebar.collapsed .hr-sidebar-brand .brand-label {
-            display: none;
         }
         .hr-sidebar .nav-link {
             color: #c9d4d9;
@@ -88,46 +98,6 @@
         .hr-sidebar.collapsed .nav-link .nav-label {
             display: none;
         }
-        .hr-content-wrapper {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-        }
-        .hr-header {
-            height: var(--hr-header-h);
-            flex-shrink: 0;
-            background-color: var(--hr-primary);
-            border-bottom: 1px solid var(--hr-primary-dark);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 1rem;
-            position: sticky;
-            top: 0;
-            z-index: 1030;
-        }
-        .hr-header-datetime {
-            color: #c9d4d9;
-            font-size: 0.85rem;
-        }
-        .hr-header .btn-icon {
-            width: 36px;
-            height: 36px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            color: #e8edf0;
-            border: 1px solid rgba(255,255,255,0.25);
-            background-color: transparent;
-            text-decoration: none;
-        }
-        .hr-header .btn-icon:hover {
-            background-color: rgba(255,255,255,0.1);
-            color: #fff;
-        }
         .hr-content {
             flex: 1;
             min-width: 0;
@@ -162,11 +132,25 @@
 </head>
 <body>
 
-    <div class="hr-shell">
-        <nav class="hr-sidebar" id="hrSidebar">
-            <div class="hr-sidebar-brand">
-                <i class="bi bi-people-fill me-2"></i><span class="brand-label">HR Recruitment</span>
-            </div>
+    <header class="hr-header">
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn-icon" id="hrSidebarToggleBtn" aria-label="Toggle sidebar">
+                <i class="bi bi-list"></i>
+            </button>
+            <span class="hr-header-title"><i class="bi bi-people-fill me-2"></i>HR Recruitment</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('dashboard') }}" class="btn-icon" aria-label="Go to dashboard">
+                <i class="bi bi-house"></i>
+            </a>
+            <button type="button" class="btn-icon" id="hrFullscreenBtn" aria-label="Toggle fullscreen">
+                <i class="bi bi-arrows-fullscreen"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="hr-body">
+        <nav class="hr-sidebar d-flex flex-column" id="hrSidebar">
             <div class="nav flex-column py-2">
                 <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
                     <i class="bi bi-grid-1x2"></i> <span class="nav-label">Dashboard</span>
@@ -198,34 +182,15 @@
             </div>
         </nav>
 
-        <div class="hr-content-wrapper">
-            <header class="hr-header">
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn-icon" id="hrSidebarToggleBtn" aria-label="Toggle sidebar">
-                        <i class="bi bi-list"></i>
-                    </button>
-                    <a href="{{ route('dashboard') }}" class="btn-icon" aria-label="Go to dashboard">
-                        <i class="bi bi-house"></i>
-                    </a>
-                    <span class="hr-header-datetime" id="hrHeaderDateTime"></span>
+        <div class="hr-content">
+            <div class="hr-pagebar d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">@yield('page-title', 'Dashboard')</h5>
+                <div class="text-muted small">
+                    <i class="bi bi-person-circle me-1"></i> HR Staff
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn-icon" id="hrFullscreenBtn" aria-label="Toggle fullscreen">
-                        <i class="bi bi-arrows-fullscreen"></i>
-                    </button>
-                </div>
-            </header>
-
-            <div class="hr-content">
-                <div class="hr-pagebar d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">@yield('page-title', 'Dashboard')</h5>
-                    <div class="text-muted small">
-                        <i class="bi bi-person-circle me-1"></i> HR Staff
-                    </div>
-                </div>
-                <div class="hr-main">
-                    @yield('content')
-                </div>
+            </div>
+            <div class="hr-main">
+                @yield('content')
             </div>
         </div>
     </div>
@@ -285,30 +250,6 @@
             });
 
             document.addEventListener('fullscreenchange', updateIcon);
-        })();
-
-        (function () {
-            const el = document.getElementById('hrHeaderDateTime');
-
-            function update() {
-                const now = new Date();
-                const datePart = now.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                });
-                const timePart = now.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: true,
-                });
-                el.textContent = datePart + ' at ' + timePart;
-            }
-
-            update();
-            setInterval(update, 1000);
         })();
     </script>
     @stack('scripts')

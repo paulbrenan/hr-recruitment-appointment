@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\JobPosting;
+use App\Models\PdfImportBatch;
+use App\Services\PositionBlockDetector;
+use App\Services\PositionBlockExpander;
 use Illuminate\Http\Request;
 
 class JobPostingImportController extends Controller
@@ -12,7 +16,7 @@ class JobPostingImportController extends Controller
         return view('job-postings.import.upload');
     }
 
-    // ── OCR extraction pipeline ───────────────────────────────────────────────
+    // ── OCR extraction + parsing pipeline ─────────────────────────────────────
     public function extract(Request $request)
     {
         $request->validate([
@@ -30,11 +34,8 @@ class JobPostingImportController extends Controller
         $request->file('pdf_file')->move($tmpDir, 'input.pdf');
 
         // ── 2. Convert PDF pages to PNG images via pdftoppm ──────────────────
-        //    Output files will be named: page-1.png, page-2.png, etc.
         $imagePrefix = $tmpDir . DIRECTORY_SEPARATOR . 'page';
 
-        // -r 200  → 200 DPI (good OCR quality without being huge)
-        // -png    → PNG output
         $pdftoppmCmd = sprintf(
             '"C:\\poppler-26.02.0\\Library\\bin\\pdftoppm.exe" -r 200 -png %s %s 2>&1',
             escapeshellarg($pdfPath),
@@ -52,7 +53,6 @@ class JobPostingImportController extends Controller
             ]);
         }
 
-        // Sort by page number (glob order may not be numeric)
         natsort($imageFiles);
         $imageFiles = array_values($imageFiles);
 
@@ -62,7 +62,6 @@ class JobPostingImportController extends Controller
         foreach ($imageFiles as $index => $imagePath) {
             $outBase = $tmpDir . DIRECTORY_SEPARATOR . 'ocr_page_' . ($index + 1);
 
-            // tesseract writes to outBase.txt automatically
             $tesseractCmd = sprintf(
                 '"C:\\Program Files\\Tesseract-OCR\\tesseract.exe" %s %s -l eng 2>&1',
                 escapeshellarg($imagePath),
@@ -83,9 +82,95 @@ class JobPostingImportController extends Controller
         // ── 4. Clean up all temp files ────────────────────────────────────────
         $this->cleanupTmp($tmpDir);
 
-        // ── 5. Pass to view ───────────────────────────────────────────────────
-        $pageCount = count($pageTexts);
-        return view('job-postings.import.extracted', compact('pageTexts', 'originalName', 'pageCount'));
+        // ── 5. Parse OCR'd text into structured position blocks ──────────────
+        $detector = new PositionBlockDetector(config('job_titles.titles', []));
+        $blocks = $detector->detect($pageTexts);
+
+        if (empty($blocks)) {
+            return back()->withErrors([
+                'pdf_file' => 'No recognizable position headings were found in this PDF. '
+                            . 'It may not be a vacancy announcement in the expected format, '
+                            . 'or OCR quality was too poor to detect headings.',
+            ]);
+        }
+
+        // ── 6. Expand each block into flat per-row candidates ─────────────────
+        $expander = new PositionBlockExpander();
+        $candidates = $expander->expand($blocks);
+
+        // ── 7. Store as a temporary batch for the review screen ───────────────
+        $batch = PdfImportBatch::create([
+            'original_filename' => $originalName,
+            'candidates' => $candidates,
+            'expires_at' => now()->addDay(),
+        ]);
+
+        return redirect()->route('job-postings.import.review', $batch->id);
+    }
+
+    // ── Review screen ─────────────────────────────────────────────────────────
+    public function review($batchId)
+    {
+        $batch = PdfImportBatch::findOrFail($batchId);
+
+        $grouped = collect($batch->candidates)
+            ->groupBy('group_key')
+            ->map(function ($rows) {
+                return [
+                    'label' => $rows->first()['group_label'] ?? 'Untitled position',
+                    'rows' => $rows->values(),
+                ];
+            });
+
+        return view('job-postings.import.review', [
+            'batch' => $batch,
+            'grouped' => $grouped,
+        ]);
+    }
+
+    // ── Confirm: bulk-create real job_postings from checked candidates ────────
+    public function confirm(Request $request, $batchId)
+    {
+        $batch = PdfImportBatch::findOrFail($batchId);
+
+        $validated = $request->validate([
+            'selected' => ['nullable', 'array'],
+            'selected.*' => ['integer'],
+            'rows' => ['required', 'array'],
+        ]);
+
+        $selectedIndexes = array_flip($validated['selected'] ?? []);
+        $editedRows = $validated['rows'];
+
+        $created = 0;
+
+        foreach ($editedRows as $index => $rowData) {
+            if (!isset($selectedIndexes[$index])) {
+                continue;
+            }
+
+            JobPosting::create([
+                'title' => $rowData['title'],
+                'salary_grade' => $rowData['salary_grade'] ?? null,
+                'qualification_education' => $rowData['qualification_education'] ?? null,
+                'qualification_training' => $rowData['qualification_training'] ?? null,
+                'qualification_experience' => $rowData['qualification_experience'] ?? null,
+                'qualification_eligibility' => $rowData['qualification_eligibility'] ?? null,
+                'duties_responsibilities' => $rowData['duties_responsibilities'] ?? null,
+                'place_of_assignment' => $rowData['place_of_assignment'] ?? null,
+                'vacancies' => max(1, (int) ($rowData['vacancies'] ?? 1)),
+                'employment_type' => 'Regular',
+                'status' => 'draft',
+            ]);
+
+            $created++;
+        }
+
+        $batch->delete();
+
+        return redirect()
+            ->route('job-postings.index')
+            ->with('success', "Imported {$created} job posting(s) from PDF.");
     }
 
     // ── Helper: recursively delete temp directory ─────────────────────────────

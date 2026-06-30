@@ -75,8 +75,6 @@ Route::get('/job-postings/create', [JobPostingController::class, 'create'])->nam
 Route::get('/job-postings/{id}/edit', [JobPostingController::class, 'edit'])->name('job-postings.edit');
 Route::get('/job-postings/import', [JobPostingImportController::class, 'create'])->name('job-postings.import.create');
 Route::post('/job-postings/import/extract', [JobPostingImportController::class, 'extract'])->name('job-postings.import.extract');
-Route::get('/job-postings/import/{batch}/review', [JobPostingImportController::class, 'review'])->name('job-postings.import.review');
-Route::post('/job-postings/import/{batch}/confirm', [JobPostingImportController::class, 'confirm'])->name('job-postings.import.confirm');
 Route::get('/job-postings/{id}', [JobPostingController::class, 'show'])->name('job-postings.show');
 Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-postings.store');
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');

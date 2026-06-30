@@ -36,18 +36,6 @@ class JobPostingImportController extends Controller
         // ── 2. Convert PDF pages to PNG images via pdftoppm ──────────────────
         $imagePrefix = $tmpDir . DIRECTORY_SEPARATOR . 'page';
 
-        $pdftotextCmd = sprintf(
-    '"C:\\poppler\\Library\\bin\\pdftotext.exe" -layout %s - 2>&1',
-    escapeshellarg($pdfPath)
-);
-$directText = shell_exec($pdftotextCmd);
-
-// If there's meaningful text already, skip OCR entirely
-if ($directText !== null && strlen(trim($directText)) > 200) {
-    // build $pageTexts from $directText (e.g. split on form-feed \f per page)
-    // and skip steps 2-3 (pdftoppm + tesseract) altogether
-}
-
         $pdftoppmCmd = sprintf(
             '"C:\\poppler\\Library\\bin\\pdftoppm.exe" -r 200 -png %s %s 2>&1',
             escapeshellarg($pdfPath),

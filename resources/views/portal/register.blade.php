@@ -5,16 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DepEd Cavite – Online Recruitment Form</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{{ asset('css/deped-theme.css') }}">
 <style>
-  :root { --teal: #2b7a78; --teal-light: #def2f1; --teal-mid: #3aafa9; }
-  body { background: linear-gradient(135deg, #d9f0ef 0%, #e8f5f5 50%, #c8e6e5 100%); min-height:100vh; font-family:'Segoe UI',Arial,sans-serif; }
-  .form-card { max-width:780px; margin:40px auto 60px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.10); }
-  .form-header { background:var(--teal); color:#fff; padding:32px 36px 28px; }
-  .form-header h1 { font-size:1.45rem; font-weight:800; margin:0 0 8px; line-height:1.3; }
-  .form-header .sub { font-size:.85rem; opacity:.85; margin:0; line-height:1.6; }
-  .privacy { background:var(--teal-light); border-left:4px solid var(--teal-mid); border-radius:0; padding:18px 24px; margin:0; font-size:.82rem; color:#1a5c5a; line-height:1.6; }
+  /* Page-specific overrides only — shared theme lives in deped-theme.css */
   .form-body { padding:32px 36px; }
-  .section-title { color:var(--teal); font-size:1.05rem; font-weight:700; margin:28px 0 18px; padding-bottom:6px; border-bottom:2px solid var(--teal-light); }
   .q-num { color:var(--teal); font-weight:600; }
   .form-label { font-size:.88rem; color:#333; font-weight:500; }
   .required-star { color:#c0392b; }
@@ -27,9 +21,6 @@
   .position-list { columns:2; gap:12px; }
   @media(max-width:576px){ .position-list { columns:1; } }
   .hint { font-size:.78rem; color:#666; margin-top:3px; }
-  .btn-submit { background:var(--teal); color:#fff; font-weight:700; font-size:.95rem; padding:12px 36px; border-radius:8px; border:none; width:100%; transition:.2s; }
-  .btn-submit:hover { background:#1d5e5c; color:#fff; }
-  .form-footer { text-align:center; padding:18px 36px 24px; font-size:.78rem; color:#888; }
   .login-link { text-align:center; margin-top:18px; font-size:.85rem; }
   .is-invalid-custom { border-color:#dc3545 !important; }
 </style>
@@ -51,13 +42,16 @@
   .select2-container { width: 100% !important; }
 </style>
 </head>
-<body>
+<body class="deped-watermark">
 
 <div class="form-card">
   {{-- Header --}}
-  <div class="form-header">
-    <h1>Department of Education – Division of Cavite Province<br>Online Recruitment Form</h1>
-    <p class="sub">Answer the following information truthfully and with honesty.</p>
+  <div class="deped-header">
+    <img src="{{ asset('images/deped-logo.png') }}" alt="DepEd Logo" class="deped-logo">
+    <div class="deped-header-text">
+      <h1>Department of Education – Division of Cavite Province<br>Online Recruitment Form</h1>
+      <p class="sub">Answer the following information truthfully and with honesty.</p>
+    </div>
   </div>
 
   {{-- Privacy notice --}}

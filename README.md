@@ -30,7 +30,7 @@ https://docs.google.com/document/d/1y3uq57yaeHkT1N-sOrMaTiNXkYjP9f1F2bOPVvkRlqM/
 - ⬜ Publish postings to a public News & Announcements page
 
 ### Candidate Application and Tracking
-- ⬜ Online application portal for candidates to submit applications and documents directly
+- ✅ Online application portal for candidates to submit applications and documents directly
 - ✅ Track and manage candidate applications and statuses throughout the recruitment pipeline (submitted → screening → shortlisted → interview → assessed → ranked → offer → hired/rejected)
 
 ### Open Ranking, Interview and Exam Scheduling
@@ -42,7 +42,7 @@ https://docs.google.com/document/d/1y3uq57yaeHkT1N-sOrMaTiNXkYjP9f1F2bOPVvkRlqM/
 - ✅ Score candidates per criterion and produce a ranked list
 - ⬜ Automatic resume parsing and categorization
 - ⬜ Automated screening/filtering of applicants against criteria
-- ⬜ Automatically send ranking results to applicants
+- ✅ Automatically send ranking results to applicants
 - ⬜ Generate comparative assessment result reports
 
 ### Offer Management
@@ -52,8 +52,8 @@ https://docs.google.com/document/d/1y3uq57yaeHkT1N-sOrMaTiNXkYjP9f1F2bOPVvkRlqM/
 - ⬜ Electronic delivery and tracking of formal offer/appointment letters to candidates
 
 ### Talent Pool and Pipeline Management
-- ⬜ Build and maintain a talent pool of past candidates for future hiring needs
-- ⬜ Manage candidate pipelines for ongoing or future recruitment
+- ✅ Build and maintain a talent pool of past candidates for future hiring needs
+- ✅ Manage candidate pipelines for ongoing or future recruitment
 
 ### Appointment and Onboarding
 - ✅ Generate and manage appointment records for hired candidates (position, item number, appointment status, dates)

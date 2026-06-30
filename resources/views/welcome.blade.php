@@ -25,9 +25,15 @@
   .topnav-text .sys { font-size:.95rem; font-weight:800; color:var(--dark); line-height:1.1; }
   .btn-admin { display:flex; align-items:center; gap:7px; background:var(--teal); color:#fff; padding:9px 18px; border-radius:8px; font-size:.82rem; font-weight:700; text-decoration:none; transition:background .2s; }
   .btn-admin:hover { background:var(--dark); color:#fff; }
+  .topnav-clock { display:flex; flex-direction:column; align-items:center; line-height:1.2; }
+  .topnav-clock .clock-date { font-size:.78rem; font-weight:600; color:var(--muted); }
+  .topnav-clock .clock-time { font-size:.92rem; font-weight:800; color:var(--dark); letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+  .topnav-spacer { width:0; flex-shrink:0; }
+  @media(min-width:680px){ .topnav-spacer { width:172px; } }
+  @media(max-width:560px){ .topnav-clock { display:none; } }
 
   /* ── HERO ── */
-  .hero { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 24px 40px; text-align:center; position:relative; overflow:hidden; }
+  .hero { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:32px 24px 32px; text-align:center; position:relative; overflow:hidden; }
   .hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(43,138,138,.12) 0%,transparent 70%),radial-gradient(ellipse 40% 40% at 80% 80%,rgba(26,122,60,.08) 0%,transparent 60%); pointer-events:none; }
   .dot { position:absolute; border-radius:50%; background:var(--teal-mid); opacity:.12; animation:float 6s ease-in-out infinite; }
   .dot:nth-child(1){width:10px;height:10px;top:18%;left:12%;animation-delay:0s;}
@@ -39,7 +45,7 @@
   .hero-eyebrow { font-size:.75rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--teal-mid); background:var(--teal-light); padding:5px 14px; border-radius:20px; margin-bottom:20px; display:inline-block; position:relative; z-index:1; }
   .hero-title { font-size:clamp(2rem,5vw,3.2rem); font-weight:900; line-height:1.08; color:var(--dark); margin-bottom:6px; position:relative; z-index:1; }
   .hero-title .accent { color:var(--green-mid); }
-  .hero-sub { font-size:1rem; color:var(--muted); margin-bottom:40px; font-weight:500; position:relative; z-index:1; }
+  .hero-sub { font-size:1rem; color:var(--muted); margin-bottom:28px; font-weight:500; position:relative; z-index:1; }
 
   /* ── TRACK BOX ── */
   .track-box { background:var(--white); border:1.5px solid #c8e6e6; border-radius:16px; padding:32px 36px; max-width:580px; width:100%; box-shadow:0 8px 40px rgba(43,138,138,.10); position:relative; z-index:1; margin-bottom:32px; }
@@ -56,6 +62,20 @@
   .divider::before,.divider::after { content:''; flex:1; height:1px; background:#d4eaea; }
   .btn-apply { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:13px; background:var(--teal); color:#fff; border-radius:8px; font-size:.9rem; font-weight:700; text-decoration:none; transition:.2s; }
   .btn-apply:hover { background:var(--dark); color:#fff; }
+
+  /* ── CONTACT & LOCATION ── */
+  .contact-section { width:100%; max-width:900px; margin:48px auto 0; padding:0 24px; position:relative; z-index:1; text-align:center; }
+  .contact-title { font-size:.95rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+  .contact-subtitle { font-size:.85rem; font-weight:700; color:var(--dark); margin-bottom:28px; }
+  .contact-grid { display:flex; gap:32px; justify-content:center; flex-wrap:wrap; margin-bottom:36px; }
+  .contact-item { flex:1; min-width:160px; max-width:240px; }
+  .contact-item i { font-size:1.6rem; color:var(--teal-mid); margin-bottom:8px; display:block; }
+  .contact-item .contact-label { font-size:.78rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--dark); margin-bottom:6px; }
+  .contact-item .contact-value { font-size:.8rem; color:var(--muted); line-height:1.5; }
+  .location-block i { font-size:1.8rem; color:var(--teal-mid); margin-bottom:6px; display:block; }
+  .location-label { font-size:.78rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--dark); margin-bottom:16px; }
+  .location-map { display:inline-block; width:100%; max-width:520px; border-radius:12px; overflow:hidden; border:1px solid #d4eaea; box-shadow:0 4px 20px rgba(43,138,138,.08); }
+  .location-map iframe { width:100%; height:320px; border:0; display:block; }
 
   /* ── INFO STRIP ── */
   .info-strip { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-top:8px; max-width:580px; width:100%; position:relative; z-index:1; }
@@ -130,6 +150,10 @@
     .track-input-row{flex-wrap:wrap;}
     .btn-track{width:100%;justify-content:center;}
     .detail-grid{grid-template-columns:1fr;}
+    .contact-section{padding:0 16px;margin-top:36px;}
+    .contact-grid{gap:20px;}
+    .contact-item{min-width:100%;max-width:100%;}
+    .location-map iframe{height:240px;}
   }
 </style>
 </head>
@@ -144,9 +168,11 @@
       <div class="sys">Online Recruitment</div>
     </div>
   </a>
-  <a class="btn-admin" href="{{ route('login') }}">
-    <i class="bi bi-shield-lock"></i> Admin Login
-  </a>
+  <div class="topnav-clock" id="topnavClock">
+    <div class="clock-date" id="topnavClockDate"></div>
+    <div class="clock-time" id="topnavClockTime"></div>
+  </div>
+  <div class="topnav-spacer"></div>
 </nav>
 
 {{-- ── HERO ── --}}
@@ -171,6 +197,46 @@
       </button>
     </div>
 
+  </div>
+
+
+  <div class="contact-section">
+    <div class="contact-title">Welcome to Online Document Tracking System</div>
+    <div class="contact-subtitle">Department of Education &mdash; Schools Division Office of Cavite Province</div>
+
+    <div class="contact-grid">
+      <div class="contact-item">
+        <i class="bi bi-geo-alt-fill"></i>
+        <div class="contact-label">Address</div>
+        {{-- PLACEHOLDER: replace with the real division office address --}}
+        <div class="contact-value">Cavite Capitol Compound, Brgy. Luciano, Trece Martires City, Cavite</div>
+      </div>
+      <div class="contact-item">
+        <i class="bi bi-telephone-fill"></i>
+        <div class="contact-label">Contact No.</div>
+        {{-- PLACEHOLDER: replace with the real division office contact numbers --}}
+        <div class="contact-value">(046) 419-1286,<br>(046) 412-0349</div>
+      </div>
+      <div class="contact-item">
+        <i class="bi bi-envelope-fill"></i>
+        <div class="contact-label">Email</div>
+        {{-- PLACEHOLDER: replace with the real division office email --}}
+        <div class="contact-value">deped.cavite@deped.gov.ph</div>
+      </div>
+    </div>
+
+    <div class="location-block">
+      <i class="bi bi-globe2"></i>
+      <div class="location-label">Location</div>
+      <div class="location-map">
+        {{-- PLACEHOLDER: replace this src with the real division office's Google Maps embed URL --}}
+        <iframe
+          src="https://www.google.com/maps?q=Schools+Division+Office+of+Cavite+Province&output=embed"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade">
+        </iframe>
+      </div>
+    </div>
   </div>
 
 </section>
@@ -202,6 +268,23 @@
 
 <script>
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+
+// ── Live header clock ──
+function updateTopnavClock() {
+  const now = new Date();
+  const dateEl = document.getElementById('topnavClockDate');
+  const timeEl = document.getElementById('topnavClockTime');
+  if (!dateEl || !timeEl) return;
+
+  dateEl.textContent = now.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+  timeEl.textContent = now.toLocaleTimeString('en-US', {
+    hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+  });
+}
+updateTopnavClock();
+setInterval(updateTopnavClock, 1000);
 
 async function trackApplication() {
   const input = document.getElementById('txnInput');

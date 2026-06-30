@@ -34,8 +34,36 @@ Route::middleware('auth:candidate')->prefix('portal')->name('portal.')->group(fu
     Route::get('/my-applications', [PortalController::class, 'myApplications'])->name('my-applications');
 });
 
+// Public landing page
 Route::get('/', function () {
-    return redirect('/portal/register');
+    return view('welcome');
+});
+
+// AJAX tracker — returns JSON, no auth required
+Route::get('/api/track', function (\Illuminate\Http\Request $request) {
+    $txn = strtoupper(trim($request->query('txn', '')));
+
+    if (!$txn) {
+        return response()->json(['found' => false]);
+    }
+
+    $app = \App\Models\Application::with(['candidate', 'jobPosting'])
+        ->where('transaction_number', $txn)
+        ->first();
+
+    if (!$app) {
+        return response()->json(['found' => false]);
+    }
+
+    return response()->json([
+        'found'      => true,
+        'status'     => $app->status ?? 'submitted',
+        'name'       => $app->candidate?->full_name ?? '—',
+        'position'   => $app->jobPosting?->title ?? '—',
+        'applied_at' => $app->applied_at
+            ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y')
+            : '—',
+    ]);
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

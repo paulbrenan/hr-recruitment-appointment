@@ -49,6 +49,17 @@
       Your submission has been received and is now under initial review by the Human Resource Unit.
     </p>
 
+    <div style="text-align:center; margin:20px 0;">
+      <a href="{{ url('/portal/my-applications') }}"
+         style="background:#2b7a78; color:#fff; text-decoration:none; padding:12px 32px;
+                border-radius:6px; font-weight:700; font-size:.9rem; display:inline-block;">
+        View My Application Status
+      </a>
+    </div>
+    <p style="text-align:center; font-size:.78rem; color:#888; margin-top:-8px;">
+      Or copy this link: {{ url('/portal/my-applications') }}
+    </p>
+
     {{-- Transaction Number --}}
     <div class="txn">
       <div class="lbl">Your Transaction Number</div>

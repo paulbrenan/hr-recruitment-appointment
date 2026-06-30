@@ -42,10 +42,6 @@
       Please keep your transaction number for follow-up inquiries.
     </p>
 
-    <a href="{{ route('portal.dashboard') }}" class="btn btn-portal mt-2">
-      <i class="bi bi-house me-1"></i> Go to My Dashboard
-    </a>
-
     <p style="font-size:.75rem;color:#888;text-align:center;margin-top:16px;">
       All data is treated as confidential in compliance with the Data Privacy Act of 2012.
     </p>

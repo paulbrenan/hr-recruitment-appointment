@@ -63,12 +63,26 @@ class CandidateAuthController extends Controller
             'eligibility'      => $validated['eligibility'],
         ]);
 
-        // Generate transaction number and create the application record
+        // Generate transaction number
         $txn = Application::generateTransactionNumber();
 
-        // We won't create an Application row here — the candidate can apply
-        // to specific open postings from the portal. We store the txn on the
-        // candidate profile temporarily for the confirmation page/email.
+        // Find a matching open job posting by title
+        $jobPosting = \App\Models\JobPosting::where('status', 'open')
+            ->where('title', $validated['position_applied'])
+            ->first();
+
+        // Auto-create the application record so it appears in HR's list
+        // Only create if a matching open job posting exists
+        if ($jobPosting) {
+            Application::create([
+                'transaction_number' => $txn,
+                'candidate_id'       => $candidate->id,
+                'job_posting_id'     => $jobPosting->id,
+                'status'             => 'submitted',
+                'applied_at'         => now()->toDateString(),
+                'notes'              => 'Submitted via Online Recruitment Form.',
+            ]);
+        }
 
         Auth::guard('candidate')->login($candidate);
         $request->session()->regenerate();

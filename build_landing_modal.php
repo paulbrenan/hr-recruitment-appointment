@@ -1,3 +1,52 @@
+<?php
+/**
+ * build_landing_modal.php
+ *
+ * Rebuilds the landing page so the track result shows in a modal
+ * (no separate page, no QR scan, no "Log in to My Portal" button).
+ * The TRACK button hits a JSON API route that queries the DB live.
+ *
+ * What this does:
+ *   1. Replaces resources/views/welcome.blade.php
+ *   2. Adds Route::get('/api/track', ...) to routes/web.php
+ *      (no separate controller needed — inline closure)
+ *   3. Deletes portal/track.blade.php if it exists (no longer needed)
+ *
+ * Usage: php build_landing_modal.php  (from project root)
+ *        Delete this script when done. No migration needed.
+ */
+
+function die_loud(string $msg): void {
+    fwrite(STDERR, "\n[ABORTED] $msg\n\n"); exit(1);
+}
+
+function backup(string $path): void {
+    if (!file_exists($path)) return; // optional backup
+    $b = $path.'.bak'; $n = 1;
+    while (file_exists($b)) { $n++; $b = $path.'.bak'.$n; }
+    copy($path, $b);
+    echo "  backed up → ".basename($b)."\n";
+}
+
+function patch(string $src, string $old, string $new, string $lbl): string {
+    $c = substr_count($src, $old);
+    if ($c !== 1) die_loud("Patch '$lbl': expected 1 match, found $c. File may have drifted.");
+    return str_replace($old, $new, $src);
+}
+
+function write(string $path, string $body, string $lbl, bool $over = false): void {
+    if (!$over && file_exists($path)) die_loud("$lbl already exists. Script may have already run.");
+    $dir = dirname($path);
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    file_put_contents($path, $body) !== false or die_loud("Cannot write $path");
+    echo ($over ? '  replaced' : '  created')." $lbl\n";
+}
+
+$root = __DIR__;
+
+// ─── 1. welcome.blade.php ─────────────────────────────────────────────────────
+
+write("$root/resources/views/welcome.blade.php", <<<'BLADE'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -346,3 +395,51 @@ document.addEventListener('keydown', e => {
 </script>
 </body>
 </html>
+BLADE, "$root/resources/views/welcome.blade.php", over: true);
+
+// ─── 2. Patch routes/web.php ─────────────────────────────────────────────────
+
+$routesPath = "$root/routes/web.php";
+$routes = file_get_contents($routesPath) or die_loud("Cannot read routes/web.php");
+backup($routesPath);
+
+// Replace the existing '/' route block (handles both possible current states)
+$oldRoute = "// Public landing page\nRoute::get('/', function () {\n    return view('welcome');\n});\n\n// Public application tracker (no login required)\nRoute::get('/portal/track', function (\\Illuminate\\Http\\Request \$request) {\n    \$txn = strtoupper(trim(\$request->query('txn', '')));\n    \$application = null;\n    if (\$txn) {\n        \$application = \\App\\Models\\Application::with(['candidate', 'jobPosting'])\n            ->where('transaction_number', \$txn)\n            ->first();\n    }\n    return view('portal.track', compact('application', 'txn'));\n});";
+
+$newRoute = "// Public landing page\nRoute::get('/', function () {\n    return view('welcome');\n});\n\n// AJAX tracker — returns JSON, no auth required\nRoute::get('/api/track', function (\\Illuminate\\Http\\Request \$request) {\n    \$txn = strtoupper(trim(\$request->query('txn', '')));\n\n    if (!\$txn) {\n        return response()->json(['found' => false]);\n    }\n\n    \$app = \\App\\Models\\Application::with(['candidate', 'jobPosting'])\n        ->where('transaction_number', \$txn)\n        ->first();\n\n    if (!\$app) {\n        return response()->json(['found' => false]);\n    }\n\n    return response()->json([\n        'found'      => true,\n        'status'     => \$app->status ?? 'submitted',\n        'name'       => \$app->candidate?->full_name ?? '—',\n        'position'   => \$app->jobPosting?->title ?? '—',\n        'applied_at' => \$app->applied_at\n            ? \\Carbon\\Carbon::parse(\$app->applied_at)->format('M d, Y')\n            : '—',\n    ]);\n});";
+
+if (str_contains($routes, $oldRoute)) {
+    $routes = patch($routes, $oldRoute, $newRoute, 'replace / + track routes');
+} else {
+    // Fallback: handles redirect version
+    $routes = patch($routes,
+        "// Public landing page\nRoute::get('/', function () {\n    return view('welcome');\n});",
+        $newRoute,
+        'replace simple / route'
+    );
+}
+
+file_put_contents($routesPath, $routes) !== false or die_loud("Cannot write routes/web.php");
+echo "  updated routes/web.php\n";
+
+// ─── 3. Clean up old track page (no longer needed) ───────────────────────────
+
+$trackView = "$root/resources/views/portal/track.blade.php";
+if (file_exists($trackView)) {
+    rename($trackView, $trackView . '.removed');
+    echo "  archived portal/track.blade.php → track.blade.php.removed\n";
+}
+
+// ─── Done ─────────────────────────────────────────────────────────────────────
+
+echo <<<TXT
+
+✅ Done! No migration needed.
+
+  Visit: http://127.0.0.1:8000/
+    → Enter a transaction number → TRACK
+    → Result pops up in a modal (no page change)
+    → ESC or click outside to close
+
+  Delete this script when done.
+TXT;

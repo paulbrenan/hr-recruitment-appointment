@@ -155,7 +155,7 @@
   <div class="dot"></div><div class="dot"></div>
 
   <span class="hero-eyebrow">Schools Division Office of Cavite Province</span>
-  <h1 class="hero-title">ONLINE<br><span class="accent">RECRUITMENT</span></h1>
+  <h1 class="hero-title">ONLINE RECRUITMENT<br><span class="accent">TRACKING SYSTEM</span></h1>
   <p class="hero-sub">Department of Education — Region IV-A</p>
 
   <div class="track-box">
@@ -171,30 +171,8 @@
       </button>
     </div>
 
-    <div class="divider">or</div>
-
-    <a class="btn-apply" href="{{ url('/portal/register') }}">
-      <i class="bi bi-pencil-square"></i> Submit a New Application
-    </a>
   </div>
 
-  <div class="info-strip">
-    <div class="info-card">
-      <i class="bi bi-clock-history"></i>
-      <div class="val">Real-time</div>
-      <div class="lbl">Status updates</div>
-    </div>
-    <div class="info-card">
-      <i class="bi bi-envelope-check"></i>
-      <div class="val">Email</div>
-      <div class="lbl">Confirmation sent</div>
-    </div>
-    <div class="info-card">
-      <i class="bi bi-shield-check"></i>
-      <div class="val">Secure</div>
-      <div class="lbl">Data Privacy Act 2012</div>
-    </div>
-  </div>
 </section>
 
 {{-- ── FOOTER ── --}}

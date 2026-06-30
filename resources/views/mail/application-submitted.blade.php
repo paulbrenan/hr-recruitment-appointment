@@ -5,8 +5,8 @@
 <style>
   body { font-family: Segoe UI, Arial, sans-serif; background:#f4f6f7; margin:0; padding:0; }
   .wrap { max-width:650px; margin:32px auto; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.08); }
-  .header { background:#2b7a78; color:#fff; padding:28px 32px; text-align:center; }
-  .header img { width:60px; margin-bottom:10px; }
+  .header { background:linear-gradient(120deg,#2b7a78 0%,#1d5e5c 100%); color:#fff; padding:28px 32px; text-align:center; border-bottom:4px solid #ffc20e; }
+  .header img { width:64px; height:64px; margin-bottom:10px; background:#fff; border-radius:50%; padding:4px; }
   .header h1 { margin:0 0 4px; font-size:1.1rem; font-weight:800; }
   .header p  { margin:0; font-size:.82rem; opacity:.85; }
   .body { padding:28px 32px; color:#333; font-size:.88rem; line-height:1.6; }
@@ -38,6 +38,7 @@
 
   {{-- Header --}}
   <div class="header">
+    <img src="{{ asset('images/deped-logo.png') }}" alt="DepEd Logo">
     <h1>Department of Education – Schools Division Office of Cavite Province</h1>
     <p>Region IV-A &bull; Online Recruitment Form – Submission Confirmation</p>
   </div>

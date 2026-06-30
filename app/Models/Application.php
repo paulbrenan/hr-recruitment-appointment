@@ -24,6 +24,11 @@ class Application extends Model
         'ranking_notified_at'   => 'datetime',
     ];
 
+    public function talentPool()
+{
+    return $this->hasOne(\App\Models\TalentPool::class);
+}
+
     public function candidate(): BelongsTo
     {
         return $this->belongsTo(Candidate::class);

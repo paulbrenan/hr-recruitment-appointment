@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\Candidate;
 use App\Models\TalentPool;
+use App\Models\JobPosting;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -20,7 +21,11 @@ class TalentPoolController extends Controller
             ->orderBy('first_name')
             ->get();
 
-        return view('talent-pool.index', compact('pool', 'availableCandidates'));
+        $openJobPostings = JobPosting::where('status', 'open')
+            ->orderBy('title')
+            ->get();
+
+        return view('talent-pool.index', compact('pool', 'availableCandidates', 'openJobPostings'));
     }
 
     public function show($id)

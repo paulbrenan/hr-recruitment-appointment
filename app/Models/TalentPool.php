@@ -33,6 +33,11 @@ class TalentPool extends Model
         return $this->belongsTo(Candidate::class);
     }
 
+    public function pipelines()
+    {
+        return $this->hasMany(Pipeline::class);
+    }
+
     /** Turns "Excel, Payroll, SQL" into ['Excel','Payroll','SQL'] for display */
     public function skillsArray(): array
     {

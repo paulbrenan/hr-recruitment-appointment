@@ -12,6 +12,7 @@ use App\Http\Controllers\InterviewScheduleController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\JobOfferController;
 use App\Http\Controllers\TalentPoolController;
+use App\Http\Controllers\PipelineController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\RankingController;
 
@@ -44,7 +45,6 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
 Route::get('/job-postings', [JobPostingController::class, 'index'])->name('job-postings.index');
 Route::get('/job-postings/create', [JobPostingController::class, 'create'])->name('job-postings.create');
 Route::get('/job-postings/{id}/edit', [JobPostingController::class, 'edit'])->name('job-postings.edit');
-// Job postings -- PDF import (Stage 2: extraction diagnostic only)
 Route::get('/job-postings/import', [JobPostingImportController::class, 'create'])->name('job-postings.import.create');
 Route::post('/job-postings/import/extract', [JobPostingImportController::class, 'extract'])->name('job-postings.import.extract');
 Route::get('/job-postings/{id}', [JobPostingController::class, 'show'])->name('job-postings.show');
@@ -52,7 +52,7 @@ Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
 
-//Rankings
+// Rankings
 Route::get('/rankings', [RankingController::class, 'index'])->name('rankings.index');
 Route::post('/rankings/send/{application}', [RankingController::class, 'sendOne'])->name('rankings.send-one');
 Route::post('/rankings/send-all', [RankingController::class, 'sendAll'])->name('rankings.send-all');
@@ -91,8 +91,13 @@ Route::get('/talent-pool/{id}', [TalentPoolController::class, 'show'])->name('ta
 Route::get('/talent-pool/{id}/edit', [TalentPoolController::class, 'edit'])->name('talent-pool.edit');
 Route::put('/talent-pool/{id}', [TalentPoolController::class, 'update'])->name('talent-pool.update');
 Route::delete('/talent-pool/{id}', [TalentPoolController::class, 'destroy'])->name('talent-pool.destroy');
-// Triggered by the "Add to Talent Pool" button on a rejected application
 Route::post('/applications/{id}/add-to-talent-pool', [TalentPoolController::class, 'storeFromApplication'])->name('talent-pool.store-from-application');
+
+// Pipelines
+Route::get('/pipelines', [PipelineController::class, 'index'])->name('pipelines.index');
+Route::post('/pipelines', [PipelineController::class, 'store'])->name('pipelines.store');
+Route::put('/pipelines/{id}', [PipelineController::class, 'update'])->name('pipelines.update');
+Route::delete('/pipelines/{id}', [PipelineController::class, 'destroy'])->name('pipelines.destroy');
 
 // Appointment & onboarding
 Route::get('/appointments', [AppointmentController::class, 'index'])->name('appointments.index');

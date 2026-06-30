@@ -72,7 +72,24 @@
                         <span class="text-muted small">No skills listed</span>
                     @endforelse
                 </div>
+
                 <p class="small text-muted mb-2">{{ $p->notes ?: 'No notes.' }}</p>
+
+                {{-- Add to Pipeline --}}
+                <form action="{{ route('pipelines.store') }}" method="POST" class="mb-2">
+                    @csrf
+                    <input type="hidden" name="talent_pool_id" value="{{ $p->id }}">
+                    <select name="job_posting_id" class="form-select form-select-sm mb-1" required>
+                        <option value="" disabled selected>Select job posting...</option>
+                        @foreach($openJobPostings as $job)
+                            <option value="{{ $job->id }}">{{ $job->title }}</option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-outline-success w-100">
+                        <i class="bi bi-diagram-3 me-1"></i> Add to Pipeline
+                    </button>
+                </form>
+
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="text-muted small">
                         Added {{ $p->added_at ? $p->added_at->format('M d, Y') : '-' }}

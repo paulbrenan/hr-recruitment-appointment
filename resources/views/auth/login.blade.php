@@ -40,8 +40,5 @@
 <p class="text-center small text-muted mt-3 mb-2">
     Don't have an account?
 </p>
-<div class="d-flex gap-2">
-    <a href="{{ route('register') }}" class="btn btn-outline-secondary btn-sm w-50">Register as staff</a>
-    <a href="{{ route('portal.register') }}" class="btn btn-outline-secondary btn-sm w-50">Register as applicant</a>
-</div>
+
 @endsection

@@ -1,0 +1,167 @@
+/* ============================================================
+   DepEd Cavite — Shared Theme
+   Include on every page with:
+   <link rel="stylesheet" href="{{ asset('css/deped-theme.css') }}">
+   Logo file expected at: public/images/deped-logo.png
+   ============================================================ */
+
+:root {
+  --teal: #2b7a78;
+  --teal-light: #def2f1;
+  --teal-mid: #3aafa9;
+  --teal-dark: #1d5e5c;
+  --gold: #ffc20e;
+  --navy: #00247d;
+}
+
+body {
+  background: linear-gradient(135deg, #d9f0ef 0%, #e8f5f5 50%, #c8e6e5 100%);
+  min-height: 100vh;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* ---------- Watermark seal behind content ---------- */
+body.deped-watermark {
+  position: relative;
+}
+body.deped-watermark::before {
+  content: "";
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 640px;
+  height: 640px;
+  background: url('../images/deped-logo.png') center / contain no-repeat;
+  transform: translate(-50%, -50%);
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---------- Header with logo ---------- */
+.deped-header {
+  background: linear-gradient(120deg, var(--teal) 0%, var(--teal-dark) 100%);
+  color: #fff;
+  padding: 26px 36px 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 4px solid var(--gold);
+}
+
+/* faint shield pattern accent in the header itself */
+.deped-header::after {
+  content: "";
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 200px;
+  height: 200px;
+  background: url('../images/deped-logo.png') center / contain no-repeat;
+  opacity: 0.10;
+  pointer-events: none;
+}
+
+.deped-header img.deped-logo {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  position: relative;
+  z-index: 1;
+}
+
+.deped-header .deped-header-text {
+  position: relative;
+  z-index: 1;
+}
+
+.deped-header h1 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+
+.deped-header .sub {
+  font-size: .85rem;
+  opacity: .9;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Centered variant, used on confirmation / submitted cards */
+.deped-header.deped-header-center {
+  flex-direction: column;
+  text-align: center;
+  padding: 28px 28px 24px;
+}
+.deped-header.deped-header-center img.deped-logo {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+}
+
+/* ---------- Shared card / layout pieces ---------- */
+.form-card,
+.deped-card {
+  max-width: 780px;
+  margin: 40px auto 60px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.10);
+  position: relative;
+  z-index: 1;
+}
+
+.privacy {
+  background: var(--teal-light);
+  border-left: 4px solid var(--teal-mid);
+  padding: 18px 24px;
+  margin: 0;
+  font-size: .82rem;
+  color: #1a5c5a;
+  line-height: 1.6;
+}
+
+.section-title {
+  color: var(--teal);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 28px 0 18px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--teal-light);
+}
+
+.btn-submit,
+.btn-portal {
+  background: var(--teal);
+  color: #fff;
+  font-weight: 700;
+  font-size: .95rem;
+  padding: 12px 36px;
+  border-radius: 8px;
+  border: none;
+  width: 100%;
+  transition: .2s;
+}
+.btn-submit:hover,
+.btn-portal:hover {
+  background: var(--teal-dark);
+  color: #fff;
+}
+
+.form-footer,
+.deped-footer {
+  text-align: center;
+  padding: 18px 36px 24px;
+  font-size: .78rem;
+  color: #888;
+  border-top: 1px solid #eee;
+}

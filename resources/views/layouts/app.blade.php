@@ -8,9 +8,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         :root {
-            --hr-primary: #2f4858;
-            --hr-primary-dark: #233843;
-            --hr-accent: #3f7d8c;
+            --hr-primary: #1a5f4f;
+            --hr-primary-dark: #134539;
+            --hr-accent: #2fae57;
             --hr-bg: #f4f6f7;
             --hr-header-h: 56px;
         }
@@ -18,47 +18,39 @@
             background-color: var(--hr-bg);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
-        .hr-header {
-            height: var(--hr-header-h);
-            background-color: var(--hr-primary);
-            border-bottom: 1px solid var(--hr-primary-dark);
+        .hr-shell {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 1rem;
-            position: sticky;
-            top: 0;
-            z-index: 1030;
-        }
-        .hr-header-title {
-            color: #fff;
-            font-weight: 600;
-            font-size: 1.05rem;
-        }
-        .hr-header .btn-back {
-            width: 36px;
-            height: 36px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 6px;
-            color: #e8edf0;
-            border: 1px solid rgba(255,255,255,0.25);
-            background-color: transparent;
-        }
-        .hr-header .btn-back:hover {
-            background-color: rgba(255,255,255,0.1);
-            color: #fff;
-        }
-        .hr-body {
-            display: flex;
-            min-height: calc(100vh - var(--hr-header-h));
+            min-height: 100vh;
         }
         .hr-sidebar {
             width: 240px;
             flex-shrink: 0;
             background-color: var(--hr-primary);
             color: #e8edf0;
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .hr-sidebar-brand {
+            height: var(--hr-header-h);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            padding: 0 1.25rem;
+            color: #fff;
+            font-weight: 600;
+            font-size: 1.05rem;
+            border-bottom: 1px solid var(--hr-primary-dark);
+        }
+        .hr-sidebar.collapsed .hr-sidebar-brand {
+            justify-content: center;
+            padding: 0 0.5rem;
+        }
+        .hr-sidebar.collapsed .hr-sidebar-brand .brand-label {
+            display: none;
         }
         .hr-sidebar .nav-link {
             color: #c9d4d9;
@@ -79,36 +71,8 @@
             color: #fff;
             border-left-color: var(--hr-accent);
         }
-        .hr-sidebar-toggle {
-            display: flex;
-            align-items: center;
-            padding: 0.65rem 1.25rem;
-        }
-        .hr-sidebar-toggle button {
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            border-radius: 4px;
-            color: #c9d4d9;
-            border: none;
-            background-color: transparent;
-        }
-        .hr-sidebar-toggle button:hover {
-            background-color: rgba(255,255,255,0.08);
-            color: #fff;
-        }
         .hr-sidebar.collapsed {
             width: 64px;
-        }
-        .hr-sidebar.collapsed .hr-sidebar-toggle {
-            justify-content: center;
-            padding: 0.65rem 0;
-        }
-        .hr-sidebar.collapsed .hr-sidebar-toggle button i {
-            transform: rotate(180deg);
         }
         .hr-sidebar.collapsed .nav-link {
             display: flex;
@@ -123,6 +87,46 @@
         }
         .hr-sidebar.collapsed .nav-link .nav-label {
             display: none;
+        }
+        .hr-content-wrapper {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .hr-header {
+            height: var(--hr-header-h);
+            flex-shrink: 0;
+            background-color: var(--hr-primary);
+            border-bottom: 1px solid var(--hr-primary-dark);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+        .hr-header-datetime {
+            color: #c9d4d9;
+            font-size: 0.85rem;
+        }
+        .hr-header .btn-icon {
+            width: 36px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            color: #e8edf0;
+            border: 1px solid rgba(255,255,255,0.25);
+            background-color: transparent;
+            text-decoration: none;
+        }
+        .hr-header .btn-icon:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: #fff;
         }
         .hr-content {
             flex: 1;
@@ -158,19 +162,10 @@
 </head>
 <body>
 
-    <header class="hr-header">
-        <span class="hr-header-title"><i class="bi bi-people-fill me-2"></i>HR Recruitment</span>
-        <button type="button" class="btn-back" aria-label="Go back" onclick="history.back()">
-            <i class="bi bi-arrow-left"></i>
-        </button>
-    </header>
-
-    <div class="hr-body">
-        <nav class="hr-sidebar d-flex flex-column" id="hrSidebar">
-            <div class="hr-sidebar-toggle">
-                <button type="button" id="hrSidebarToggleBtn" aria-label="Collapse sidebar">
-                    <i class="bi bi-chevron-double-left"></i>
-                </button>
+    <div class="hr-shell">
+        <nav class="hr-sidebar" id="hrSidebar">
+            <div class="hr-sidebar-brand">
+                <i class="bi bi-people-fill me-2"></i><span class="brand-label">HR Recruitment</span>
             </div>
             <div class="nav flex-column py-2">
                 <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
@@ -194,21 +189,43 @@
                 <a href="{{ route('talent-pool.index') }}" class="nav-link {{ request()->routeIs('talent-pool.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Talent pool">
                     <i class="bi bi-people"></i> <span class="nav-label">Talent pool</span>
                 </a>
+                <a href="{{ route('pipelines.index') }}" class="nav-link {{ request()->routeIs('pipelines.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Pipelines">
+                    <i class="bi bi-diagram-3"></i> <span class="nav-label">Pipelines</span>
+                </a>
                 <a href="{{ route('appointments.index') }}" class="nav-link {{ request()->routeIs('appointments.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Appointment & onboarding">
                     <i class="bi bi-file-earmark-check"></i> <span class="nav-label">Appointment &amp; onboarding</span>
                 </a>
             </div>
         </nav>
 
-        <div class="hr-content">
-            <div class="hr-pagebar d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">@yield('page-title', 'Dashboard')</h5>
-                <div class="text-muted small">
-                    <i class="bi bi-person-circle me-1"></i> HR Staff
+        <div class="hr-content-wrapper">
+            <header class="hr-header">
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn-icon" id="hrSidebarToggleBtn" aria-label="Toggle sidebar">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <a href="{{ route('dashboard') }}" class="btn-icon" aria-label="Go to dashboard">
+                        <i class="bi bi-house"></i>
+                    </a>
+                    <span class="hr-header-datetime" id="hrHeaderDateTime"></span>
                 </div>
-            </div>
-            <div class="hr-main">
-                @yield('content')
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn-icon" id="hrFullscreenBtn" aria-label="Toggle fullscreen">
+                        <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="hr-content">
+                <div class="hr-pagebar d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">@yield('page-title', 'Dashboard')</h5>
+                    <div class="text-muted small">
+                        <i class="bi bi-person-circle me-1"></i> HR Staff
+                    </div>
+                </div>
+                <div class="hr-main">
+                    @yield('content')
+                </div>
             </div>
         </div>
     </div>
@@ -247,6 +264,51 @@
                 localStorage.setItem(STORAGE_KEY, collapsed ? 'true' : 'false');
                 applyState(collapsed);
             });
+        })();
+
+        (function () {
+            const fullscreenBtn = document.getElementById('hrFullscreenBtn');
+            const icon = fullscreenBtn.querySelector('i');
+
+            function updateIcon() {
+                icon.className = document.fullscreenElement ? 'bi bi-fullscreen-exit' : 'bi bi-arrows-fullscreen';
+            }
+
+            fullscreenBtn.addEventListener('click', function () {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(function () {
+                        // Fullscreen request can be denied/unsupported -- fail silently.
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+
+            document.addEventListener('fullscreenchange', updateIcon);
+        })();
+
+        (function () {
+            const el = document.getElementById('hrHeaderDateTime');
+
+            function update() {
+                const now = new Date();
+                const datePart = now.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                });
+                const timePart = now.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true,
+                });
+                el.textContent = datePart + ' at ' + timePart;
+            }
+
+            update();
+            setInterval(update, 1000);
         })();
     </script>
     @stack('scripts')

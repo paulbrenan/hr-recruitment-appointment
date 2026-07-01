@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\InterviewSchedule;
 use Illuminate\Http\Request;
 
 class ApplicationController extends Controller
@@ -24,22 +25,12 @@ class ApplicationController extends Controller
     {
         $application = Application::with(['candidate', 'jobPosting'])->findOrFail($id);
 
-        // NOTE: Application Documents and Interview Scheduling modules are
-        // not wired to real data yet. These dummy collections are left in
-        // place intentionally and should be replaced once those modules'
-        // controllers/migrations are wired up (application_documents and
-        // interview_schedules tables already exist).
-        $documents = collect([
-            (object) ['document_type' => 'Resume'],
-            (object) ['document_type' => 'Transcript of Records'],
-            (object) ['document_type' => 'Valid ID'],
-        ]);
+        // Real interview schedules from the database
+        $schedules = InterviewSchedule::where('application_id', $id)
+            ->orderBy('scheduled_at')
+            ->get();
 
-        $schedules = collect([
-            (object) ['type' => 'interview', 'scheduled_at' => '2026-06-20 10:00:00', 'location' => 'HR Conference Room', 'status' => 'scheduled'],
-        ]);
-
-        return view('applications.show', compact('application', 'documents', 'schedules'));
+        return view('applications.show', compact('application', 'schedules'));
     }
 
     public function updateStatus(Request $request, $id)

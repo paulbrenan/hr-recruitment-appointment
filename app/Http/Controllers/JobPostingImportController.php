@@ -198,7 +198,7 @@ class JobPostingImportController extends Controller
                 'additional_requirements' => $additionalText,
                 'vacancies' => max(1, (int) ($rowData['vacancies'] ?? 1)),
                 'employment_type' => 'Regular',
-                'status' => 'draft',
+                'status' => 'open',
             ]);
 
             $created++;

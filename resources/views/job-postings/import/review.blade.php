@@ -18,7 +18,7 @@
         <div class="text-muted small">
             {{ collect($batch->candidates)->count() }} candidate posting(s) detected across {{ $grouped->count() }} position(s).
             Review and edit the fields below, check the ones you want to import, then confirm.
-            Imported postings are created as <span class="badge text-bg-secondary">Draft</span> so you can publish them when ready.
+            Imported postings are created as <span class="badge text-bg-success">Open</span>.
         </div>
     </div>
 </div>

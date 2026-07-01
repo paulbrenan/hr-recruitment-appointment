@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\JobPosting;
 use App\Models\PdfImportBatch;
-use App\Jobs\ProcessPdfImportJob;
 use App\Services\PositionBlockDetector;
 use App\Services\PositionBlockExpander;
 use Illuminate\Http\Request;
@@ -17,17 +16,14 @@ class JobPostingImportController extends Controller
         return view('job-postings.import.upload');
     }
 
-            // ── OCR extraction + parsing pipeline ─────────────────────────────────────
-    // This now just saves the upload and queues the actual OCR work as a
-    // background job, returning immediately instead of blocking the request
-    // for 25-45+ seconds. See app/Jobs/ProcessPdfImportJob.php for the work,
-    // and status()/processing.blade.php below for the polling progress page.
+    // ── OCR extraction + parsing pipeline ─────────────────────────────────────
     public function extract(Request $request)
     {
         $request->validate([
             'pdf_file' => 'required|file|mimes:pdf|max:20480',
         ]);
 
+        // ── 1. Save uploaded PDF to a dedicated temp directory ────────────────
         $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'hr_ocr_' . uniqid();
         if (!mkdir($tmpDir, 0755, true)) {
             return back()->withErrors(['pdf_file' => 'Could not create temporary directory for processing.']);
@@ -37,56 +33,105 @@ class JobPostingImportController extends Controller
         $originalName = $request->file('pdf_file')->getClientOriginalName();
         $request->file('pdf_file')->move($tmpDir, 'input.pdf');
 
-        $batch = PdfImportBatch::create([
-            'original_filename' => $originalName,
-            'candidates' => [],
-            'expires_at' => now()->addDay(),
-            'status' => 'processing',
-            'pdf_path' => $pdfPath,
-        ]);
+        // ── 2. Convert PDF pages to PNG images via pdftoppm ──────────────────
+        $imagePrefix = $tmpDir . DIRECTORY_SEPARATOR . 'page';
 
-        ProcessPdfImportJob::dispatch($batch->id);
+        $pdftotextCmd = sprintf(
+    '"C:\\poppler\\Library\\bin\\pdftotext.exe" -layout %s - 2>&1',
+    escapeshellarg($pdfPath)
+);
+$directText = shell_exec($pdftotextCmd);
 
-        return redirect()->route('job-postings.import.processing', $batch->id);
-    }
+// If there's meaningful text already, skip OCR entirely
+if ($directText !== null && strlen(trim($directText)) > 200) {
+    // build $pageTexts from $directText (e.g. split on form-feed \f per page)
+    // and skip steps 2-3 (pdftoppm + tesseract) altogether
+}
 
-    // ── Processing screen: shown immediately, polls status() until ready ──────
-    public function processing($batchId)
-    {
-        $batch = PdfImportBatch::findOrFail($batchId);
+        $pdftoppmCmd = sprintf(
+            '"C:\\poppler\\Library\\bin\\pdftoppm.exe" -r 200 -png %s %s 2>&1',
+            escapeshellarg($pdfPath),
+            escapeshellarg($imagePrefix)
+        );
 
-        if ($batch->status === 'ready') {
-            return redirect()->route('job-postings.import.review', $batch->id);
+        $pdftoppmOutput = shell_exec($pdftoppmCmd);
+        $imageFiles     = glob($tmpDir . DIRECTORY_SEPARATOR . 'page-*.png');
+
+        if (empty($imageFiles)) {
+            $this->cleanupTmp($tmpDir);
+            return back()->withErrors([
+                'pdf_file' => 'pdftoppm could not convert the PDF to images. '
+                            . 'pdftoppm output: ' . ($pdftoppmOutput ?: '(none)'),
+            ]);
         }
 
-        return view('job-postings.import.processing', compact('batch'));
-    }
+        natsort($imageFiles);
+        $imageFiles = array_values($imageFiles);
 
-    // ── JSON status endpoint, polled by the processing screen ─────────────────
-    public function status($batchId)
-    {
-        $batch = PdfImportBatch::findOrFail($batchId);
+        // ── 3. Run Tesseract on each page image ───────────────────────────────
+            $processes = [];
 
-        return response()->json([
-            'status' => $batch->status,
-            'error_message' => $batch->error_message,
+            foreach ($imageFiles as $index => $imagePath) {
+                $outBase = $tmpDir . DIRECTORY_SEPARATOR . 'ocr_page_' . ($index + 1);
+
+              $tesseractCmd = sprintf(
+                '"C:\\Program Files\\Tesseract-OCR\\tesseract.exe" %s %s -l eng',
+                escapeshellarg($imagePath),
+                escapeshellarg($outBase)
+                );
+
+                $proc = proc_open($tesseractCmd, [], $pipes);
+                $processes[$index] = [
+                'proc'    => $proc,
+                'outBase' => $outBase,
+                    ];
+                }
+
+$pageTexts = [];
+foreach ($processes as $index => $p) {
+    proc_close($p['proc']); // blocks only until THIS process finishes, but they're all already running
+
+    $txtFile = $p['outBase'] . '.txt';
+    $text    = file_exists($txtFile) ? file_get_contents($txtFile) : '';
+
+    $pageTexts[] = [
+        'number' => $index + 1,
+        'text'   => $text,
+    ];
+}
+        // ── 4. Clean up all temp files ────────────────────────────────────────
+        $this->cleanupTmp($tmpDir);
+
+        // ── 5. Parse OCR'd text into structured position blocks ──────────────
+        $detector = new PositionBlockDetector(config('job_titles.titles', []));
+        $blocks = $detector->detect($pageTexts);
+
+        if (empty($blocks)) {
+            return back()->withErrors([
+                'pdf_file' => 'No recognizable position headings were found in this PDF. '
+                            . 'It may not be a vacancy announcement in the expected format, '
+                            . 'or OCR quality was too poor to detect headings.',
+            ]);
+        }
+
+        // ── 6. Expand each block into flat per-row candidates ─────────────────
+        $expander = new PositionBlockExpander();
+        $candidates = $expander->expand($blocks);
+
+        // ── 7. Store as a temporary batch for the review screen ───────────────
+        $batch = PdfImportBatch::create([
+            'original_filename' => $originalName,
+            'candidates' => $candidates,
+            'expires_at' => now()->addDay(),
         ]);
+
+        return redirect()->route('job-postings.import.review', $batch->id);
     }
 
     // ── Review screen ─────────────────────────────────────────────────────────
     public function review($batchId)
     {
         $batch = PdfImportBatch::findOrFail($batchId);
-
-        if ($batch->status === 'processing') {
-            return redirect()->route('job-postings.import.processing', $batch->id);
-        }
-
-        if ($batch->status === 'failed') {
-            return redirect()
-                ->route('job-postings.import.create')
-                ->withErrors(['pdf_file' => $batch->error_message ?? 'PDF processing failed.']);
-        }
 
         $grouped = collect($batch->candidates)
             ->groupBy('group_key')

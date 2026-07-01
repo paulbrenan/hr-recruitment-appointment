@@ -37,9 +37,6 @@ class PdfImportBatch extends Model
         'original_filename',
         'candidates',
         'expires_at',
-        'status',
-        'error_message',
-        'pdf_path',
     ];
 
     protected $casts = [

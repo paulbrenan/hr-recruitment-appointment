@@ -224,7 +224,16 @@ class PositionBlockDetector
         $stopLabels = array_filter($stopLabels, fn ($l) => $l !== $label);
         $stopPattern = implode('|', array_map(fn ($l) => preg_quote($l, '/'), $stopLabels));
 
-        $pattern = '/' . preg_quote($label, '/') . ':?\s*(.*?)(?=(?:' . $stopPattern . '):|$)/is';
+        // Confirmed real OCR behavior: the bullet marker ("•") in front of
+        // each Qualification Standards line is misread as a lone letter
+        // ("e", "o", "0"), e.g. "e Training: None required." With a lazy
+        // capture stopping right at "Training:", that stray bullet-letter
+        // ends up captured as part of THIS field's value instead ("...the
+        // job. e"). This optional bullet group lets the lazy match stop
+        // BEFORE the bullet artifact instead of after it.
+        $bullet = '(?:[•●○]|\b[oOe0]\b)?';
+
+        $pattern = '/' . preg_quote($label, '/') . ':?\s*(.*?)(?=\s*' . $bullet . '\s*(?:' . $stopPattern . '):|$)/is';
 
         if (preg_match($pattern, $text, $m)) {
             $value = trim(preg_replace('/\s+/', ' ', $m[1]));
@@ -261,10 +270,44 @@ class PositionBlockDetector
 
         $relevantPages = array_filter($pageTexts, fn ($p) => $p['number'] >= $startPage && $p['number'] <= $endPage);
         $pageTextsOnly = array_map(fn ($p) => $p['text'], $relevantPages);
+        $pageTextsOnly = array_values($pageTextsOnly);
+
+        // IMPORTANT: "Duties and Responsibilities" can start partway through
+        // $endPage's text, not at the top of it. Passing the WHOLE page
+        // through lets VacancyTableParser's number-hunting logic wander
+        // into the duties bullets and pick up an unrelated number as a
+        // bogus extra "row" (confirmed real case: a duty bullet reading
+        // "Update regularly 201 files..." got matched as row 201, well
+        // past the real table's last row). Truncate the last page's text
+        // at the duties heading's actual in-page offset so the parser
+        // never sees text past the real table.
+        if ($dutiesOffset !== null && !empty($pageTextsOnly)) {
+            $endPageStart = $this->pageStartOffset($endPage, $pageBoundaries);
+            $relativeOffset = $dutiesOffset - $endPageStart;
+            $lastIndex = count($pageTextsOnly) - 1;
+            if ($relativeOffset >= 0 && $relativeOffset < strlen($pageTextsOnly[$lastIndex])) {
+                $pageTextsOnly[$lastIndex] = substr($pageTextsOnly[$lastIndex], 0, $relativeOffset);
+            }
+        }
 
         $schools = $this->tableParser->parseMultiPage($pageTextsOnly);
 
         return ['type' => 'table', 'schools' => $schools];
+    }
+
+    /**
+     * Returns the offset within $fullText where the given page's text
+     * begins (the inverse lookup of the $pageBoundaries map built in
+     * detect()).
+     */
+    private function pageStartOffset(int $pageNumber, array $pageBoundaries): int
+    {
+        foreach ($pageBoundaries as $offset => $num) {
+            if ($num === $pageNumber) {
+                return $offset + 1; // +1 skips the "\n" separator prepended before each page's text
+            }
+        }
+        return 0;
     }
 
     private function pageForOffset(int $offset, array $pageBoundaries): int

@@ -54,10 +54,22 @@ class PositionBlockExpander
 
             // Table type: one candidate row per school.
             foreach ($placeOfAssignment['schools'] as $schoolRow) {
+                // Rows the parser flagged as unrecoverable (OCR never produced
+                // a legible number for them, so their school name couldn't be
+                // safely reconstructed) still get a candidate row -- with a
+                // visible placeholder instead of a blank field -- so the
+                // vacancy count on the review screen matches the memo's real
+                // total and the reviewer knows exactly which slots need
+                // manual entry, rather than those slots silently vanishing.
+                $isUnrecoverable = !empty($schoolRow['unrecoverable']);
+
                 $candidates[] = array_merge($shared, [
                     'vacancies' => 1,
-                    'place_of_assignment' => $this->formatPlaceOfAssignment($schoolRow),
+                    'place_of_assignment' => $isUnrecoverable
+                        ? '[Unreadable in scan - row ' . $schoolRow['number'] . ', needs manual entry]'
+                        : $this->formatPlaceOfAssignment($schoolRow),
                     'school_row_number' => $schoolRow['number'],
+                    'needs_manual_review' => $isUnrecoverable,
                 ]);
             }
         }

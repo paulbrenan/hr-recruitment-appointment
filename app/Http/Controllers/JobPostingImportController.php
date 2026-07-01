@@ -42,7 +42,7 @@ class JobPostingImportController extends Controller
         $imagePrefix = $tmpDir . DIRECTORY_SEPARATOR . 'page';
 
         $pdftoppmCmd = sprintf(
-            '"C:\\poppler-26.02.0\\Library\\bin\\pdftoppm.exe" -r 200 -png %s %s 2>&1',
+            '"C:\\poppler\\Library\\bin\\pdftoppm.exe" -r 200 -png %s %s 2>&1',
             escapeshellarg($pdfPath),
             escapeshellarg($imagePrefix)
         );

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Application;
 use App\Models\Appointment;
+use App\Notifications\AppointmentLetterNotification;
 use Illuminate\Http\Request;
 
 class AppointmentController extends Controller
@@ -24,7 +25,7 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Manual creation — HR fills in all fields themselves. Replaces the
+     * Manual creation â€” HR fills in all fields themselves. Replaces the
      * earlier one-click "generate" flow, since this project is HR-side
      * only for now (no candidate self-service / auto-generation).
      */
@@ -39,14 +40,23 @@ class AppointmentController extends Controller
             'onboarding_date' => ['nullable', 'date'],
         ]);
 
-        Appointment::create($validated);
+        $appointment = Appointment::create($validated);
 
         $application = Application::find($validated['application_id']);
         $application->update(['status' => 'hired']);
 
+        // Reload with relations so the notification has candidate/jobPosting
+        // available without extra queries inside the Notification class.
+        $appointment->load(['application.candidate', 'application.jobPosting']);
+
+        // Deliver the appointment letter to the candidate immediately.
+        $appointment->application->candidate->notify(new AppointmentLetterNotification($appointment));
+
+        $appointment->update(['letter_sent_at' => now()]);
+
         return redirect()
             ->route('appointments.index')
-            ->with('success', 'Appointment created successfully.');
+            ->with('success', 'Appointment created successfully. Appointment letter emailed.');
     }
 
     public function update(Request $request, $id)

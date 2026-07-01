@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\JobOffer;
 use App\Models\Application;
+use App\Notifications\OfferLetterNotification;
 use Illuminate\Http\Request;
 
 class JobOfferController extends Controller
@@ -69,7 +70,19 @@ class JobOfferController extends Controller
 
         $offer->application->update(['status' => 'offer_sent']);
 
-        return redirect()->route('offers.index')->with('success', 'Offer sent to candidate.');
+        // Reload with relations so the notification has candidate/jobPosting
+        // available without extra queries inside the Notification class.
+        $offer->load(['application.candidate', 'application.jobPosting']);
+
+        // Deliver the formal offer letter to the candidate.
+        $offer->application->candidate->notify(new OfferLetterNotification($offer));
+
+        // Stamp separately from offer_sent_at (which tracks the business
+        // status) so this column reflects actual email dispatch, matching
+        // the reminder_sent_at guard pattern used in interview schedules.
+        $offer->update(['email_sent_at' => now()]);
+
+        return redirect()->route('offers.index')->with('success', 'Offer sent to candidate. Offer letter emailed.');
     }
 
     public function respond(Request $request, $id)

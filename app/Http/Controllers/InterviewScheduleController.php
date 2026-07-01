@@ -1,19 +1,19 @@
 <?php
-
 namespace App\Http\Controllers;
-
 use App\Models\Application;
 use App\Models\InterviewSchedule;
+use App\Notifications\ScheduleInvitationNotification;
+use App\Notifications\InterviewerInvitationNotification;
+use App\Notifications\RankingResultWithScheduleNotification;
+use App\Services\RankingService;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Facades\Notification;
 class InterviewScheduleController extends Controller
 {
-    /**
-     * Validation rules for creating a schedule. Status is intentionally
-     * excluded here — it always defaults to 'scheduled' on creation,
-     * matching the existing "New schedule" modal which has no status
-     * field.
-     */
+    public function __construct(private RankingService $rankingService)
+    {
+    }
+
     private function createRules(): array
     {
         return [
@@ -22,13 +22,9 @@ class InterviewScheduleController extends Controller
             'scheduled_at' => ['required', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'interviewer_name' => ['nullable', 'string', 'max:255'],
+            'interviewer_email' => ['nullable', 'email', 'max:255'],
         ];
     }
-
-    /**
-     * Validation rules for updating a schedule. Includes status and
-     * remarks, which are only editable after creation.
-     */
     private function updateRules(): array
     {
         return [
@@ -37,53 +33,83 @@ class InterviewScheduleController extends Controller
             'scheduled_at' => ['required', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
             'interviewer_name' => ['nullable', 'string', 'max:255'],
+            'interviewer_email' => ['nullable', 'email', 'max:255'],
             'status' => ['required', 'in:scheduled,completed,cancelled,no_show'],
             'remarks' => ['nullable', 'string'],
         ];
     }
-
     public function index()
     {
+        // Farthest future date at the top, nearest dates below it,
+        // descending all the way down to the oldest past schedule.
         $schedules = InterviewSchedule::with(['application.candidate', 'application.jobPosting'])
-            ->latest('scheduled_at')
+            ->orderBy('scheduled_at', 'desc')
             ->get();
-
-        // For the "New schedule" / "Edit schedule" modal's Application dropdown.
         $applications = Application::with(['candidate', 'jobPosting'])->get();
-
         return view('interviews.index', compact('schedules', 'applications'));
     }
-
     public function store(Request $request)
     {
         $validated = $request->validate($this->createRules());
         $validated['status'] = 'scheduled';
+        $schedule = InterviewSchedule::create($validated);
 
-        InterviewSchedule::create($validated);
+        $schedule->load(['application.candidate', 'application.jobPosting']);
+        $application = $schedule->application;
+
+        $combinedSent = false;
+
+        if ($application->status !== 'ranking_sent') {
+            $rankings = $this->rankingService->computeRankings($application->jobPosting);
+            $ranked = $rankings->firstWhere('application_id', $application->id);
+
+            if ($ranked && $ranked['passed']) {
+                try {
+                    $application->candidate->notify(
+                        new RankingResultWithScheduleNotification($ranked, $application->jobPosting, $schedule)
+                    );
+                    $application->update(['status' => 'ranking_sent']);
+                    $combinedSent = true;
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to send combined ranking+schedule invitation: ' . $e->getMessage());
+                }
+            }
+        }
+
+        if (! $combinedSent) {
+            try {
+                $application->candidate->notify(new ScheduleInvitationNotification($schedule));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send candidate schedule invitation: ' . $e->getMessage());
+            }
+        }
+
+        if ($schedule->interviewer_email) {
+            try {
+                Notification::route('mail', $schedule->interviewer_email)
+                    ->notify(new InterviewerInvitationNotification($schedule));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send interviewer schedule invitation: ' . $e->getMessage());
+            }
+        }
 
         return redirect()
             ->route('interviews.index')
-            ->with('success', 'Schedule created successfully.');
+            ->with('success', 'Schedule created successfully. Invitation email sent.');
     }
-
     public function update(Request $request, $id)
     {
         $schedule = InterviewSchedule::findOrFail($id);
-
         $validated = $request->validate($this->updateRules());
-
         $schedule->update($validated);
-
         return redirect()
             ->route('interviews.index')
             ->with('success', 'Schedule updated successfully.');
     }
-
     public function destroy($id)
     {
         $schedule = InterviewSchedule::findOrFail($id);
         $schedule->delete();
-
         return redirect()
             ->route('interviews.index')
             ->with('success', 'Schedule deleted successfully.');

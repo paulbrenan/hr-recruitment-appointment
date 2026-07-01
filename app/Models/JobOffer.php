@@ -13,12 +13,14 @@ class JobOffer extends Model
         'benefits',
         'terms',
         'offer_sent_at',
+        'email_sent_at',
         'response_deadline',
         'status',
     ];
 
     protected $casts = [
         'offer_sent_at' => 'date',
+        'email_sent_at' => 'datetime',
         'response_deadline' => 'date',
         'compensation' => 'decimal:2',
     ];

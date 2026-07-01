@@ -39,6 +39,7 @@
                     <th>Appointment status</th>
                     <th>Appointment date</th>
                     <th>Onboarding date</th>
+                    <th>Letter sent</th>
                     <th></th>
                 </tr>
             </thead>
@@ -47,12 +48,20 @@
                 <tr>
                     <td class="fw-medium">{{ $a->application->candidate->full_name }}</td>
                     <td>{{ $a->position_title }}</td>
-                    <td>{{ $a->item_number ?? '—' }}</td>
+                    <td>{{ $a->item_number ?? 'â€”' }}</td>
                     <td>
                         <span class="badge text-bg-light text-dark border">{{ str_replace('_', ' ', ucfirst($a->appointment_status)) }}</span>
                     </td>
-                    <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : '—' }}</td>
-                    <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : '—' }}</td>
+                    <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : 'â€”' }}</td>
+                    <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : 'â€”' }}</td>
+                    <td>
+                        @if ($a->letter_sent_at)
+                            <span class="badge text-bg-success">Sent</span>
+                            <div class="text-muted" style="font-size: 0.72rem;">{{ \Carbon\Carbon::parse($a->letter_sent_at)->format('M d, Y g:i A') }}</div>
+                        @else
+                            <span class="badge text-bg-secondary">Not sent</span>
+                        @endif
+                    </td>
                     <td class="text-end">
                         <button
                             type="button"
@@ -61,9 +70,9 @@
                             data-bs-target="#paperModal"
                             data-candidate-name="{{ $a->application->candidate->full_name }}"
                             data-position-title="{{ $a->position_title }}"
-                            data-item-number="{{ $a->item_number ?? '—' }}"
+                            data-item-number="{{ $a->item_number ?? 'â€”' }}"
                             data-appointment-status="{{ str_replace('_', ' ', ucfirst($a->appointment_status)) }}"
-                            data-appointment-date="{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('F d, Y') : '—' }}"
+                            data-appointment-date="{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('F d, Y') : 'â€”' }}"
                         >
                             <i class="bi bi-file-earmark-pdf"></i> Paper
                         </button>
@@ -123,7 +132,7 @@
                             <option value="" disabled selected>Select candidate / application</option>
                             @foreach ($eligibleApplications as $application)
                                 <option value="{{ $application->id }}">
-                                    {{ $application->candidate->full_name }} — {{ $application->jobPosting->title }}
+                                    {{ $application->candidate->full_name }} â€” {{ $application->jobPosting->title }}
                                 </option>
                             @endforeach
                         </select>
@@ -286,10 +295,10 @@
                             <tr>
                                 <td>{{ $a->application->candidate->full_name }}</td>
                                 <td>{{ $a->position_title }}</td>
-                                <td>{{ $a->item_number ?? '—' }}</td>
+                                <td>{{ $a->item_number ?? 'â€”' }}</td>
                                 <td>{{ str_replace('_', ' ', ucfirst($a->appointment_status)) }}</td>
-                                <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : '—' }}</td>
-                                <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : '—' }}</td>
+                                <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : 'â€”' }}</td>
+                                <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : 'â€”' }}</td>
                             </tr>
                             @endforeach
                         </tbody>

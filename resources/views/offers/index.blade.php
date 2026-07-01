@@ -28,6 +28,7 @@
                     <th>Position</th>
                     <th>Compensation</th>
                     <th>Sent</th>
+                    <th>Email delivery</th>
                     <th>Response by</th>
                     <th>Status</th>
                     <th></th>
@@ -40,6 +41,14 @@
                     <td>{{ $o->application->jobPosting->title ?? '-' }}</td>
                     <td>&#8369;{{ number_format($o->compensation, 2) }}</td>
                     <td>{{ $o->offer_sent_at ? \Carbon\Carbon::parse($o->offer_sent_at)->format('M d, Y') : '-' }}</td>
+                    <td>
+                        @if ($o->email_sent_at)
+                            <span class="badge text-bg-success">Sent</span>
+                            <div class="text-muted" style="font-size: 0.72rem;">{{ \Carbon\Carbon::parse($o->email_sent_at)->format('M d, Y g:i A') }}</div>
+                        @else
+                            <span class="badge text-bg-secondary">Not sent</span>
+                        @endif
+                    </td>
                     <td>{{ $o->response_deadline ? \Carbon\Carbon::parse($o->response_deadline)->format('M d, Y') : '-' }}</td>
                     <td>
                         @php
@@ -79,7 +88,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">No offers yet.</td>
+                    <td colspan="8" class="text-center text-muted py-4">No offers yet.</td>
                 </tr>
                 @endforelse
             </tbody>

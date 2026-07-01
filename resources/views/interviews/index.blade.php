@@ -65,6 +65,7 @@
                             data-scheduled-at="{{ \Carbon\Carbon::parse($s->scheduled_at)->format('Y-m-d\TH:i') }}"
                             data-location="{{ $s->location }}"
                             data-interviewer-name="{{ $s->interviewer_name }}"
+                            data-interviewer-email="{{ $s->interviewer_email }}"
                             data-status="{{ $s->status }}"
                             data-remarks="{{ $s->remarks }}"
                         >
@@ -126,6 +127,10 @@
                         <label class="form-label small">Interviewer / evaluator</label>
                         <input type="text" name="interviewer_name" class="form-control form-control-sm">
                     </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Interviewer / evaluator email</label>
+                        <input type="email" name="interviewer_email" class="form-control form-control-sm" placeholder="Needed to send the invitation email">
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -178,6 +183,10 @@
                         <input type="text" name="interviewer_name" id="edit_interviewer_name" class="form-control form-control-sm">
                     </div>
                     <div class="mb-2">
+                        <label class="form-label small">Interviewer / evaluator email</label>
+                        <input type="email" name="interviewer_email" id="edit_interviewer_email" class="form-control form-control-sm">
+                    </div>
+                    <div class="mb-2">
                         <label class="form-label small">Status</label>
                         <select name="status" id="edit_status" class="form-select form-select-sm">
                             <option value="scheduled">Scheduled</option>
@@ -215,6 +224,7 @@
         document.getElementById('edit_scheduled_at').value = button.getAttribute('data-scheduled-at');
         document.getElementById('edit_location').value = button.getAttribute('data-location') || '';
         document.getElementById('edit_interviewer_name').value = button.getAttribute('data-interviewer-name') || '';
+        document.getElementById('edit_interviewer_email').value = button.getAttribute('data-interviewer-email') || '';
         document.getElementById('edit_status').value = button.getAttribute('data-status');
         document.getElementById('edit_remarks').value = button.getAttribute('data-remarks') || '';
     });

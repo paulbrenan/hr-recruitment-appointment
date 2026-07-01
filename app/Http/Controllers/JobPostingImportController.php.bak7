@@ -6,7 +6,6 @@ use App\Models\JobPosting;
 use App\Models\PdfImportBatch;
 use App\Services\PositionBlockDetector;
 use App\Services\PositionBlockExpander;
-use App\Services\RequirementsExtractor;
 use Illuminate\Http\Request;
 
 class JobPostingImportController extends Controller
@@ -95,33 +94,14 @@ class JobPostingImportController extends Controller
             ]);
         }
 
-        // ── 5b. Track any newly-registered Secondary/Elementary title
-        //        variants so the review screen can surface a notice —
-        //        these are now PERMANENT entries in config/job_titles.php,
-        //        not silently merged into a generic title as before.
-        $newlyRegisteredTitles = collect($blocks)
-            ->filter(fn ($b) => !empty($b['was_registered']))
-            ->pluck('canonical_title')
-            ->unique()
-            ->values()
-            ->all();
-
         // ── 6. Expand each block into flat per-row candidates ─────────────────
         $expander = new PositionBlockExpander();
         $candidates = $expander->expand($blocks);
-
-        // ── 6b. Extract the REAL Mandatory/Additional Requirements from
-        //        this document's cover-memo pages, instead of always
-        //        falling back to the hardcoded standard A-J default.
-        $requirementsExtractor = new RequirementsExtractor();
-        $requirements = $requirementsExtractor->extract($pageTexts);
 
         // ── 7. Store as a temporary batch for the review screen ───────────────
         $batch = PdfImportBatch::create([
             'original_filename' => $originalName,
             'candidates' => $candidates,
-            'requirements' => $requirements,
-            'newly_registered_titles' => $newlyRegisteredTitles,
             'expires_at' => now()->addDay(),
         ]);
 
@@ -145,8 +125,6 @@ class JobPostingImportController extends Controller
         return view('job-postings.import.review', [
             'batch' => $batch,
             'grouped' => $grouped,
-            'requirements' => $batch->requirements ?? ['mandatory' => [], 'additional' => ''],
-            'newlyRegisteredTitles' => $batch->newly_registered_titles ?? [],
         ]);
     }
 
@@ -164,20 +142,6 @@ class JobPostingImportController extends Controller
         $selectedIndexes = array_flip($validated['selected'] ?? []);
         $editedRows = $validated['rows'];
 
-        // Real requirements extracted from THIS document's cover memo
-        // (Fix 2) — applied to every posting created from this import.
-        // No more silent fallback to the old hardcoded standard A-J
-        // default: if extraction found nothing for this particular PDF,
-        // these fields are simply left null, same as any manually
-        // created posting where HR hasn't filled them in yet.
-        $extractedRequirements = $batch->requirements ?? ['mandatory' => [], 'additional' => ''];
-        $mandatoryText = !empty($extractedRequirements['mandatory'])
-            ? implode("\n", $extractedRequirements['mandatory'])
-            : null;
-        $additionalText = !empty($extractedRequirements['additional'])
-            ? $extractedRequirements['additional']
-            : null;
-
         $created = 0;
 
         foreach ($editedRows as $index => $rowData) {
@@ -194,8 +158,6 @@ class JobPostingImportController extends Controller
                 'qualification_eligibility' => $rowData['qualification_eligibility'] ?? null,
                 'duties_responsibilities' => $rowData['duties_responsibilities'] ?? null,
                 'place_of_assignment' => $rowData['place_of_assignment'] ?? null,
-                'mandatory_requirements' => $mandatoryText,
-                'additional_requirements' => $additionalText,
                 'vacancies' => max(1, (int) ($rowData['vacancies'] ?? 1)),
                 'employment_type' => 'Regular',
                 'status' => 'draft',

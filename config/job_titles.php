@@ -4,10 +4,13 @@
 // Canonical list of position titles for job postings, sourced from the
 // official DepEd "Position Applying For" list. Used to populate the
 // searchable title dropdown on the Job Posting create/edit form.
+//
+// Entries can be added automatically by JobTitleRegistrar when the PDF
+// import detects a genuine new title variant (e.g. a Secondary/Elementary
+// prefixed grade) that doesn't yet exist in this list.
 
 return [
     'titles' => [
-        'Contract of Service (COS)',
         'Accountant I',
         'Accountant III',
         'Administrative Aide I',
@@ -27,11 +30,13 @@ return [
         'Assistant School Principal II',
         'Attorney III',
         'Chief Education Program Supervisor',
+        'Contract of Service (COS)',
         'Dental Aide',
         'Dentist II',
         'Driver',
         'Education Program Specialist',
         'Education Program Supervisor',
+        'Elementary School Principal III',
         'Engineer III',
         'Farmworker I',
         'Guidance Coordinator I',
@@ -49,6 +54,8 @@ return [
         'Head Teacher VI',
         'Information Technology Officer I',
         'Legal Assistant I',
+        'Master Teacher I',
+        'Master Teacher II',
         'Medical Officer III',
         'Nurse II',
         'Planning Officer III',
@@ -62,18 +69,19 @@ return [
         'School Principal II',
         'School Principal III',
         'School Principal IV',
+        'School Sports Program Focal Person (Contract of Service)',
+        'Secondary School Principal III',
         'Security Guard I',
         'Security Guard II',
         'Senior Education Program Specialist',
-        'Teacher I',
-        'Teacher II',
-        'Teacher III',
-        'Master Teacher I',
-        'Master Teacher II',
-        'Special Science Teacher I',
         'Special Education Teacher I',
         'Special Education Teacher II',
         'Special Education Teacher III',
+        'Special Science Teacher I',
+        'Teacher I',
+        'Teacher II',
+        'Teacher III',
+        'Technical Assistant I',
         'Watchman I',
     ],
 ];

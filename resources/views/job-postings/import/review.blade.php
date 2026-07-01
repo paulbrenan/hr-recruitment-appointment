@@ -97,16 +97,36 @@
     </div>
     @endforeach
 
-    <div class="d-flex gap-2 mb-4">
-        <button type="submit" class="btn" style="background-color: var(--hr-primary); color: #fff;">
-            <i class="bi bi-check-lg me-1"></i> Import selected postings
-        </button>
-        <a href="{{ route('job-postings.import.create') }}" class="btn btn-outline-secondary">Cancel and discard</a>
-    </div>
+    {{-- bottom spacer so content isn't hidden behind the floating bar --}}
+    <div style="height: 80px;"></div>
 </form>
 @endsection
 
 @push('scripts')
+<style>
+.import-fab {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1040;
+    background: #fff;
+    border-top: 1px solid #dee2e6;
+    padding: .75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+}
+.import-fab .selected-count {
+    font-size: .875rem;
+    color: #6c757d;
+}
+.import-fab .selected-count strong {
+    color: #212529;
+}
+</style>
 <script>
     document.querySelectorAll('.select-all-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -134,5 +154,44 @@
             event.stopPropagation();
         });
     });
+
+    // ── Floating confirm bar ──────────────────────────────────────────
+    var totalRows = document.querySelectorAll('input[name="selected[]"]').length;
+
+    function updateCount() {
+        var checked = document.querySelectorAll('input[name="selected[]"]:checked').length;
+        document.getElementById('fab-count').innerHTML =
+            '<strong>' + checked + ' of ' + totalRows + '</strong> posting(s) selected';
+        document.getElementById('fab-submit').disabled = checked === 0;
+    }
+
+    document.querySelectorAll('input[name="selected[]"]').forEach(function (cb) {
+        cb.addEventListener('change', updateCount);
+    });
+
+    // Also update when select-all / deselect-all buttons are used
+    document.querySelectorAll('.select-all-btn, .deselect-all-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            setTimeout(updateCount, 0);
+        });
+    });
+
+    updateCount(); // initialise on page load
 </script>
+
+{{-- Floating confirm bar (outside the <form> so it uses JS submit) --}}
+<div class="import-fab">
+    <span class="selected-count" id="fab-count"></span>
+    <div class="d-flex gap-2">
+        <a href="{{ route('job-postings.import.create') }}" class="btn btn-outline-secondary btn-sm">
+            Cancel
+        </a>
+        <button type="button" id="fab-submit"
+                class="btn btn-sm"
+                style="background-color: var(--hr-primary); color: #fff;"
+                onclick="document.getElementById('importForm').submit()">
+            <i class="bi bi-check-lg me-1"></i> Import selected postings
+        </button>
+    </div>
+</div>
 @endpush

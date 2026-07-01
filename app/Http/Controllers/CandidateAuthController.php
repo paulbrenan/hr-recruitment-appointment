@@ -6,9 +6,9 @@ use App\Models\Application;
 use App\Models\Candidate;
 use App\Mail\ApplicationSubmitted;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rules\Password;
 
 class CandidateAuthController extends Controller
 {
@@ -39,16 +39,25 @@ class CandidateAuthController extends Controller
             'training_hours'   => ['required', 'string', 'max:100'],
             'years_experience' => ['required', 'string', 'max:100'],
             'eligibility'      => ['required', 'string', 'max:255'],
-            // Account
-            'password'         => ['required', 'confirmed', Password::min(8)],
         ]);
+
+        // Resolve the job posting BEFORE creating any account/records, so
+        // an invalid or no-longer-open position stops registration cleanly
+        // instead of silently creating a candidate with no application and
+        // telling them "submitted successfully" anyway.
+        $jobPosting = \App\Models\JobPosting::where('title', $validated['position_applied'])->first();
+
+        if (!$jobPosting || $jobPosting->status !== 'open') {
+            return back()
+                ->withInput()
+                ->withErrors(['position_applied' => 'Sorry, this position is no longer available. Please choose another open position.']);
+        }
 
         $candidate = Candidate::create([
             'first_name'       => $validated['first_name'],
             'middle_name'      => $validated['middle_name'] ?? null,
             'last_name'        => $validated['last_name'],
             'email'            => $validated['email'],
-            'password'         => $validated['password'],
             'phone'            => $validated['phone'],
             'address'          => $validated['address'],
             'age'              => $validated['age'],
@@ -66,39 +75,29 @@ class CandidateAuthController extends Controller
         // Generate transaction number
         $txn = Application::generateTransactionNumber();
 
-        // Find a matching open job posting by title
-        $jobPosting = \App\Models\JobPosting::where('status', 'open')
-            ->where('title', $validated['position_applied'])
-            ->first();
-
         // Auto-create the application record so it appears in HR's list
-        // Only create if a matching open job posting exists
-        if ($jobPosting) {
-            Application::create([
-                'transaction_number' => $txn,
-                'candidate_id'       => $candidate->id,
-                'job_posting_id'     => $jobPosting->id,
-                'status'             => 'submitted',
-                'applied_at'         => now()->toDateString(),
-                'notes'              => 'Submitted via Online Recruitment Form.',
-            ]);
-        }
-
-        Auth::guard('candidate')->login($candidate);
-        $request->session()->regenerate();
+        Application::create([
+            'transaction_number' => $txn,
+            'candidate_id'       => $candidate->id,
+            'job_posting_id'     => $jobPosting->id,
+            'status'             => 'submitted',
+            'applied_at'         => now()->toDateString(),
+            'notes'              => 'Submitted via Online Recruitment Form.',
+        ]);
 
         // Send confirmation email (non-blocking — catches any mail failure)
         try {
             Mail::to($candidate->email)
-                ->send(new ApplicationSubmitted($candidate, $txn, $validated['position_applied']));
+                ->send(new ApplicationSubmitted($candidate, $txn, $validated['position_applied'], $jobPosting));
         } catch (\Throwable $e) {
-            \Log::error('Recruitment confirmation email failed: ' . $e->getMessage());
+            Log::error('Recruitment confirmation email failed: ' . $e->getMessage());
         }
 
         return view('portal.submitted', [
             'candidate'         => $candidate,
             'transactionNumber' => $txn,
             'position'          => $validated['position_applied'],
+            'jobPosting'        => $jobPosting,
         ]);
     }
 

@@ -40,6 +40,15 @@
       Please keep your transaction number for follow-up inquiries.
     </p>
 
+    @if (isset($jobPosting) && $jobPosting->memoPdfUrl())
+    <div class="text-center mb-3">
+      <a href="{{ $jobPosting->memoPdfUrl() }}" target="_blank" rel="noopener"
+         style="color:#2b7a78; font-weight:700; font-size:.85rem; text-decoration:underline;">
+        <i class="bi bi-file-earmark-pdf"></i> View the Official Memo (PDF)
+      </a>
+    </div>
+    @endif
+
     <p style="font-size:.75rem;color:#888;text-align:center;margin-top:16px;">
       All data is treated as confidential in compliance with the Data Privacy Act of 2012.
     </p>

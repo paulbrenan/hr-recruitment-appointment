@@ -61,6 +61,15 @@
       Or copy this link: {{ url('/portal/my-applications') }}
     </p>
 
+    @if (isset($jobPosting) && $jobPosting->memoPdfUrl())
+    <div style="text-align:center; margin:14px 0 4px;">
+      <a href="{{ $jobPosting->memoPdfUrl() }}" target="_blank" rel="noopener"
+         style="color:#2b7a78; font-weight:700; font-size:.85rem; text-decoration:underline;">
+        📄 View the Official Memo (PDF)
+      </a>
+    </div>
+    @endif
+
     {{-- Transaction Number --}}
     <div class="txn">
       <div class="lbl">Your Transaction Number</div>

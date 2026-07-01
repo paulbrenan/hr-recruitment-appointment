@@ -61,9 +61,13 @@ class DashboardController extends Controller
             ->groupBy('ym')
             ->pluck('total', 'ym');
 
-        $postingsByMonth = JobPosting::selectRaw("DATE_FORMAT(posted_at, '%Y-%m') as ym, COUNT(*) as total")
-            ->whereNotNull('posted_at')
-            ->where('posted_at', '>=', $months->first())
+        // Only count currently-open postings here, keyed by posted_at
+        // (falling back to created_at for rows where posted_at was never
+        // set) so this chart's bars always sum to the same total shown in
+        // the "Open postings" stat card above, rather than mixing in
+        // postings that have since been filled/closed.
+        $postingsByMonth = JobPosting::where('status', 'open')
+            ->selectRaw("DATE_FORMAT(COALESCE(posted_at, created_at), '%Y-%m') as ym, COUNT(*) as total")
             ->groupBy('ym')
             ->pluck('total', 'ym');
 
@@ -71,8 +75,36 @@ class DashboardController extends Controller
             return (int) ($applicationsByMonth[$m->format('Y-m')] ?? 0);
         })->all();
 
-        $monthlyPostingsData = $months->map(function (Carbon $m) use ($postingsByMonth) {
-            return (int) ($postingsByMonth[$m->format('Y-m')] ?? 0);
+        $firstYm = $months->first()->format('Y-m');
+        $lastYm = $months->last()->format('Y-m');
+        $lastIndex = $months->count() - 1;
+
+        $monthlyPostingsData = $months->map(function (Carbon $m, $i) use ($postingsByMonth, $firstYm, $lastYm, $lastIndex) {
+            $ym = $m->format('Y-m');
+
+            if ($i === 0) {
+                // Roll any open postings older than the 6-month window
+                // (or with no date at all, via the COALESCE above) into
+                // the first bar, so no open posting is silently dropped
+                // from the total and the bars keep summing to the full
+                // open-postings count.
+                return (int) $postingsByMonth
+                    ->filter(fn ($total, $key) => $key <= $firstYm)
+                    ->sum();
+            }
+
+            if ($i === $lastIndex) {
+                // Same idea at the other end: a handful of postings have
+                // posted_at dates ahead of the current month (typos,
+                // OCR-extracted dates, etc). Roll those into the last bar
+                // too, rather than letting them fall outside the window
+                // and silently disappear from the total.
+                return (int) $postingsByMonth
+                    ->filter(fn ($total, $key) => $key >= $lastYm)
+                    ->sum();
+            }
+
+            return (int) ($postingsByMonth[$ym] ?? 0);
         })->all();
 
         // --- Status doughnut chart: real counts, all statuses included ---

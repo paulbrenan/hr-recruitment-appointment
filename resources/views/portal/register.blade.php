@@ -306,26 +306,9 @@
         @endforeach
       </div>
 
-      {{-- ── ACCOUNT ───────────────────────────────────────────── --}}
-      <div class="section-title">Account Setup</div>
-      <p style="font-size:.82rem;color:#555;margin:-10px 0 16px;">
-        Create a password to log in and track your application status after submission.
-      </p>
-
-      <div class="mb-3">
-        <label class="form-label">Password <span class="required-star">*</span></label>
-        <input type="password" name="password" class="form-control @error('password') is-invalid @enderror"
-          placeholder="Minimum 8 characters" required>
-        @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
-      </div>
-      <div class="mb-4">
-        <label class="form-label">Confirm Password <span class="required-star">*</span></label>
-        <input type="password" name="password_confirmation" class="form-control" placeholder="Re-enter password" required>
-      </div>
-
       {{-- Submit --}}
       <p style="font-size:.8rem;color:#777;margin-bottom:16px;">
-        You can log in and print a copy of your answers after you submit.
+        You will receive a confirmation email with your transaction number after submission.
       </p>
       <button type="submit" class="btn-submit">Submit</button>
     </form>

@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rules\Password;
 
 class CandidateAuthController extends Controller
 {
@@ -40,8 +39,6 @@ class CandidateAuthController extends Controller
             'training_hours'   => ['required', 'string', 'max:100'],
             'years_experience' => ['required', 'string', 'max:100'],
             'eligibility'      => ['required', 'string', 'max:255'],
-            // Account
-            'password'         => ['required', 'confirmed', Password::min(8)],
         ]);
 
         // Resolve the job posting BEFORE creating any account/records, so
@@ -61,7 +58,6 @@ class CandidateAuthController extends Controller
             'middle_name'      => $validated['middle_name'] ?? null,
             'last_name'        => $validated['last_name'],
             'email'            => $validated['email'],
-            'password'         => $validated['password'],
             'phone'            => $validated['phone'],
             'address'          => $validated['address'],
             'age'              => $validated['age'],
@@ -88,9 +84,6 @@ class CandidateAuthController extends Controller
             'applied_at'         => now()->toDateString(),
             'notes'              => 'Submitted via Online Recruitment Form.',
         ]);
-
-        Auth::guard('candidate')->login($candidate);
-        $request->session()->regenerate();
 
         // Send confirmation email (non-blocking — catches any mail failure)
         try {

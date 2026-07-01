@@ -36,6 +36,8 @@ class PdfImportBatch extends Model
     protected $fillable = [
         'original_filename',
         'candidates',
+        'requirements',
+        'newly_registered_titles',
         'expires_at',
         'status',
         'error_message',
@@ -44,6 +46,8 @@ class PdfImportBatch extends Model
 
     protected $casts = [
         'candidates' => 'array',
+        'requirements' => 'array',
+        'newly_registered_titles' => 'array',
         'expires_at' => 'datetime',
     ];
 }

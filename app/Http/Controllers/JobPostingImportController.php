@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\JobPosting;
 use App\Models\PdfImportBatch;
 use App\Jobs\ProcessPdfImportJob;
-use App\Services\RequirementsExtractor;
 use Illuminate\Http\Request;
 
 class JobPostingImportController extends Controller
@@ -47,72 +46,8 @@ class JobPostingImportController extends Controller
         $originalName = $request->file('pdf_file')->getClientOriginalName();
         $request->file('pdf_file')->move($tmpDir, 'input.pdf');
 
-        // ── 2. Convert PDF pages to PNG images via pdftoppm ──────────────────
-        $imagePrefix = $tmpDir . DIRECTORY_SEPARATOR . 'page';
-
-        $pdftoppmCmd = sprintf(
-            '"C:\\poppler\\Library\\bin\\pdftoppm.exe" -r 200 -png %s %s 2>&1',
-            escapeshellarg($pdfPath),
-            escapeshellarg($imagePrefix)
-        );
-
-        $pdftoppmOutput = shell_exec($pdftoppmCmd);
-        $imageFiles     = glob($tmpDir . DIRECTORY_SEPARATOR . 'page-*.png');
-
-        if (empty($imageFiles)) {
-            $this->cleanupTmp($tmpDir);
-            return back()->withErrors([
-                'pdf_file' => 'pdftoppm could not convert the PDF to images. '
-                            . 'pdftoppm output: ' . ($pdftoppmOutput ?: '(none)'),
-            ]);
-        }
-
-        natsort($imageFiles);
-        $imageFiles = array_values($imageFiles);
-
-        // ── 3. Run Tesseract on each page image ───────────────────────────────
-        $pageTexts = [];
-
-        foreach ($imageFiles as $index => $imagePath) {
-            $outBase = $tmpDir . DIRECTORY_SEPARATOR . 'ocr_page_' . ($index + 1);
-
-            $tesseractCmd = sprintf(
-                '"C:\\Program Files\\Tesseract-OCR\\tesseract.exe" %s %s -l eng 2>&1',
-                escapeshellarg($imagePath),
-                escapeshellarg($outBase)
-            );
-
-            shell_exec($tesseractCmd);
-
-            $txtFile = $outBase . '.txt';
-            $text    = file_exists($txtFile) ? file_get_contents($txtFile) : '';
-
-            $pageTexts[] = [
-                'number' => $index + 1,
-                'text'   => $text,
-            ];
-        }
-
-        // ── 4. Clean up all temp files ────────────────────────────────────────
-        $this->cleanupTmp($tmpDir);
-
-        // ── 5. Parse OCR'd text into structured position blocks ──────────────
-        $detector = new PositionBlockDetector(config('job_titles.titles', []));
-        $blocks = $detector->detect($pageTexts);
-
-        if (empty($blocks)) {
-            return back()->withErrors([
-                'pdf_file' => 'No recognizable position headings were found in this PDF. '
-                            . 'It may not be a vacancy announcement in the expected format, '
-                            . 'or OCR quality was too poor to detect headings.',
-            ]);
-        }
-
-        // ── 6. Expand each block into flat per-row candidates ─────────────────
-        $expander = new PositionBlockExpander();
-        $candidates = $expander->expand($blocks);
-
-        // ── 7. Store as a temporary batch for the review screen ───────────────
+        // Store the upload and let the queued job do OCR/parsing while the
+        // PDF still exists on disk.
         $batch = PdfImportBatch::create([
             'original_filename' => $originalName,
             'candidates' => [],

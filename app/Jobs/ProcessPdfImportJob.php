@@ -65,8 +65,7 @@ class ProcessPdfImportJob implements ShouldQueue
                 'error_message' => 'Processing error: ' . $e->getMessage(),
             ]);
         } finally {
-            // TEMPORARILY DISABLED FOR DEBUGGING — re-enable before normal use!
-            // $this->cleanupTmp($tmpDir);
+            $this->cleanupTmp($tmpDir);
         }
     }
 

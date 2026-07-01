@@ -1,3 +1,28 @@
+<?php
+/**
+ * patch_show_layout.php
+ *
+ * Restructures application show page:
+ * LEFT column:  candidate card → update status → interview schedule
+ * RIGHT column: application details → personal information → qualifications
+ *
+ * Drop in project root, run once: php patch_show_layout.php
+ * No migration needed. Delete after confirming it works.
+ */
+
+function do_backup(string $path): void {
+    $bak = $path . '.bak';
+    $i   = 2;
+    while (file_exists($bak)) { $bak = $path . '.bak' . $i++; }
+    file_put_contents($bak, file_get_contents($path));
+    echo "  Backed up: $bak\n";
+}
+
+$viewPath = __DIR__ . '/resources/views/applications/show.blade.php';
+if (!file_exists($viewPath)) { die("ERROR: Cannot find applications/show.blade.php\n"); }
+do_backup($viewPath);
+
+$newView = <<<'BLADE'
 @extends('layouts.app')
 
 @section('title', 'Application details')
@@ -274,3 +299,11 @@
     </div>
 </div>
 @endsection
+BLADE;
+
+file_put_contents($viewPath, $newView);
+echo "  Written: resources/views/applications/show.blade.php\n";
+echo "\n✓ Done.\n";
+echo "  Left:  candidate card → update status → interview schedule\n";
+echo "  Right: application details → personal information → qualifications\n";
+echo "Delete this script when confirmed working.\n";

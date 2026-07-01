@@ -62,7 +62,7 @@
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label small text-muted mb-1">Status on import</label>
-                                <input type="text" class="form-control form-control-sm" value="Draft" disabled>
+                                <input type="text" class="form-control form-control-sm" value="Open" disabled>
                             </div>
                             <div class="col-12">
                                 <label class="form-label small text-muted mb-1">Place of assignment</label>

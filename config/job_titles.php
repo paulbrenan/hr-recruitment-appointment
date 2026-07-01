@@ -27,6 +27,7 @@ return [
         'Administrative Officer II',
         'Administrative Officer IV',
         'Administrative Officer V',
+        'Administrative Support II For Disaster Preparedness And',
         'Administrative Support II For School-based Feeding Program (SBFP)',
         'Assistant School Principal II',
         'Attorney III',

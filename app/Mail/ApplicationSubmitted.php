@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Candidate;
+use App\Models\JobPosting;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -17,6 +18,7 @@ class ApplicationSubmitted extends Mailable
         public readonly Candidate $candidate,
         public readonly string    $transactionNumber,
         public readonly string    $position,
+        public readonly ?JobPosting $jobPosting = null,
     ) {}
 
     public function envelope(): Envelope
@@ -30,6 +32,9 @@ class ApplicationSubmitted extends Mailable
     {
         return new Content(
             view: 'mail.application-submitted',
+            with: [
+                'jobPosting' => $this->jobPosting,
+            ],
         );
     }
 }

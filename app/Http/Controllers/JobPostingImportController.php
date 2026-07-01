@@ -162,6 +162,16 @@ class JobPostingImportController extends Controller
         $created = 0;
         $skipped = 0;
 
+        // The tmp PDF at $batch->pdf_path no longer exists by this point --
+        // ProcessPdfImportJob's cleanupTmp() deletes it right after OCR
+        // finishes, long before the user reaches this confirm step. That
+        // job already copies the memo PDF into permanent public storage
+        // and stamps the path onto the batch while the file still exists,
+        // so we just read it from there. Every posting created from this
+        // import links back to the same file so applicants can view the
+        // exact source document.
+        $memoPdfPath = $batch->memo_pdf_path;
+
         // How far back to look when deciding a row is "the same import,
         // done again" rather than a genuinely new posting for the same
         // title/location. Re-running the same PDF (new upload, new batch
@@ -205,6 +215,7 @@ class JobPostingImportController extends Controller
                 'place_of_assignment' => $place,
                 'mandatory_requirements' => $mandatoryText,
                 'additional_requirements' => $additionalText,
+                'memo_pdf_path' => $memoPdfPath,
                 'vacancies' => max(1, (int) ($rowData['vacancies'] ?? 1)),
                 'employment_type' => 'Regular',
                 'status' => 'open',

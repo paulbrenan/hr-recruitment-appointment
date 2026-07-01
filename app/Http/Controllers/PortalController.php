@@ -36,7 +36,13 @@ class PortalController extends Controller
      */
     public function showJob(int $id)
     {
-        $posting = JobPosting::where('status', 'open')->findOrFail($id);
+        $posting = JobPosting::findOrFail($id);
+
+        if ($posting->status !== 'open') {
+            return redirect()
+                ->route('portal.jobs.index')
+                ->with('error', 'This position is no longer available.');
+        }
 
         $alreadyApplied = Application::where('candidate_id', $this->candidate()->id)
             ->where('job_posting_id', $id)
@@ -50,7 +56,13 @@ class PortalController extends Controller
      */
     public function apply(Request $request, int $id)
     {
-        $posting = JobPosting::where('status', 'open')->findOrFail($id);
+        $posting = JobPosting::findOrFail($id);
+
+        if ($posting->status !== 'open') {
+            return redirect()
+                ->route('portal.jobs.index')
+                ->with('error', 'Sorry, this position is no longer available for applications.');
+        }
 
         $candidate = $this->candidate();
 

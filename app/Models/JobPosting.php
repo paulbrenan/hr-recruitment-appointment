@@ -18,6 +18,7 @@ class JobPosting extends Model
         'qualification_eligibility',
         'mandatory_requirements',
         'additional_requirements',
+        'memo_pdf_path',
         'place_of_assignment',
         'employment_type',
         'salary_grade',
@@ -55,6 +56,19 @@ class JobPosting extends Model
     public function additionalRequirementsList(): array
     {
         return $this->splitRequirementLines($this->additional_requirements);
+    }
+
+    /**
+     * Public URL to the original memo PDF this posting was imported from
+     * (if any), so applicants can view the exact source document listing
+     * what's required. Null for postings created manually or imported
+     * before this feature existed.
+     */
+    public function memoPdfUrl(): ?string
+    {
+        return $this->memo_pdf_path
+            ? asset('storage/' . $this->memo_pdf_path)
+            : null;
     }
 
     private function splitRequirementLines(?string $text): array

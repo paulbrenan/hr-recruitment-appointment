@@ -10,6 +10,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProcessPdfImportJob implements ShouldQueue
 {
@@ -55,9 +57,21 @@ class ProcessPdfImportJob implements ShouldQueue
             $expander = new PositionBlockExpander();
             $candidates = $expander->expand($blocks);
 
+            // Copy the source memo PDF to permanent public storage now,
+            // while it still exists on disk. cleanupTmp() below (in the
+            // finally block) deletes $pdfPath and everything else in
+            // $tmpDir unconditionally, so this can't be deferred to
+            // confirm() -- by the time the user confirms the import,
+            // this tmp file is long gone.
+            $memoPdfPath = 'memos/' . $batch->id . '-' . Str::slug(
+                pathinfo($batch->original_filename ?? 'memo', PATHINFO_FILENAME)
+            ) . '.pdf';
+            Storage::disk('public')->put($memoPdfPath, file_get_contents($pdfPath));
+
             $batch->update([
                 'candidates' => $candidates,
                 'status' => 'ready',
+                'memo_pdf_path' => $memoPdfPath,
             ]);
         } catch (\Throwable $e) {
             $batch->update([

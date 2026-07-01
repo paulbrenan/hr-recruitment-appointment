@@ -121,6 +121,21 @@ class JobPostingImportController extends Controller
     {
         $batch = PdfImportBatch::findOrFail($batchId);
 
+        // Atomically claim this batch so a duplicate/concurrent submission
+        // (double-click, browser back+resubmit, retry, two tabs, etc.)
+        // can't run the import loop twice. Only one request will see
+        // $claimed > 0; any other request for the same batch is turned
+        // away before it can create duplicate JobPosting rows.
+        $claimed = PdfImportBatch::where('id', $batch->id)
+            ->where('status', '!=', 'confirmed')
+            ->update(['status' => 'confirmed']);
+
+        if (!$claimed) {
+            return redirect()
+                ->route('job-postings.index')
+                ->with('success', 'This import was already processed.');
+        }
+
         $validated = $request->validate([
             'selected' => ['nullable', 'array'],
             'selected.*' => ['integer'],
@@ -145,21 +160,49 @@ class JobPostingImportController extends Controller
             : null;
 
         $created = 0;
+        $skipped = 0;
+
+        // How far back to look when deciding a row is "the same import,
+        // done again" rather than a genuinely new posting for the same
+        // title/location. Re-running the same PDF (new upload, new batch
+        // id) isn't caught by the confirm()-level lock above since it's a
+        // different batch each time -- this is what actually protects
+        // against that case.
+        $recentWindow = now()->subHours(24);
 
         foreach ($editedRows as $index => $rowData) {
             if (!isset($selectedIndexes[$index])) {
                 continue;
             }
 
+            $title = $rowData['title'];
+            $place = $rowData['place_of_assignment'] ?? null;
+
+            $alreadyImported = JobPosting::where('title', $title)
+                ->where(function ($query) use ($place) {
+                    if ($place === null) {
+                        $query->whereNull('place_of_assignment');
+                    } else {
+                        $query->where('place_of_assignment', $place);
+                    }
+                })
+                ->where('created_at', '>=', $recentWindow)
+                ->exists();
+
+            if ($alreadyImported) {
+                $skipped++;
+                continue;
+            }
+
             JobPosting::create([
-                'title' => $rowData['title'],
+                'title' => $title,
                 'salary_grade' => $rowData['salary_grade'] ?? null,
                 'qualification_education' => $rowData['qualification_education'] ?? null,
                 'qualification_training' => $rowData['qualification_training'] ?? null,
                 'qualification_experience' => $rowData['qualification_experience'] ?? null,
                 'qualification_eligibility' => $rowData['qualification_eligibility'] ?? null,
                 'duties_responsibilities' => $rowData['duties_responsibilities'] ?? null,
-                'place_of_assignment' => $rowData['place_of_assignment'] ?? null,
+                'place_of_assignment' => $place,
                 'mandatory_requirements' => $mandatoryText,
                 'additional_requirements' => $additionalText,
                 'vacancies' => max(1, (int) ($rowData['vacancies'] ?? 1)),
@@ -172,8 +215,13 @@ class JobPostingImportController extends Controller
 
         $batch->delete();
 
+        $message = "Imported {$created} job posting(s) from PDF.";
+        if ($skipped > 0) {
+            $message .= " Skipped {$skipped} that matched postings already imported in the last 24 hours.";
+        }
+
         return redirect()
             ->route('job-postings.index')
-            ->with('success', "Imported {$created} job posting(s) from PDF.");
+            ->with('success', $message);
     }
 }

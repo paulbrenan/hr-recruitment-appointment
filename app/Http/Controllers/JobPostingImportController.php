@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\JobPosting;
 use App\Models\PdfImportBatch;
 use App\Jobs\ProcessPdfImportJob;
-use App\Services\PositionBlockDetector;
-use App\Services\PositionBlockExpander;
 use App\Services\RequirementsExtractor;
 use Illuminate\Http\Request;
 
@@ -18,11 +16,22 @@ class JobPostingImportController extends Controller
         return view('job-postings.import.upload');
     }
 
-            // ── OCR extraction + parsing pipeline ─────────────────────────────────────
-    // This now just saves the upload and queues the actual OCR work as a
+    // ── OCR extraction + parsing pipeline ─────────────────────────────────────
+    // This just saves the upload and queues the actual OCR work as a
     // background job, returning immediately instead of blocking the request
     // for 25-45+ seconds. See app/Jobs/ProcessPdfImportJob.php for the work,
     // and status()/processing.blade.php below for the polling progress page.
+    //
+    // IMPORTANT: this method must NOT touch pdftoppm/Tesseract, and must NOT
+    // delete $pdfPath. It used to do its own full synchronous OCR pass here
+    // (pdftoppm -> Tesseract -> PositionBlockDetector -> PositionBlockExpander),
+    // then deleted the tmp dir the PDF lived in, THEN dispatched
+    // ProcessPdfImportJob pointing at that now-deleted path -- so the queued
+    // job would always immediately fail with "Uploaded PDF file could not be
+    // found for processing", no matter how the synchronous pass above it went.
+    // All of that work already correctly happens inside ProcessPdfImportJob;
+    // this method's only job is to persist the upload somewhere that will
+    // still exist when the job runs, and hand off.
     public function extract(Request $request)
     {
         $request->validate([
@@ -106,7 +115,7 @@ class JobPostingImportController extends Controller
         // ── 7. Store as a temporary batch for the review screen ───────────────
         $batch = PdfImportBatch::create([
             'original_filename' => $originalName,
-            'candidates' => $candidates,
+            'candidates' => [],
             'expires_at' => now()->addDay(),
             'status' => 'processing',
             'pdf_path' => $pdfPath,
@@ -231,18 +240,5 @@ class JobPostingImportController extends Controller
         return redirect()
             ->route('job-postings.index')
             ->with('success', "Imported {$created} job posting(s) from PDF.");
-    }
-
-    // ── Helper: recursively delete temp directory ─────────────────────────────
-    private function cleanupTmp(string $dir): void
-    {
-        if (!is_dir($dir)) return;
-
-        $items = array_diff(scandir($dir), ['.', '..']);
-        foreach ($items as $item) {
-            $path = $dir . DIRECTORY_SEPARATOR . $item;
-            is_dir($path) ? $this->cleanupTmp($path) : unlink($path);
-        }
-        rmdir($dir);
     }
 }

@@ -12,10 +12,10 @@
   .deped-card { max-width:520px; width:100%; }
   .deped-header i.bi-check-circle-fill { font-size:2.5rem; display:block; margin-bottom:6px; }
   .deped-header h2 { font-size:1.15rem; font-weight:700; margin:0; }
-  .txn-box { background:#e8f5f5; border:2px dashed #2b7a78; border-radius:8px;
+  .txn-box { background:#e6ecf7; border:2px dashed #003087; border-radius:8px;
              text-align:center; padding:18px; margin:20px 24px; }
   .txn-box .label { font-size:.8rem; color:#555; margin-bottom:4px; }
-  .txn-box .number { font-size:1.4rem; font-weight:800; color:#2b7a78; letter-spacing:.04em; }
+  .txn-box .number { font-size:1.4rem; font-weight:800; color:#003087; letter-spacing:.04em; }
 </style>
 </head>
 <body class="deped-watermark">
@@ -40,10 +40,22 @@
       Please keep your transaction number for follow-up inquiries.
     </p>
 
+    <div class="text-center mb-3 mt-1">
+      <a href="{{ url('/') }}?txn={{ urlencode($transactionNumber) }}"
+         style="display:inline-flex;align-items:center;gap:8px;background:#003087;color:#fff;
+                font-weight:700;font-size:.9rem;padding:10px 24px;border-radius:8px;
+                text-decoration:none;">
+        <i class="bi bi-search"></i> Track Your Application
+      </a>
+      <div style="font-size:.75rem;color:#888;margin-top:6px;">
+        Uses your transaction number automatically
+      </div>
+    </div>
+
     @if (isset($jobPosting) && $jobPosting->memoPdfUrl())
     <div class="text-center mb-3">
       <a href="{{ $jobPosting->memoPdfUrl() }}" target="_blank" rel="noopener"
-         style="color:#2b7a78; font-weight:700; font-size:.85rem; text-decoration:underline;">
+         style="color:#003087; font-weight:700; font-size:.85rem; text-decoration:underline;">
         <i class="bi bi-file-earmark-pdf"></i> View the Official Memo (PDF)
       </a>
     </div>

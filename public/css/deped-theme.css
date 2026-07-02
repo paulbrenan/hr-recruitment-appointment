@@ -6,18 +6,27 @@
    ============================================================ */
 
 :root {
-  --teal: #2b7a78;
-  --teal-light: #def2f1;
-  --teal-mid: #3aafa9;
-  --teal-dark: #1d5e5c;
-  --gold: #ffc20e;
+  --teal: #003087;
+  --teal-light: #e6ecf7;
+  --teal-mid: #0047b3;
+  --teal-dark: #0a1a33;
+  --gold: #ffd700;
   --navy: #00247d;
 }
 
 body {
-  background: linear-gradient(135deg, #d9f0ef 0%, #e8f5f5 50%, #c8e6e5 100%);
+  background: url('../matatag-bg.png') center center / cover no-repeat fixed;
   min-height: 100vh;
   font-family: 'Segoe UI', Arial, sans-serif;
+  position: relative;
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 48, 135, 0.72);
+  z-index: 0;
+  pointer-events: none;
 }
 
 /* ---------- Watermark seal behind content ---------- */

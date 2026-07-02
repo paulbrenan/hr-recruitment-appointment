@@ -219,32 +219,14 @@
 </head>
 <body>
     <div class="auth-header">
-        <a href="/" class="auth-header-brand">
-            <img src="/sdo-logo.png" alt="SDO Cavite" class="auth-header-logo">
-            <div class="auth-header-text">
-                <div class="org">Schools Division Office of Cavite Province</div>
-                <div class="sys">HR Recruitment System</div>
-            </div>
-        </a>
+        <span><i class="bi bi-people-fill me-2"></i>@yield('brand', 'HR Recruitment')</span>
         <span class="auth-header-datetime" id="authHeaderDateTime"></span>
         <span class="auth-header-spacer"></span>
     </div>
     <div class="auth-wrapper">
         <div class="card auth-card">
-            <div class="card-body">
-                <div class="auth-card-header">
-                    <img src="/sdo-logo.png" alt="SDO Cavite" class="auth-card-header-logo">
-                    <div class="auth-card-header-text">
-                        <div class="eyebrow">Department of Education</div>
-                        <div class="title">Schools Division Office<br>of Cavite Province</div>
-                    </div>
-                </div>
-                <div class="auth-card-body">
-                    @yield('content')
-                </div>
-                <div class="auth-card-footer">
-                    &copy; {{ date('Y') }} DepEd &mdash; Schools Division Office of Cavite Province
-                </div>
+            <div class="card-body p-4">
+                @yield('content')
             </div>
         </div>
     </div>

@@ -8,10 +8,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         :root {
-            --hr-primary: #2f4858;
-            --hr-primary-dark: #233843;
-            --hr-accent: #3f7d8c;
-            --hr-bg: #f4f6f7;
+            --hr-primary: #003087;
+            --hr-primary-dark: #0a1a33;
+            --hr-accent: #ffd700;
+            --hr-bg: #f0f4fa;
         }
         body { background: var(--hr-bg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         .portal-navbar {

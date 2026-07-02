@@ -1,11 +1,93 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'HR Recruitment') &mdash; HR System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<?php
+// patch_auth.php — run once from project root, then delete
+// Usage: php patch_auth.php
+
+$authTarget  = __DIR__ . '/resources/views/layouts/auth.blade.php';
+$loginTarget = __DIR__ . '/resources/views/auth/login.blade.php';
+
+foreach ([$authTarget, $loginTarget] as $f) {
+    if (!file_exists($f)) die("❌  File not found: $f\n");
+}
+
+function apply_patch(string $file, string $old, string $new, string $label): void {
+    $src   = file_get_contents($file);
+    $count = substr_count($src, $old);
+    if ($count === 0) die("❌  ABORT [{$label}]: old content not found in {$file}. No changes written.\n");
+    if ($count  > 1) die("❌  ABORT [{$label}]: matched {$count} times (expected 1) in {$file}. No changes written.\n");
+
+    $bak = $file . '.bak';
+    $i   = 2;
+    while (file_exists($bak)) { $bak = $file . '.bak' . $i++; }
+    file_put_contents($bak, $src);
+
+    file_put_contents($file, str_replace($old, $new, $src));
+    echo "✅  [{$label}] patched. Backup → {$bak}\n";
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  AUTH LAYOUT
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 1. Replace entire <style> block with DepEd theme
+apply_patch($authTarget,
+<<<'OLD'
+    <style>
+        :root {
+            --hr-primary: #1a5f4f;
+            --hr-primary-dark: #134539;
+            --hr-accent: #2fae57;
+            --hr-bg: #f4f6f7;
+            --hr-header-h: 56px;
+        }
+        html, body {
+            background-color: var(--hr-bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+        }
+        .auth-header {
+            height: var(--hr-header-h);
+            background-color: var(--hr-primary);
+            color: #fff;
+            padding: 0 1.5rem;
+            font-weight: 600;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .auth-header-datetime {
+            color: #c9d4d9;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        @media(max-width:560px){ .auth-header-datetime { display: none; } }
+        .auth-header-spacer { width: 0; flex-shrink: 0; }
+        @media(min-width:680px){ .auth-header-spacer { width: 180px; } }
+        .auth-wrapper {
+            min-height: calc(100vh - var(--hr-header-h));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .auth-card {
+            width: 100%;
+            max-width: 440px;
+            border: 1px solid #e2e6e8;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+        }
+        .btn-hr-primary {
+            background-color: var(--hr-primary);
+            color: #fff;
+        }
+        .btn-hr-primary:hover {
+            background-color: var(--hr-primary-dark);
+            color: #fff;
+        }
+    </style>
+OLD,
+<<<'NEW'
     <style>
         :root {
             --blue:       #003087;
@@ -215,9 +297,20 @@
             text-align: center;
         }
     </style>
-    @stack('styles')
-</head>
-<body>
+NEW,
+    'Auth layout CSS'
+);
+
+// 2. Replace the header HTML (logo text → SDO logo image + text)
+apply_patch($authTarget,
+<<<'OLD'
+    <div class="auth-header">
+        <span><i class="bi bi-people-fill me-2"></i>@yield('brand', 'HR Recruitment')</span>
+        <span class="auth-header-datetime" id="authHeaderDateTime"></span>
+        <span class="auth-header-spacer"></span>
+    </div>
+OLD,
+<<<'NEW'
     <div class="auth-header">
         <a href="/" class="auth-header-brand">
             <img src="/sdo-logo.png" alt="SDO Cavite" class="auth-header-logo">
@@ -229,6 +322,22 @@
         <span class="auth-header-datetime" id="authHeaderDateTime"></span>
         <span class="auth-header-spacer"></span>
     </div>
+NEW,
+    'Auth header brand'
+);
+
+// 3. Replace the auth-wrapper / card structure to inject card header banner
+apply_patch($authTarget,
+<<<'OLD'
+    <div class="auth-wrapper">
+        <div class="card auth-card">
+            <div class="card-body p-4">
+                @yield('content')
+            </div>
+        </div>
+    </div>
+OLD,
+<<<'NEW'
     <div class="auth-wrapper">
         <div class="card auth-card">
             <div class="card-body">
@@ -248,33 +357,18 @@
             </div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        (function () {
-            const el = document.getElementById('authHeaderDateTime');
-            if (!el) return;
+NEW,
+    'Auth card structure'
+);
 
-            function update() {
-                const now = new Date();
-                const datePart = now.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                });
-                const timePart = now.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: true,
-                });
-                el.textContent = datePart + ' at ' + timePart;
-            }
+// ══════════════════════════════════════════════════════════════════════════════
+//  LOGIN BLADE — update title yield
+// ══════════════════════════════════════════════════════════════════════════════
+apply_patch($loginTarget,
+    "@section('title', 'Sign in')\n@section('brand', 'HR Recruitment')",
+    "@section('title', 'Sign in')",
+    'Login: remove brand section (now in layout)'
+);
 
-            update();
-            setInterval(update, 1000);
-        })();
-    </script>
-    @stack('scripts')
-</body>
-</html>
+echo "\n🎉  All patches applied.\n";
+echo "    Run: php artisan view:clear\n";

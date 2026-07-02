@@ -172,7 +172,7 @@
     display: flex; align-items: center; gap: 28px;
   }
   .footer-divider {
-    width: 1px; height: 52px; background: rgba(255,255,255,.25);
+    width: 1px; height: 52px; background: #c8d0dc;
   }
   .footer-logo-img { height: 56px; width: auto; }
   .footer-icon-link {
@@ -185,7 +185,7 @@
   .footer-icon-link.fb { background: #1877f2; }
   .footer-icon-link.email { background: var(--red); }
   .footer-copy {
-    font-size: .7rem; color: rgba(255,255,255,.65);
+    font-size: .7rem; color: #8a95a8;
     letter-spacing: .06em; text-transform: uppercase;
   }
 

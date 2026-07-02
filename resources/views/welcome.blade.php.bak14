@@ -185,7 +185,7 @@
   .footer-icon-link.fb { background: #1877f2; }
   .footer-icon-link.email { background: var(--red); }
   .footer-copy {
-    font-size: .7rem; color: rgba(255,255,255,.65);
+    font-size: .7rem; color: #8a95a8;
     letter-spacing: .06em; text-transform: uppercase;
   }
 

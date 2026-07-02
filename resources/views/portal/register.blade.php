@@ -79,7 +79,7 @@
     <form action="{{ route('portal.register.attempt') }}" method="POST" id="recruitForm">
       @csrf
 
-      {{-- ── PERSONAL INFORMATION ──────────────────────────────── --}}
+      {{-- ── PERSONAL INFORMATION ─────────────────────────────────── --}}
       <div class="section-title">Personal Information</div>
       <p style="font-size:.8rem;color:#888;margin:-10px 0 16px;">* Required</p>
 
@@ -109,40 +109,15 @@
         <label class="form-label"><span class="q-num">2.</span> Position Applying For <span class="required-star">*</span></label>
         @error('position_applied')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
         @php
-        $positions = [
-            'Contract of Service (COS)',
-            'Accountant I','Accountant III',
-            'Administrative Aide I','Administrative Aide III','Administrative Aide IV','Administrative Aide VI',
-            'Administrative Assistant I','Administrative Assistant II',
-            'Administrative Assistant II (Disbursing Officer)','Administrative Assistant II (Verifier)',
-            'Administrative Assistant III','Administrative Assistant III (Senior Bookkeeper)',
-            'Administrative Officer I','Administrative Officer II','Administrative Officer IV','Administrative Officer V',
-            'Assistant School Principal II','Attorney III',
-            'Chief Education Program Supervisor',
-            'Dental Aide','Dentist II','Driver',
-            'Education Program Specialist','Education Program Supervisor',
-            'Elementary School Principal III',
-            'Engineer III',
-            'Farmworker I',
-            'Guidance Coordinator I','Guidance Coordinator II','Guidance Coordinator III',
-            'Guidance Counselor I','Guidance Counselor II','Guidance Counselor III',
-            'Handicraft Worker',
-            'Head Teacher I','Head Teacher II','Head Teacher III','Head Teacher IV','Head Teacher V','Head Teacher VI',
-            'Information Technology Officer I','Legal Assistant I',
-            'Medical Officer III','Nurse II','Planning Officer III',
-            'Project Development Officer I','Project Development Officer II',
-            'Public Schools District Supervisor','Registrar I',
-            'School Librarian I','School Librarian II',
-            'School Principal I','School Principal II','School Principal III',
-            'Security Guard I','Security Guard II',
-            'Senior Education Program Specialist',
-            'Teacher I','Teacher II','Teacher III',
-            'Master Teacher I','Master Teacher II',
-            'Special Science Teacher I',
-            'Special Education Teacher I','Special Education Teacher II','Special Education Teacher III',
-            'Watchman I',
-          ];
-      @endphp
+          // Pulled live from job_postings so the dropdown can never list a
+          // position that doesn't actually exist / isn't open. Previously
+          // this was a hardcoded ~70-item static list disconnected from
+          // the database, which let candidates select titles that always
+          // failed validation on submit.
+          $positions = \App\Models\JobPosting::where('status', 'open')
+              ->orderBy('title')
+              ->pluck('title');
+        @endphp
         <select name="position_applied"
             class="form-select @error('position_applied') is-invalid @enderror"
               required>
@@ -153,6 +128,9 @@
               </option>
             @endforeach
         </select>
+        @if ($positions->isEmpty())
+        <p class="hint text-danger">No open positions are currently available. Please check back later.</p>
+        @endif
       </div>
 
       {{-- 3. Address --}}
@@ -244,7 +222,7 @@
         @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
       </div>
 
-      {{-- ── QUALIFICATIONS ────────────────────────────────────── --}}
+      {{-- ── QUALIFICATIONS ───────────────────────────────────────── --}}
       <div class="section-title">Qualifications</div>
 
       {{-- 12. Education --}}

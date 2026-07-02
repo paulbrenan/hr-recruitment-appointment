@@ -48,12 +48,12 @@
                 <tr>
                     <td class="fw-medium">{{ $a->application->candidate->full_name }}</td>
                     <td>{{ $a->position_title }}</td>
-                    <td>{{ $a->item_number ?? 'â€”' }}</td>
+                    <td>{{ $a->item_number ?? '—' }}</td>
                     <td>
                         <span class="badge text-bg-light text-dark border">{{ str_replace('_', ' ', ucfirst($a->appointment_status)) }}</span>
                     </td>
-                    <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : 'â€”' }}</td>
-                    <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : 'â€”' }}</td>
+                    <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : '—' }}</td>
+                    <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : '—' }}</td>
                     <td>
                         @if ($a->letter_sent_at)
                             <span class="badge text-bg-success">Sent</span>
@@ -70,9 +70,9 @@
                             data-bs-target="#paperModal"
                             data-candidate-name="{{ $a->application->candidate->full_name }}"
                             data-position-title="{{ $a->position_title }}"
-                            data-item-number="{{ $a->item_number ?? 'â€”' }}"
+                            data-item-number="{{ $a->item_number ?? '—' }}"
                             data-appointment-status="{{ str_replace('_', ' ', ucfirst($a->appointment_status)) }}"
-                            data-appointment-date="{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('F d, Y') : 'â€”' }}"
+                            data-appointment-date="{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('F d, Y') : '—' }}"
                         >
                             <i class="bi bi-file-earmark-pdf"></i> Paper
                         </button>
@@ -132,7 +132,7 @@
                             <option value="" disabled selected>Select candidate / application</option>
                             @foreach ($eligibleApplications as $application)
                                 <option value="{{ $application->id }}">
-                                    {{ $application->candidate->full_name }} â€” {{ $application->jobPosting->title }}
+                                    {{ $application->candidate->full_name }} — {{ $application->jobPosting->title }}
                                 </option>
                             @endforeach
                         </select>
@@ -295,10 +295,10 @@
                             <tr>
                                 <td>{{ $a->application->candidate->full_name }}</td>
                                 <td>{{ $a->position_title }}</td>
-                                <td>{{ $a->item_number ?? 'â€”' }}</td>
+                                <td>{{ $a->item_number ?? '—' }}</td>
                                 <td>{{ str_replace('_', ' ', ucfirst($a->appointment_status)) }}</td>
-                                <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : 'â€”' }}</td>
-                                <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : 'â€”' }}</td>
+                                <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : '—' }}</td>
+                                <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : '—' }}</td>
                             </tr>
                             @endforeach
                         </tbody>

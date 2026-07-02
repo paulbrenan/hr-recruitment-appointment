@@ -54,7 +54,7 @@
     justify-content: space-between;
     padding: 10px 32px;
     background: rgba(0, 48, 135, 0.96);
-    border-bottom: none;
+    border-bottom: 2px solid var(--red);
     position: sticky;
     top: 0;
     z-index: 200;
@@ -65,14 +65,20 @@
   .topnav-logo { height: 48px; width: auto; display: block; filter: drop-shadow(0 1px 4px rgba(0,0,0,.3)); }
   .topnav-text .org { font-size: .68rem; font-weight: 700; color: rgba(255,255,255,.7); letter-spacing: .1em; text-transform: uppercase; }
   .topnav-text .sys { font-size: .92rem; font-weight: 800; color: #ffffff; line-height: 1.15; }
-  .topnav-clock {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    line-height: 1.2;
+  .btn-admin {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--red); color: #fff;
+    padding: 9px 18px; border-radius: 8px;
+    font-size: .82rem; font-weight: 700;
+    text-decoration: none; transition: background .2s;
+    border: none;
   }
+  .btn-admin:hover { background: var(--red-dark); color: #fff; }
+  .topnav-clock { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
   .topnav-clock .clock-date { font-size: .75rem; font-weight: 600; color: rgba(255,255,255,.65); }
   .topnav-clock .clock-time { font-size: .9rem; font-weight: 800; color: #fff; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+  .topnav-spacer { width: 0; flex-shrink: 0; }
+  @media(min-width:680px){ .topnav-spacer { width: 172px; } }
   @media(max-width:560px){ .topnav-clock { display: none; } }
 
   /* ── PAGE CONTENT ── */
@@ -87,11 +93,10 @@
   }
 
   .hero-eyebrow {
-    font-size: .82rem; font-weight: 800; letter-spacing: .18em;
-    text-transform: uppercase; color: #ffd700;
-    background: transparent; padding: 0;
-    border-radius: 0; margin-bottom: 14px; display: block;
-    text-shadow: 0 1px 6px rgba(0,0,0,.4);
+    font-size: .72rem; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: #fff;
+    background: rgba(206,17,38,.85); padding: 5px 16px;
+    border-radius: 20px; margin-bottom: 18px; display: inline-block;
   }
   .hero-title {
     font-size: clamp(1.9rem, 5vw, 3rem);
@@ -137,13 +142,43 @@
   }
   .btn-track:hover { background: var(--dark); }
   .btn-track:disabled { opacity: .6; cursor: not-allowed; }
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 20px 0; color: var(--muted);
+    font-size: .78rem; font-weight: 500;
+  }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #d0daea; }
+  .btn-apply {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 13px;
+    background: var(--red); color: #fff;
+    border-radius: 8px; font-size: .9rem; font-weight: 700;
+    text-decoration: none; transition: .2s;
+  }
+  .btn-apply:hover { background: var(--red-dark); color: #fff; }
+
+  /* ── INFO STRIP ── */
+  .info-strip {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 0; max-width: 580px; width: 100%;
+  }
+  .info-card {
+    flex: 1; min-width: 140px;
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 10px; padding: 14px 16px; text-align: center;
+    backdrop-filter: blur(4px);
+  }
+  .info-card i { font-size: 1.3rem; color: #ffd700; margin-bottom: 5px; display: block; }
+  .info-card .val { font-size: .78rem; font-weight: 700; color: #fff; }
+  .info-card .lbl { font-size: .7rem; color: rgba(255,255,255,.7); }
 
   /* ── CONTACT & LOCATION ── */
   .contact-section {
     width: 100%; max-width: 900px; margin: 48px auto 0;
     padding: 0 24px; text-align: center;
   }
-  .contact-place { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 28px; letter-spacing: .01em; }
   .contact-title { font-size: .95rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 4px; }
   .contact-subtitle { font-size: .85rem; font-weight: 700; color: #fff; margin-bottom: 28px; }
   .contact-grid { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-bottom: 36px; }
@@ -158,36 +193,34 @@
 
   /* ── FOOTER ── */
   footer {
-    background: rgba(0, 48, 135, 0.96);
-    border-top: 3px solid rgba(255,215,0,.6);
-    padding: 22px 32px 16px;
-    position: relative;
-    z-index: 1;
+    padding: 18px 32px;
+    background: rgba(0, 48, 135, 0.97);
+    border-top: 2px solid var(--red);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
     backdrop-filter: blur(8px);
   }
-  .footer-inner {
-    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  .footer-brand {
+    display: flex; align-items: center; gap: 12px;
   }
-  .footer-items {
-    display: flex; align-items: center; gap: 28px;
-  }
-  .footer-divider {
-    width: 1px; height: 52px; background: rgba(255,255,255,.25);
-  }
-  .footer-logo-img { height: 56px; width: auto; }
-  .footer-icon-link {
+  .footer-logo-link { display: flex; align-items: center; }
+  .footer-logo-img { height: 40px; width: auto; filter: drop-shadow(0 1px 4px rgba(0,0,0,.4)); }
+  .footer-brand-text { font-size: .75rem; font-weight: 700; color: rgba(255,255,255,.8); line-height: 1.4; }
+  .footer-social { display: flex; align-items: center; gap: 10px; }
+  .footer-social a {
     display: flex; align-items: center; justify-content: center;
-    width: 46px; height: 46px; border-radius: 50%;
-    color: #fff; font-size: 1.25rem; text-decoration: none;
-    transition: opacity .2s;
+    width: 36px; height: 36px; border-radius: 8px;
+    color: #fff; font-size: 1rem; text-decoration: none;
+    transition: background .2s;
   }
-  .footer-icon-link:hover { opacity: .82; }
-  .footer-icon-link.fb { background: #1877f2; }
-  .footer-icon-link.email { background: var(--red); }
-  .footer-copy {
-    font-size: .7rem; color: rgba(255,255,255,.65);
-    letter-spacing: .06em; text-transform: uppercase;
-  }
+  .footer-social a.fb { background: #1877f2; }
+  .footer-social a.fb:hover { background: #0d5fd3; }
+  .footer-social a.email { background: var(--red); }
+  .footer-social a.email:hover { background: var(--red-dark); }
+  .footer-copy { font-size: .7rem; color: rgba(255,255,255,.55); text-align: right; }
 
   /* ── MODAL ── */
   .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,48,135,.6); z-index: 500; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(4px); }
@@ -247,19 +280,22 @@
     <img src="/sdo-logo.png" alt="SDO Cavite" class="topnav-logo">
     <div class="topnav-text">
       <div class="org">Schools Division Office of Cavite Province</div>
-      <div class="sys">Online Recruitment Tracking System</div>
+      <div class="sys">Online Recruitment System</div>
     </div>
   </a>
   <div class="topnav-clock">
     <span class="clock-date" id="clockDate"></span>
     <span class="clock-time" id="clockTime"></span>
   </div>
+  <div class="topnav-spacer">
+    <a href="/login" class="btn-admin"><i class="bi bi-shield-lock"></i> Staff Login</a>
+  </div>
 </nav>
 
 <!-- ── MAIN CONTENT ── -->
 <div class="page-content">
-  <span class="hero-eyebrow">Department of Education</span>
-<h1 class="hero-title">Online Recruitment<br><span class="accent">Tracking System</span></h1>
+  <span class="hero-eyebrow">DepEd Cavite Province</span>
+  <h1 class="hero-title">Online <span class="accent">Recruitment</span> Portal</h1>
   <p class="hero-sub">Apply for positions or track your application status</p>
 
   <!-- Track Box -->
@@ -270,11 +306,33 @@
       <input type="text" id="txnInput" class="track-input" placeholder="e.g. APP-20260601-ABCD1234" autocomplete="off" spellcheck="false">
       <button class="btn-track" onclick="trackApplication()">TRACK <i class="bi bi-arrow-right"></i></button>
     </div>
+    <div class="divider">or</div>
+    <a href="/portal/register" class="btn-apply"><i class="bi bi-pencil-square"></i> Apply for a Position</a>
+  </div>
+
+  <!-- Info strip -->
+  <div class="info-strip">
+    <div class="info-card">
+      <i class="bi bi-file-earmark-text"></i>
+      <div class="val">Transparent</div>
+      <div class="lbl">Merit-based hiring</div>
+    </div>
+    <div class="info-card">
+      <i class="bi bi-clock-history"></i>
+      <div class="val">Real-time</div>
+      <div class="lbl">Status tracking</div>
+    </div>
+    <div class="info-card">
+      <i class="bi bi-shield-check"></i>
+      <div class="val">Secure</div>
+      <div class="lbl">Data privacy</div>
+    </div>
   </div>
 
   <!-- Contact Section -->
   <div class="contact-section">
-    <p class="contact-place">Schools Division Office of Cavite Province</p>
+    <p class="contact-title">Get in Touch</p>
+    <p class="contact-subtitle">Schools Division Office of Cavite Province</p>
     <div class="contact-grid">
       <div class="contact-item">
         <i class="bi bi-telephone"></i>
@@ -304,21 +362,24 @@
 
 <!-- ── FOOTER ── -->
 <footer>
-  <div class="footer-inner">
-    <div class="footer-items">
-      <a href="https://depedcavite.com.ph/" target="_blank" rel="noopener">
-        <img src="/sdo-logo.png" alt="SDO Cavite" class="footer-logo-img">
-      </a>
-      <div class="footer-divider"></div>
-      <a href="https://www.facebook.com/depedtayocaviteprovince" target="_blank" rel="noopener" class="footer-icon-link fb" title="Facebook">
-        <i class="bi bi-facebook"></i>
-      </a>
-      <div class="footer-divider"></div>
-      <a href="mailto:deped.cavite@deped.gov.ph" class="footer-icon-link email" title="Email us">
-        <i class="bi bi-envelope-fill"></i>
-      </a>
+  <div class="footer-brand">
+    <a href="https://depedcavite.com.ph/" target="_blank" rel="noopener" class="footer-logo-link">
+      <img src="/sdo-logo.png" alt="DepEd Cavite" class="footer-logo-img">
+    </a>
+    <div class="footer-brand-text">
+      Department of Education<br>Schools Division Office of Cavite Province
     </div>
-    <div class="footer-copy">&copy; {{ date('Y') }} DepEd &mdash; Schools Division Office of Cavite Province</div>
+  </div>
+  <div class="footer-social">
+    <a href="https://www.facebook.com/depedtayocaviteprovince" target="_blank" rel="noopener" class="fb" title="Facebook">
+      <i class="bi bi-facebook"></i>
+    </a>
+    <a href="mailto:deped.cavite@deped.gov.ph" class="email" title="Email us">
+      <i class="bi bi-envelope-fill"></i>
+    </a>
+  </div>
+  <div class="footer-copy">
+    &copy; {{ date('Y') }} DepEd Cavite Province<br>All rights reserved.
   </div>
 </footer>
 
@@ -340,14 +401,8 @@ const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 (function clock() {
   function tick() {
     const now = new Date();
-    const datePart = now.toLocaleDateString('en-PH', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
-    const timePart = now.toLocaleTimeString('en-PH', {
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-    });
-    document.getElementById('clockDate').textContent = datePart;
-    document.getElementById('clockTime').textContent = timePart;
+    document.getElementById('clockDate').textContent = now.toLocaleDateString('en-PH',{weekday:'short',month:'short',day:'numeric'});
+    document.getElementById('clockTime').textContent = now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }
   tick();
   setInterval(tick, 1000);

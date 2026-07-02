@@ -8,10 +8,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         :root {
-            --hr-primary: #003087;
-            --hr-primary-dark: #0a1a33;
-            --hr-accent: #ffd700;
-            --hr-bg: #f0f4fa;
+            --hr-primary: #1a5f4f;
+            --hr-primary-dark: #134539;
+            --hr-accent: #2fae57;
+            --hr-bg: #f4f6f7;
             --hr-header-h: 56px;
         }
         html, body {
@@ -164,8 +164,8 @@
 
     <div class="hr-shell">
         <nav class="hr-sidebar" id="hrSidebar">
-            <div class="hr-sidebar-brand" style="justify-content:center;">
-                 <img src="/sdo-logo.png" alt="DepEd Cavite" style="height:38px;width:auto;filter:drop-shadow(0 1px 4px rgba(0,0,0,.3));">
+            <div class="hr-sidebar-brand">
+                <i class="bi bi-people-fill me-2"></i><span class="brand-label">HR Recruitment</span>
             </div>
             <div class="nav flex-column py-2">
                 <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Dashboard">
@@ -199,23 +199,22 @@
         </nav>
 
         <div class="hr-content-wrapper">
-            <header class="hr-header" style="position:relative;">
-            <div class="d-flex align-items-center gap-2">
-        <button type="button" class="btn-icon" id="hrSidebarToggleBtn" aria-label="Toggle sidebar">
-            <i class="bi bi-list"></i>
-        </button>
-        <a href="{{ route('dashboard') }}" class="btn-icon" aria-label="Go to dashboard">
-            <i class="bi bi-house"></i>
-        </a>
-         </div>
-         <span class="hr-header-datetime" id="hrHeaderDateTime"
-             style="position:absolute;left:50%;transform:translateX(-50%);"></span>
-         <div class="d-flex align-items-center gap-2">
-        <button type="button" class="btn-icon" id="hrFullscreenBtn" aria-label="Toggle fullscreen">
-            <i class="bi bi-arrows-fullscreen"></i>
-        </button>
-    </div>
-        </header>
+            <header class="hr-header">
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn-icon" id="hrSidebarToggleBtn" aria-label="Toggle sidebar">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <a href="{{ route('dashboard') }}" class="btn-icon" aria-label="Go to dashboard">
+                        <i class="bi bi-house"></i>
+                    </a>
+                    <span class="hr-header-datetime" id="hrHeaderDateTime"></span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn-icon" id="hrFullscreenBtn" aria-label="Toggle fullscreen">
+                        <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                </div>
+            </header>
 
             <div class="hr-content">
                 <div class="hr-pagebar d-flex justify-content-between align-items-center">

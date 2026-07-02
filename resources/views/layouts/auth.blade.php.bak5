@@ -231,20 +231,8 @@
     </div>
     <div class="auth-wrapper">
         <div class="card auth-card">
-            <div class="card-body">
-                <div class="auth-card-header">
-                    <img src="/sdo-logo.png" alt="SDO Cavite" class="auth-card-header-logo">
-                    <div class="auth-card-header-text">
-                        <div class="eyebrow">Department of Education</div>
-                        <div class="title">Schools Division Office<br>of Cavite Province</div>
-                    </div>
-                </div>
-                <div class="auth-card-body">
-                    @yield('content')
-                </div>
-                <div class="auth-card-footer">
-                    &copy; {{ date('Y') }} DepEd &mdash; Schools Division Office of Cavite Province
-                </div>
+            <div class="card-body p-4">
+                @yield('content')
             </div>
         </div>
     </div>

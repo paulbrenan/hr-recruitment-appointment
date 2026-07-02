@@ -316,7 +316,7 @@
   </div>
 
   <div class="form-footer">
-    Never give out your password. &bull; DepEd Division of Cavite Province
+    DepEd Division of Cavite Province
   </div>
 </div>
 

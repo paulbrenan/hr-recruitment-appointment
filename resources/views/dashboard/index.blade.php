@@ -124,8 +124,8 @@
                 {
                     label: 'Applications',
                     data: @json($monthlyApplicationsData),
-                    borderColor: '#3f7d8c',
-                    backgroundColor: 'rgba(63, 125, 140, 0.1)',
+                    borderColor: '#003087',
+                    backgroundColor: 'rgba(0, 48, 135, 0.1)',
                     tension: 0.3,
                     fill: true,
                 },

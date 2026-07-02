@@ -20,6 +20,7 @@
     --muted: #5a6880;
     --bg: #f0f4fa;
     --white: #ffffff;
+    --green: #2e7d32
   }
   body {
     font-family: 'Inter', sans-serif;
@@ -217,11 +218,11 @@
   .step:first-child::before { display: none; }
   .step-dot { width: 26px; height: 26px; border-radius: 50%; background: #d0daea; color: #9aa8c0; display: flex; align-items: center; justify-content: center; font-size: .68rem; font-weight: 800; margin: 0 auto 4px; position: relative; z-index: 1; }
   .step.done .step-dot { background: var(--blue); color: #fff; }
-  .step.active .step-dot { background: var(--red); color: #fff; box-shadow: 0 0 0 4px var(--blue-light); }
+  .step.active .step-dot { background: var(--green); color: #fff; box-shadow: 0 0 0 4px var(--blue-light); }
   .step.done::before { background: var(--blue); }
   .step-lbl { font-size: .58rem; color: var(--muted); font-weight: 600; line-height: 1.2; }
   .step.done .step-lbl { color: var(--blue); }
-  .step.active .step-lbl { color: var(--red); }
+  .step.active .step-lbl { color: var(--green); }
 
   .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
   .detail-item { background: var(--blue-light); border-radius: 8px; padding: 10px 14px; }

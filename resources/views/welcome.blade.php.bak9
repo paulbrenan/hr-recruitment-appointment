@@ -143,7 +143,6 @@
     width: 100%; max-width: 900px; margin: 48px auto 0;
     padding: 0 24px; text-align: center;
   }
-  .contact-place { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 28px; letter-spacing: .01em; }
   .contact-title { font-size: .95rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 4px; }
   .contact-subtitle { font-size: .85rem; font-weight: 700; color: #fff; margin-bottom: 28px; }
   .contact-grid { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-bottom: 36px; }
@@ -158,12 +157,11 @@
 
   /* ── FOOTER ── */
   footer {
-    background: rgba(0, 48, 135, 0.96);
-    border-top: 3px solid rgba(255,215,0,.6);
+    background: rgba(255,255,255,0.97);
+    border-top: 3px solid #d0d8e8;
     padding: 22px 32px 16px;
     position: relative;
     z-index: 1;
-    backdrop-filter: blur(8px);
   }
   .footer-inner {
     display: flex; flex-direction: column; align-items: center; gap: 14px;
@@ -172,7 +170,7 @@
     display: flex; align-items: center; gap: 28px;
   }
   .footer-divider {
-    width: 1px; height: 52px; background: rgba(255,255,255,.25);
+    width: 1px; height: 52px; background: #c8d0dc;
   }
   .footer-logo-img { height: 56px; width: auto; }
   .footer-icon-link {
@@ -185,7 +183,7 @@
   .footer-icon-link.fb { background: #1877f2; }
   .footer-icon-link.email { background: var(--red); }
   .footer-copy {
-    font-size: .7rem; color: rgba(255,255,255,.65);
+    font-size: .7rem; color: #8a95a8;
     letter-spacing: .06em; text-transform: uppercase;
   }
 
@@ -258,7 +256,7 @@
 
 <!-- ── MAIN CONTENT ── -->
 <div class="page-content">
-  <span class="hero-eyebrow">Department of Education</span>
+  <span class="hero-eyebrow">DepEd Cavite Province</span>
 <h1 class="hero-title">Online Recruitment<br><span class="accent">Tracking System</span></h1>
   <p class="hero-sub">Apply for positions or track your application status</p>
 
@@ -274,7 +272,7 @@
 
   <!-- Contact Section -->
   <div class="contact-section">
-    <p class="contact-place">Schools Division Office of Cavite Province</p>
+    <h1 class="hero-eyebrow">Schools Division Office of Cavite Province</h1>
     <div class="contact-grid">
       <div class="contact-item">
         <i class="bi bi-telephone"></i>

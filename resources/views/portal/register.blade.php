@@ -47,7 +47,7 @@
 <div class="form-card">
   {{-- Header --}}
   <div class="deped-header">
-    <img src="{{ asset('images/deped-logo.png') }}" alt="DepEd Logo" class="deped-logo">
+    <img src="/sdo-logo.png" alt="DepEd Logo" class="deped-logo">
     <div class="deped-header-text">
       <h1>Department of Education – Division of Cavite Province<br>Online Recruitment Form</h1>
       <p class="sub">Answer the following information truthfully and with honesty.</p>

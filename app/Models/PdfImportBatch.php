@@ -42,6 +42,7 @@ class PdfImportBatch extends Model
         'status',
         'error_message',
         'pdf_path',
+        'memo_pdf_path',
     ];
 
     protected $casts = [

@@ -237,8 +237,8 @@ class JobPostingImportController extends Controller
                 continue;
             }
 
-            $firstPlace     = $locationRows[0]['place_of_assignment'] ?? null;
-            $totalVacancies = $hrVacancies; // HR's edited top-level vacancies field
+            $firstPlace = $locationRows[0]['place_of_assignment'] ?? null;
+            $totalVacancies = array_sum(array_column($locationRows, 'vacancies')) ?: 1;
 
             $posting = JobPosting::create([
                 'title' => $title,

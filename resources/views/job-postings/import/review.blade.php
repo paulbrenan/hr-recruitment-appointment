@@ -66,8 +66,48 @@
                     <input type="text" class="form-control form-control-sm" value="Open" disabled>
                 </div>
                 <div class="col-12">
-                    <label class="form-label small text-muted mb-1">Place of assignment</label>
-                    <input type="text" class="form-control form-control-sm" name="rows[{{ $i }}][place_of_assignment]" value="" placeholder="Enter the actual place of assignment (not reliably OCR'd — please type this in)">
+                    <label class="form-label small text-muted mb-1">
+                        Places of assignment
+                        <span class="text-muted fw-normal" style="font-size: 0.72rem;">
+                            — one row per vacancy slot. Add the same school twice for 2 vacancies there.
+                        </span>
+                    </label>
+                    <div class="border rounded p-2" style="background: #fafafa;">
+                        <table class="table table-sm mb-2 align-middle" style="font-size: 0.82rem;">
+                            <thead>
+                                <tr>
+                                    <th>Place of assignment</th>
+                                    <th style="width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="location-tbody" data-group="{{ $i }}">
+                                @for ($v = 0; $v < $group['rows']->count(); $v++)
+                                <tr class="location-import-row">
+                                    <td>
+                                        <div class="position-relative location-import-wrapper">
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm location-import-input"
+                                                name="rows[{{ $i }}][location_place][]"
+                                                autocomplete="off"
+                                                placeholder="Search or type a school..."
+                                            >
+                                            <div class="list-group position-absolute w-100 shadow-sm location-import-results"
+                                                 style="z-index:1050;max-height:180px;overflow-y:auto;display:none;top:100%;"></div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-import-location"
+                                                title="Remove row"><i class="bi bi-x-lg"></i></button>
+                                    </td>
+                                </tr>
+                                @endfor
+                            </tbody>
+                        </table>
+                        <button type="button" class="btn btn-sm btn-outline-secondary add-import-location" data-group="{{ $i }}">
+                            <i class="bi bi-plus-lg me-1"></i> Add row
+                        </button>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label small text-muted mb-1">Education</label>
@@ -125,6 +165,81 @@
 }
 </style>
 <script>
+    // ── School search for import location rows ────────────────────────
+    @php
+        $importSchoolOptions = array_merge(config('schools.schools', []), config('schools.sdo_units', []));
+    @endphp
+    const importSchools = @json($importSchoolOptions);
+
+    function initImportLocationRow(row) {
+        const input      = row.querySelector('.location-import-input');
+        const resultsBox = row.querySelector('.location-import-results');
+        if (!input || input._importInited) return;
+        input._importInited = true;
+
+        function render(filter) {
+            const q = filter.trim().toLowerCase();
+            const matches = q === ''
+                ? importSchools
+                : importSchools.filter(s => s.toLowerCase().includes(q));
+            resultsBox.innerHTML = '';
+            if (!matches.length) { resultsBox.style.display = 'none'; return; }
+            matches.slice(0, 50).forEach(function (school) {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action small py-1';
+                item.textContent = school;
+                item.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    input.value = school;
+                    resultsBox.style.display = 'none';
+                });
+                resultsBox.appendChild(item);
+            });
+            resultsBox.style.display = 'block';
+        }
+
+        input.addEventListener('input',  () => render(input.value));
+        input.addEventListener('focus',  () => render(input.value));
+        input.addEventListener('blur',   () => setTimeout(() => { resultsBox.style.display = 'none'; }, 200));
+    }
+
+    // Init all existing rows on page load
+    document.querySelectorAll('.location-import-row').forEach(initImportLocationRow);
+
+    // Remove row (keep at least 1)
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.remove-import-location');
+        if (!btn) return;
+        const tbody = btn.closest('tbody');
+        if (tbody.querySelectorAll('.location-import-row').length <= 1) {
+            // just clear it
+            const input = btn.closest('tr').querySelector('.location-import-input');
+            if (input) input.value = '';
+            return;
+        }
+        btn.closest('tr').remove();
+    });
+
+    // Add row
+    document.querySelectorAll('.add-import-location').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const group  = this.dataset.group;
+            const tbody  = document.querySelector('.location-tbody[data-group="' + group + '"]');
+            const tmpl   = tbody.querySelector('.location-import-row');
+            const newRow = tmpl.cloneNode(true);
+            const input  = newRow.querySelector('.location-import-input');
+            const results = newRow.querySelector('.location-import-results');
+            input.value = '';
+            input._importInited = false;
+            results.innerHTML = '';
+            results.style.display = 'none';
+            tbody.appendChild(newRow);
+            initImportLocationRow(newRow);
+            input.focus();
+        });
+    });
+
     // ── Floating confirm bar ──────────────────────────────────────────
     var totalRows = document.querySelectorAll('input[name="selected[]"]').length;
 

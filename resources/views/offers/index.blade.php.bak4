@@ -65,20 +65,16 @@
                                 <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Send</button>
                             </form>
                             @elseif ($o->status === 'sent')
-                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
-                                  onsubmit="return confirm('Mark this offer as accepted?')">
-                                @csrf
-                                @method('PUT')
-                                <input type="hidden" name="response" value="accepted">
-                                <button type="submit" class="btn btn-sm btn-outline-success">Accept</button>
-                            </form>
-                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
-                                  onsubmit="return confirm('Mark this offer as declined?')">
-                                @csrf
-                                @method('PUT')
-                                <input type="hidden" name="response" value="declined">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-success"
+                                data-bs-toggle="modal" data-bs-target="#respondModal"
+                                data-offer-id="{{ $o->id }}" data-response="accepted">
+                                Accept
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                data-bs-toggle="modal" data-bs-target="#respondModal"
+                                data-offer-id="{{ $o->id }}" data-response="declined">
+                                Decline
+                            </button>
                             @else
                             <span class="text-muted small">No actions</span>
                             @endif
@@ -111,7 +107,7 @@
         @endif
         <form method="POST" action="{{ route('offers.store') }}" class="row g-2">
             @csrf
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <select name="application_id" class="form-select form-select-sm" required>
                     <option value="">Select candidate</option>
                     @foreach ($eligibleApplications as $app)
@@ -136,7 +132,7 @@
                 </select>
                 <div class="form-text" style="font-size: 0.72rem;" id="sgAmountHint">&nbsp;</div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <input type="date" name="response_deadline" class="form-control form-control-sm" min="{{ now()->toDateString() }}" value="{{ old('response_deadline') }}">
             </div>
             <div class="col-md-2">
@@ -147,31 +143,44 @@
     </div>
 </div>
 
-{{-- Respond modal removed — accept/decline now use inline forms per row --}}
+{{-- Respond to offer modal --}}
+<div class="modal fade" id="respondModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" id="respondForm" action="">
+                @csrf
+                @method('PUT')
+                <input type="hidden" name="response" id="respondResponseInput">
+                <div class="modal-header">
+                    <h6 class="modal-title" id="respondModalTitle">Confirm response</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small mb-0" id="respondModalBody"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
-    // ── SG/step → compensation live preview ──────────────────────────────────
-    const sgTable = @json(config('salary_grades.table'));
+    document.getElementById('respondModal').addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const offerId = button.getAttribute('data-offer-id');
+        const response = button.getAttribute('data-response');
 
-    function updateAmountHint() {
-        const sg   = parseInt(document.getElementById('sgSelect').value);
-        const step = parseInt(document.getElementById('stepSelect').value);
-        const hint = document.getElementById('sgAmountHint');
-        if (sg && step && sgTable[sg] && sgTable[sg][step - 1]) {
-            const amount = sgTable[sg][step - 1];
-            hint.textContent = '₱' + amount.toLocaleString('en-PH');
-            hint.style.color = 'var(--hr-primary)';
-        } else {
-            hint.textContent = '\u00a0';
-        }
-    }
-
-    document.getElementById('sgSelect').addEventListener('change', updateAmountHint);
-    document.getElementById('stepSelect').addEventListener('change', updateAmountHint);
-    updateAmountHint(); // run on load in case old() values are present
-
-    // Respond modal removed — no JS needed for accept/decline
+        document.getElementById('respondForm').action = '/offers/' + offerId + '/respond';
+        document.getElementById('respondResponseInput').value = response;
+        document.getElementById('respondModalTitle').textContent = response === 'accepted' ? 'Mark offer as accepted' : 'Mark offer as declined';
+        document.getElementById('respondModalBody').textContent = response === 'accepted'
+            ? 'This will mark the offer as accepted and update the application status accordingly.'
+            : 'This will mark the offer as declined and update the application status accordingly.';
+    });
 </script>
 @endpush

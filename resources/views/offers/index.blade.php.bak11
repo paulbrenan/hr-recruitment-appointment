@@ -172,6 +172,30 @@
     document.getElementById('stepSelect').addEventListener('change', updateAmountHint);
     updateAmountHint(); // run on load in case old() values are present
 
-    // Respond modal removed — no JS needed for accept/decline
+    // ── Respond modal ────────────────────────────────────────────────────────
+    document.getElementById('respondModal').addEventListener('show.bs.modal', function (event) {
+        const button   = event.relatedTarget;
+        const offerId  = button.getAttribute('data-offer-id');
+        const response = button.getAttribute('data-response');
+
+        const form = document.getElementById('respondForm');
+        form.action = '/offers/' + offerId + '/respond';
+
+        // Ensure the _method spoofing field is PUT
+        let methodInput = form.querySelector('input[name="_method"]');
+        if (!methodInput) {
+            methodInput = document.createElement('input');
+            methodInput.type  = 'hidden';
+            methodInput.name  = '_method';
+            form.appendChild(methodInput);
+        }
+        methodInput.value = 'PUT';
+
+        document.getElementById('respondResponseInput').value = response;
+        document.getElementById('respondModalTitle').textContent  = response === 'accepted' ? 'Mark offer as accepted' : 'Mark offer as declined';
+        document.getElementById('respondModalBody').textContent   = response === 'accepted'
+            ? 'This will mark the offer as accepted and update the application status accordingly.'
+            : 'This will mark the offer as declined and update the application status accordingly.';
+    });
 </script>
 @endpush

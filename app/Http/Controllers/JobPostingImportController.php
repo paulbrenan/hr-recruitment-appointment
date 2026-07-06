@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobPosting;
+use App\Models\JobPostingLocation;
 use App\Models\PdfImportBatch;
 use App\Jobs\ProcessPdfImportJob;
 use Illuminate\Http\Request;
@@ -117,6 +118,13 @@ class JobPostingImportController extends Controller
     }
 
     // ── Confirm: bulk-create real job_postings from checked candidates ────────
+    // Each group can now carry MULTIPLE place-of-assignment rows (typed in on
+    // the review screen via the "type place, press Enter, add another" UI),
+    // instead of a single Place field. For each selected group we create one
+    // JobPosting, then bulk-insert its job_posting_locations rows -- mirroring
+    // JobPostingController::syncLocations() -- and keep the legacy
+    // place_of_assignment/vacancies columns in sync from the first location +
+    // the summed vacancy count, same convention the manual form uses.
     public function confirm(Request $request, $batchId)
     {
         $batch = PdfImportBatch::findOrFail($batchId);
@@ -140,6 +148,9 @@ class JobPostingImportController extends Controller
             'selected' => ['nullable', 'array'],
             'selected.*' => ['integer'],
             'rows' => ['required', 'array'],
+            'rows.*.locations' => ['nullable', 'array'],
+            'rows.*.locations.*.place' => ['nullable', 'string', 'max:255'],
+            'rows.*.locations.*.vacancies' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $selectedIndexes = array_flip($validated['selected'] ?? []);
@@ -174,10 +185,16 @@ class JobPostingImportController extends Controller
 
         // How far back to look when deciding a row is "the same import,
         // done again" rather than a genuinely new posting for the same
-        // title/location. Re-running the same PDF (new upload, new batch
-        // id) isn't caught by the confirm()-level lock above since it's a
-        // different batch each time -- this is what actually protects
-        // against that case.
+        // title. Re-running the same PDF (new upload, new batch id) isn't
+        // caught by the confirm()-level lock above since it's a different
+        // batch each time -- this is what actually protects against that
+        // case.
+        //
+        // NOTE: this now matches on title alone (not title + place), since
+        // a single group can fan out into several locations at once. If you
+        // re-run the same PDF and only add a NEW location to an existing
+        // title, the whole group is skipped rather than partially
+        // re-created -- flag if you'd rather this check per-location.
         $recentWindow = now()->subHours(24);
 
         foreach ($editedRows as $index => $rowData) {
@@ -186,16 +203,22 @@ class JobPostingImportController extends Controller
             }
 
             $title = $rowData['title'];
-            $place = $rowData['place_of_assignment'] ?? null;
+
+            // Clean up the locations the user typed in: drop any blank rows
+            // (e.g. a trailing empty row left over from the add-on-Enter UI).
+            $locationRows = [];
+            foreach (($rowData['locations'] ?? []) as $loc) {
+                $place = trim($loc['place'] ?? '');
+                if ($place === '') {
+                    continue;
+                }
+                $locationRows[] = [
+                    'place_of_assignment' => $place,
+                    'vacancies' => max(1, (int) ($loc['vacancies'] ?? 1)),
+                ];
+            }
 
             $alreadyImported = JobPosting::where('title', $title)
-                ->where(function ($query) use ($place) {
-                    if ($place === null) {
-                        $query->whereNull('place_of_assignment');
-                    } else {
-                        $query->where('place_of_assignment', $place);
-                    }
-                })
                 ->where('created_at', '>=', $recentWindow)
                 ->exists();
 
@@ -204,7 +227,10 @@ class JobPostingImportController extends Controller
                 continue;
             }
 
-            JobPosting::create([
+            $firstPlace = $locationRows[0]['place_of_assignment'] ?? null;
+            $totalVacancies = array_sum(array_column($locationRows, 'vacancies')) ?: 1;
+
+            $posting = JobPosting::create([
                 'title' => $title,
                 'salary_grade' => $rowData['salary_grade'] ?? null,
                 'qualification_education' => $rowData['qualification_education'] ?? null,
@@ -212,14 +238,31 @@ class JobPostingImportController extends Controller
                 'qualification_experience' => $rowData['qualification_experience'] ?? null,
                 'qualification_eligibility' => $rowData['qualification_eligibility'] ?? null,
                 'duties_responsibilities' => $rowData['duties_responsibilities'] ?? null,
-                'place_of_assignment' => $place,
+                // Legacy single-location columns, kept in sync from the
+                // first entered location -- same convention as
+                // syncLocations() uses on the manual job posting form.
+                'place_of_assignment' => $firstPlace,
                 'mandatory_requirements' => $mandatoryText,
                 'additional_requirements' => $additionalText,
                 'memo_pdf_path' => $memoPdfPath,
-                'vacancies' => max(1, (int) ($rowData['vacancies'] ?? 1)),
+                'vacancies' => $totalVacancies,
                 'employment_type' => 'Regular',
                 'status' => 'open',
             ]);
+
+            if (!empty($locationRows)) {
+                $insertRows = [];
+                foreach ($locationRows as $loc) {
+                    $insertRows[] = [
+                        'job_posting_id' => $posting->id,
+                        'place_of_assignment' => $loc['place_of_assignment'],
+                        'vacancies' => $loc['vacancies'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                JobPostingLocation::insert($insertRows);
+            }
 
             $created++;
         }

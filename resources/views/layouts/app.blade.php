@@ -211,6 +211,9 @@
          <span class="hr-header-datetime" id="hrHeaderDateTime"
              style="position:absolute;left:50%;transform:translateX(-50%);"></span>
          <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn-icon" id="hrActivityLogBtn" aria-label="Activity log" data-bs-toggle="modal" data-bs-target="#activityLogModal">
+            <i class="bi bi-journal-text"></i>
+        </button>
         <button type="button" class="btn-icon" id="hrFullscreenBtn" aria-label="Toggle fullscreen">
             <i class="bi bi-arrows-fullscreen"></i>
         </button>
@@ -226,6 +229,43 @@
                 </div>
                 <div class="hr-main">
                     @yield('content')
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log Book Modal -->
+    <div class="modal fade" id="activityLogModal" tabindex="-1" aria-labelledby="activityLogModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="activityLogModalLabel"><i class="bi bi-journal-text me-2"></i>Activity Log Book</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="activityLogLoading" class="text-center text-muted py-4">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        Loading activity...
+                    </div>
+                    <div class="table-responsive d-none" id="activityLogTableWrap">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>When</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activityLogTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="activityLogEmpty" class="text-center text-muted py-4 d-none">
+                        No activity recorded yet.
+                    </div>
+                    <div id="activityLogError" class="text-center text-danger py-4 d-none">
+                        Could not load activity log. Please try again.
+                    </div>
                 </div>
             </div>
         </div>
@@ -310,6 +350,61 @@
 
             update();
             setInterval(update, 1000);
+        })();
+
+        (function () {
+            const modal = document.getElementById('activityLogModal');
+            const loading = document.getElementById('activityLogLoading');
+            const tableWrap = document.getElementById('activityLogTableWrap');
+            const tableBody = document.getElementById('activityLogTableBody');
+            const emptyState = document.getElementById('activityLogEmpty');
+            const errorState = document.getElementById('activityLogError');
+
+            function actionBadge(action) {
+                const map = { created: 'success', updated: 'primary', deleted: 'danger' };
+                const cls = map[action] || 'secondary';
+                return '<span class="badge bg-' + cls + '-subtle text-' + cls + ' border border-' + cls + '-subtle text-capitalize">' + action + '</span>';
+            }
+
+            function render(logs) {
+                loading.classList.add('d-none');
+                if (!logs.length) {
+                    emptyState.classList.remove('d-none');
+                    return;
+                }
+                tableBody.innerHTML = logs.map(function (log) {
+                    return '<tr>' +
+                        '<td class="text-nowrap small">' + log.created_at + '</td>' +
+                        '<td class="small">' + log.user + '</td>' +
+                        '<td>' + actionBadge(log.action) + '</td>' +
+                        '<td class="small">' + (log.subject_label || log.description || '') + '</td>' +
+                        '</tr>';
+                }).join('');
+                tableWrap.classList.remove('d-none');
+            }
+
+            modal.addEventListener('show.bs.modal', function () {
+                loading.classList.remove('d-none');
+                tableWrap.classList.add('d-none');
+                emptyState.classList.add('d-none');
+                errorState.classList.add('d-none');
+                tableBody.innerHTML = '';
+
+                fetch('{{ route("activity-logs.index") }}', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                    .then(function (res) {
+                        if (!res.ok) throw new Error('bad response');
+                        return res.json();
+                    })
+                    .then(function (data) {
+                        render(data.logs || []);
+                    })
+                    .catch(function () {
+                        loading.classList.add('d-none');
+                        errorState.classList.remove('d-none');
+                    });
+            });
         })();
     </script>
     @stack('scripts')

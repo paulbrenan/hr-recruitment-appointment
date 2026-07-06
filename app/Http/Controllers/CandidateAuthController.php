@@ -24,7 +24,7 @@ class CandidateAuthController extends Controller
             'first_name'       => ['required', 'string', 'max:255'],
             'middle_name'      => ['nullable', 'string', 'max:255'],
             'last_name'        => ['required', 'string', 'max:255'],
-            'position_applied' => ['required', 'string', 'max:255'],
+            'job_posting_id'   => ['required', 'integer', 'exists:job_postings,id'],
             'address'          => ['required', 'string', 'max:500'],
             'age'              => ['required', 'integer', 'min:18', 'max:70'],
             'sex'              => ['required', 'in:Male,Female'],
@@ -44,19 +44,22 @@ class CandidateAuthController extends Controller
         // Resolve the job posting BEFORE creating any account/records, so
         // an invalid or no-longer-open position stops registration cleanly
         // instead of silently creating a candidate with no application and
-        // telling them "submitted successfully" anyway.
-        $jobPosting = \App\Models\JobPosting::where('title', $validated['position_applied'])->first();
+        // telling them "submitted successfully" anyway. Resolved by ID
+        // (not title) so two postings sharing a title but differing in
+        // place of assignment can never be confused with one another.
+        $jobPosting = \App\Models\JobPosting::find($validated['job_posting_id']);
 
         if (!$jobPosting || $jobPosting->status !== 'open') {
             return back()
                 ->withInput()
-                ->withErrors(['position_applied' => 'Sorry, this position is no longer available. Please choose another open position.']);
+                ->withErrors(['job_posting_id' => 'Sorry, this position is no longer available. Please choose another open position.']);
         }
 
         $candidate = Candidate::create([
             'first_name'       => $validated['first_name'],
             'middle_name'      => $validated['middle_name'] ?? null,
             'last_name'        => $validated['last_name'],
+            'position_applied' => $jobPosting->title,
             'email'            => $validated['email'],
             'phone'            => $validated['phone'],
             'address'          => $validated['address'],
@@ -88,7 +91,7 @@ class CandidateAuthController extends Controller
         // Send confirmation email (non-blocking — catches any mail failure)
         try {
             Mail::to($candidate->email)
-                ->send(new ApplicationSubmitted($candidate, $txn, $validated['position_applied'], $jobPosting));
+                ->send(new ApplicationSubmitted($candidate, $txn, $jobPosting->title, $jobPosting));
         } catch (\Throwable $e) {
             Log::error('Recruitment confirmation email failed: ' . $e->getMessage());
         }
@@ -96,7 +99,7 @@ class CandidateAuthController extends Controller
         return view('portal.submitted', [
             'candidate'         => $candidate,
             'transactionNumber' => $txn,
-            'position'          => $validated['position_applied'],
+            'position'          => $jobPosting->title,
             'jobPosting'        => $jobPosting,
         ]);
     }

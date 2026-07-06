@@ -15,7 +15,6 @@ use App\Http\Controllers\TalentPoolController;
 use App\Http\Controllers\PipelineController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\RankingController;
-use App\Http\Controllers\PanelistController;
 
 // Admin (HR staff) authentication
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -84,12 +83,6 @@ Route::get('/job-postings/{id}', [JobPostingController::class, 'show'])->name('j
 Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-postings.store');
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
-// Mark one applicant as hired → rejects all others on same posting + closes posting
-Route::post('/job-postings/{postingId}/hire/{applicationId}', [JobPostingController::class, 'hireApplicant'])->name('job-postings.hire');
-
-// Panelist pool management
-Route::put('/panelists/{id}', [PanelistController::class, 'update'])->name('panelists.update');
-Route::delete('/panelists/{id}', [PanelistController::class, 'destroy'])->name('panelists.destroy');
 
 // Rankings
 Route::get('/rankings', [RankingController::class, 'index'])->name('rankings.index');
@@ -100,7 +93,8 @@ Route::post('/rankings/send-all', [RankingController::class, 'sendAll'])->name('
 Route::get('/applications', [ApplicationController::class, 'index'])->name('applications.index');
 Route::get('/applications/{id}', [ApplicationController::class, 'show'])->name('applications.show');
 Route::put('/applications/{id}/status', [ApplicationController::class, 'updateStatus'])->name('applications.updateStatus');
-Route::delete('/applications/{id}', [ApplicationController::class, 'destroy'])->name('applications.destroy');
+Route::post('/applications/{id}/qualification-check', [ApplicationController::class, 'saveQualificationCheck'])->name('applications.qualification-check');
+Route::post('/applications/{id}/qualification-notice', [ApplicationController::class, 'sendQualificationNotice'])->name('applications.qualification-notice');
 
 // Scheduling
 Route::get('/interviews', [InterviewScheduleController::class, 'index'])->name('interviews.index');

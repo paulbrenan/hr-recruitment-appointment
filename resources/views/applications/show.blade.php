@@ -7,6 +7,9 @@
 @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
+@if (session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
+@endif
 
 @php
     $statusColors = [
@@ -23,6 +26,20 @@
         'rejected'            => 'danger',
     ];
     $color = $statusColors[$application->status] ?? 'secondary';
+
+    // "shortlisted" and "assessed" are hidden from the dropdown per the
+    // current workflow simplification, but if a record already carries one
+    // of those statuses (from before), we still include it here so the
+    // select shows the true current value instead of silently defaulting
+    // to the first option.
+    $statusOptions = ['submitted', 'screening', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'];
+    if (!in_array($application->status, $statusOptions, true)) {
+        $statusOptions[] = $application->status;
+    }
+
+    $check = $application->qualification_check ?? [];
+    $jobPosting = $application->jobPosting;
+    $candidate = $application->candidate;
 @endphp
 
 <div class="row g-3">
@@ -57,16 +74,6 @@
                     </form>
                 @endif
                 @endif
-
-                <hr class="my-2">
-                <form action="{{ route('applications.destroy', $application->id) }}" method="POST"
-                      onsubmit="return confirm('Delete this application? This will also delete any linked documents, interview schedules, assessments, job offers, and appointments. This cannot be undone.')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">
-                        <i class="bi bi-trash me-1"></i> Delete application
-                    </button>
-                </form>
             </div>
         </div>
 
@@ -89,7 +96,7 @@
                     @csrf
                     @method('PUT')
                     <select name="status" class="form-select form-select-sm">
-                        @foreach (['submitted','screening','shortlisted','interview_scheduled','assessed','ranked','offer_sent','offer_accepted','offer_declined','hired','rejected'] as $s)
+                        @foreach ($statusOptions as $s)
                             <option value="{{ $s }}" {{ old('status', $application->status) === $s ? 'selected' : '' }}>
                                 {{ str_replace('_', ' ', ucfirst($s)) }}
                             </option>
@@ -190,6 +197,155 @@
                     </div>
                     @endif
                 </div>
+            </div>
+        </div>
+
+        {{-- Position requirements (from the job posting this candidate applied to) --}}
+        <div class="card">
+            <div class="card-header bg-white py-2">
+                <span class="fw-medium small">Position Requirements</span>
+            </div>
+            <div class="card-body p-3">
+                @if ($jobPosting && ($jobPosting->qualification_education || $jobPosting->qualification_training || $jobPosting->qualification_experience || $jobPosting->qualification_eligibility))
+                    <div class="row g-2 small">
+                        @if ($jobPosting->qualification_education)
+                        <div class="col-md-6">
+                            <div class="text-muted mb-1">Education required</div>
+                            <div class="fw-medium">{{ $jobPosting->qualification_education }}</div>
+                        </div>
+                        @endif
+                        @if ($jobPosting->qualification_training)
+                        <div class="col-md-6">
+                            <div class="text-muted mb-1">Training required</div>
+                            <div class="fw-medium">{{ $jobPosting->qualification_training }}</div>
+                        </div>
+                        @endif
+                        @if ($jobPosting->qualification_experience)
+                        <div class="col-md-6">
+                            <div class="text-muted mb-1">Experience required</div>
+                            <div class="fw-medium">{{ $jobPosting->qualification_experience }}</div>
+                        </div>
+                        @endif
+                        @if ($jobPosting->qualification_eligibility)
+                        <div class="col-md-6">
+                            <div class="text-muted mb-1">Eligibility required</div>
+                            <div class="fw-medium">{{ $jobPosting->qualification_eligibility }}</div>
+                        </div>
+                        @endif
+                    </div>
+                @else
+                    <p class="text-muted small mb-0">No qualification standards specified for this posting.</p>
+                @endif
+            </div>
+        </div>
+
+        {{-- Qualification checklist --}}
+        <div class="card">
+            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                <span class="fw-medium small">Qualification Checklist</span>
+                @if ($application->qualification_result)
+                    <span class="badge text-bg-{{ $application->qualification_result === 'qualified' ? 'success' : 'danger' }}">
+                        {{ ucfirst($application->qualification_result) }}
+                    </span>
+                @endif
+            </div>
+            <div class="card-body p-3">
+                <form action="{{ route('applications.qualification-check', $application->id) }}" method="POST">
+                    @csrf
+
+                    {{-- Notice header fields — typed manually each time, per the current workflow --}}
+                    <div class="row g-2 small mb-3">
+                        <div class="col-sm-6">
+                            <label class="text-muted mb-1 d-block" for="item_number">Plantilla Item No.</label>
+                            <input type="text" name="item_number" id="item_number" class="form-control form-control-sm"
+                                   placeholder="e.g. OSEC-DECSB-ADOF4-123456-2015"
+                                   value="{{ old('item_number', $check['item_number'] ?? '') }}">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="text-muted mb-1 d-block" for="chair_name">Sub-Committee Chair</label>
+                            <input type="text" name="chair_name" id="chair_name" class="form-control form-control-sm"
+                                   placeholder="Full name"
+                                   value="{{ old('chair_name', $check['chair_name'] ?? '') }}">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="text-muted mb-1 d-block" for="evaluation_date">Evaluation Date</label>
+                            <input type="date" name="evaluation_date" id="evaluation_date" class="form-control form-control-sm"
+                                   value="{{ old('evaluation_date', $check['evaluation_date'] ?? '') }}">
+                        </div>
+                    </div>
+
+                    {{--
+                        Per-criterion rows matching the official CSC-format notice:
+                        each row = required QS (reference only) + the candidate's
+                        actual qualification text (typed by HR) + Qualified/Not
+                        qualified radio buttons. Overall result = qualified only
+                        if every row is marked Qualified (see
+                        ApplicationController::saveQualificationCheck).
+                    --}}
+                    @php
+                        $criteriaFields = [
+                            'education' => ['label' => 'Education', 'required' => $jobPosting->qualification_education ?? null],
+                            'experience' => ['label' => 'Experience', 'required' => $jobPosting->qualification_experience ?? null],
+                            'training' => ['label' => 'Training', 'required' => $jobPosting->qualification_training ?? null],
+                            'eligibility' => ['label' => 'Eligibility', 'required' => $jobPosting->qualification_eligibility ?? null],
+                        ];
+                    @endphp
+
+                    <div class="mb-2">
+                        @foreach ($criteriaFields as $key => $meta)
+                            @php
+                                $rowActual = old($key . '_actual', $check['criteria'][$key]['actual'] ?? '');
+                                $rowPassed = old($key . '_passed', array_key_exists($key, $check['criteria'] ?? []) ? ($check['criteria'][$key]['passed'] ? '1' : '0') : null);
+                            @endphp
+                            <div class="border-bottom py-2">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <label class="fw-medium mb-0">{{ $meta['label'] }}</label>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <input type="radio" class="btn-check" name="{{ $key }}_passed" value="1"
+                                               id="{{ $key }}_passed_yes" autocomplete="off"
+                                               {{ $rowPassed === '1' ? 'checked' : '' }}>
+                                        <label class="btn btn-outline-success" for="{{ $key }}_passed_yes" style="font-size:.7rem; padding:.15rem .5rem;">Qualified</label>
+
+                                        <input type="radio" class="btn-check" name="{{ $key }}_passed" value="0"
+                                               id="{{ $key }}_passed_no" autocomplete="off"
+                                               {{ $rowPassed === '0' ? 'checked' : '' }}>
+                                        <label class="btn btn-outline-danger" for="{{ $key }}_passed_no" style="font-size:.7rem; padding:.15rem .5rem;">Not qualified</label>
+                                    </div>
+                                </div>
+                                @if ($meta['required'])
+                                    <div class="text-muted mb-1" style="font-size:.75rem;">
+                                        Required: {{ $meta['required'] }}
+                                    </div>
+                                @endif
+                                <input type="text" name="{{ $key }}_actual" class="form-control form-control-sm"
+                                       placeholder="Candidate's actual {{ strtolower($meta['label']) }}..."
+                                       value="{{ $rowActual }}">
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <textarea name="check_notes" class="form-control form-control-sm mb-2" rows="2"
+                              placeholder="Notes about this qualification check...">{{ old('check_notes', $check['notes'] ?? '') }}</textarea>
+
+                    <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                        Save qualification check
+                    </button>
+                </form>
+
+                @if ($application->qualification_result)
+                    <hr class="my-2">
+                    <form action="{{ route('applications.qualification-notice', $application->id) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn-sm w-100" style="background-color: var(--hr-primary); color: #fff;">
+                            {{ $application->qualification_notified_at ? 'Resend result email' : 'Email result to candidate' }}
+                        </button>
+                    </form>
+                    @if ($application->qualification_notified_at)
+                        <p class="text-muted mb-0 mt-2" style="font-size:.75rem;">
+                            Last sent {{ \Carbon\Carbon::parse($application->qualification_notified_at)->format('M d, Y h:i A') }}
+                        </p>
+                    @endif
+                @endif
             </div>
         </div>
 

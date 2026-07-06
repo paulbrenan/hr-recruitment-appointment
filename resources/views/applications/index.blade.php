@@ -13,7 +13,13 @@
         <form method="GET" action="{{ route('applications.index') }}" class="d-flex">
             <select name="status" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
                 <option value="" {{ request('status') === null || request('status') === '' ? 'selected' : '' }}>All statuses</option>
-                @foreach (['submitted', 'screening', 'shortlisted', 'interview_scheduled', 'assessed', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'] as $statusOption)
+                {{--
+                    "shortlisted" and "assessed" are intentionally left out of
+                    this list per the current workflow simplification. They
+                    still exist in the database enum (legacy records may
+                    carry them), they're just not offered as filter choices.
+                --}}
+                @foreach (['submitted', 'screening', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'] as $statusOption)
                     <option value="{{ $statusOption }}" {{ request('status') === $statusOption ? 'selected' : '' }}>
                         {{ str_replace('_', ' ', ucfirst($statusOption)) }}
                     </option>
@@ -68,13 +74,6 @@
                         <a href="{{ route('applications.show', $app->id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-eye"></i> View
                         </a>
-                        <form action="{{ route('applications.destroy', $app->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this application? This will also delete any linked documents, interview schedules, assessments, job offers, and appointments. This cannot be undone.')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
                     </td>
                 </tr>
                 @endforeach

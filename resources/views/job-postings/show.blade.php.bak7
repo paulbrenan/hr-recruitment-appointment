@@ -17,46 +17,23 @@
         </div>
 
         <div class="row g-3 mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <div class="text-muted small">Vacancies</div>
+                <div class="fw-medium">{{ $posting->vacancies }}</div>
+            </div>
+            <div class="col-md-3">
                 <div class="text-muted small">Posted</div>
                 <div class="fw-medium">{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="text-muted small">Closes</div>
                 <div class="fw-medium">{{ $posting->closes_at ? \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') : '—' }}</div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="text-muted small">Status</div>
                 <span class="badge text-bg-success">{{ ucfirst($posting->status) }}</span>
             </div>
         </div>
-
-        {{-- Locations table --}}
-        @if ($locations->isNotEmpty())
-        <div class="mb-3">
-            <div class="text-muted small mb-2">Places of assignment</div>
-            <table class="table table-sm table-bordered mb-0" style="font-size: 0.875rem;">
-                <thead class="table-light">
-                    <tr>
-                        <th>Place of assignment</th>
-                        <th class="text-center" style="width: 120px;">Vacancies</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($locations as $loc)
-                    <tr>
-                        <td>{{ $loc->place_of_assignment }}</td>
-                        <td class="text-center">{{ $loc->vacancies }}</td>
-                    </tr>
-                    @endforeach
-                    <tr class="table-light fw-medium">
-                        <td class="text-end text-muted small">Total</td>
-                        <td class="text-center">{{ $locations->sum('vacancies') }}</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        @endif
 
         <hr>
 

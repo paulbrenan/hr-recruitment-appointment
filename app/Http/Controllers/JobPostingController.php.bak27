@@ -185,49 +185,6 @@ class JobPostingController extends Controller
     }
 
     /**
-     * Sync place-of-assignment locations from the form submission.
-     * Expects parallel arrays:
-     *   location_place[]    — place of assignment strings
-     *   location_vacancies[] — vacancy count per place
-     * Empty/blank place rows are skipped.
-     */
-    private function syncLocations(JobPosting $posting, \Illuminate\Http\Request $request): void
-    {
-        $places    = $request->input('location_place', []);
-        $vacancies = $request->input('location_vacancies', []);
-
-        // Delete all existing location rows for this posting then re-insert
-        $posting->locations()->delete();
-
-        $rows = [];
-        foreach ($places as $i => $place) {
-            $place = trim($place);
-            if ($place === '') continue;
-
-            $rows[] = [
-                'job_posting_id'     => $posting->id,
-                'place_of_assignment' => $place,
-                'vacancies'          => max(1, (int) ($vacancies[$i] ?? 1)),
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ];
-        }
-
-        if (!empty($rows)) {
-            JobPostingLocation::insert($rows);
-        }
-
-        // Keep the legacy place_of_assignment column in sync (first location)
-        // so existing code that reads it doesn't break
-        $first = $rows[0]['place_of_assignment'] ?? null;
-        $totalVacancies = array_sum(array_column($rows, 'vacancies')) ?: 1;
-        $posting->updateQuietly([
-            'place_of_assignment' => $first,
-            'vacancies'           => $totalVacancies,
-        ]);
-    }
-
-    /**
      * Sync panelist assignments and availability from the form submission.
      * Expects:
      *   panelist_ids[]        — checked panelist IDs to assign

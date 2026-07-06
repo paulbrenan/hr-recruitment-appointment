@@ -1,0 +1,314 @@
+/* ============================================================
+   hr-interactive.css
+   Shared interactivity/animation layer for the DepEd Cavite
+   HR Recruitment System.
+
+   Works on top of BOTH design systems already in the app:
+     - Admin/app shell     -> --hr-primary / --hr-primary-dark / --hr-accent / --hr-bg
+     - Public/portal pages -> --blue / --blue-mid / --blue-light / --red / --dark / --gold
+
+   Include this ONE file on every page (after Bootstrap, before
+   any page-specific <style> block) and load hr-interactive.js
+   near the end of <body>. Nothing here requires markup changes —
+   it progressively enhances existing Bootstrap classes
+   (.card, .btn, .alert, .table, .badge, .modal, .form-control,
+   .accordion, [data-count]) plus a few opt-in helper classes.
+   ============================================================ */
+
+:root{
+  /* Fallbacks so this file works even on pages that only define
+     one of the two variable sets (or neither). */
+  --hri-primary: var(--hr-primary, var(--blue, #003087));
+  --hri-primary-dark: var(--hr-primary-dark, var(--dark, #0a1a33));
+  --hri-accent: var(--hr-accent, var(--gold, #ffd700));
+  --hri-danger: var(--red, #ce1126);
+  --hri-bg: var(--hr-bg, var(--bg, #f0f4fa));
+  --hri-ease: cubic-bezier(.22,.61,.36,1);
+}
+
+/* ------------------------------------------------------------
+   0. Respect reduced-motion preference globally
+------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------
+   1. Page-load fade-in (auto-applied by JS to <main>/content root)
+------------------------------------------------------------ */
+.hri-fade-in{ animation: hriFadeUp .45s var(--hri-ease) both; }
+@keyframes hriFadeUp{
+  from{ opacity:0; transform: translateY(10px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+
+/* Stagger children (cards, table rows, list items) */
+.hri-stagger > *{
+  opacity:0;
+  animation: hriFadeUp .4s var(--hri-ease) both;
+}
+
+/* ------------------------------------------------------------
+   2. Cards
+------------------------------------------------------------ */
+.card{
+  transition: transform .18s var(--hri-ease), box-shadow .18s var(--hri-ease), border-color .18s var(--hri-ease);
+}
+.card.hri-hoverable:hover,
+a.stat-card-link:hover .card,
+.talent-card:hover .card,
+.candidate-row:hover{
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(0,48,135,.12);
+  border-color: rgba(0,48,135,.22);
+}
+
+/* ------------------------------------------------------------
+   3. Buttons — ripple + subtle press feedback
+------------------------------------------------------------ */
+.btn{
+  position: relative;
+  overflow: hidden;
+  transition: transform .12s var(--hri-ease), box-shadow .15s var(--hri-ease), filter .15s ease;
+}
+.btn:active{ transform: scale(.97); }
+.btn:not(:disabled):hover{ filter: brightness(1.04); }
+
+.hri-ripple{
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  background: rgba(255,255,255,.55);
+  pointer-events: none;
+  animation: hriRipple .55s ease-out forwards;
+}
+@keyframes hriRipple{
+  to{ transform: scale(2.6); opacity: 0; }
+}
+
+/* Loading state for form-submit buttons (added by JS on submit) */
+.btn.hri-loading{
+  color: transparent !important;
+  pointer-events: none;
+}
+.btn.hri-loading::after{
+  content:"";
+  position:absolute;
+  width:16px; height:16px;
+  top:50%; left:50%;
+  margin:-8px 0 0 -8px;
+  border:2px solid rgba(255,255,255,.55);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation: hriSpin .6s linear infinite;
+}
+.btn-outline-secondary.hri-loading::after,
+.btn-outline-danger.hri-loading::after,
+.btn-outline-success.hri-loading::after{
+  border-color: rgba(0,48,135,.35);
+  border-top-color: var(--hri-primary);
+}
+@keyframes hriSpin{ to{ transform: rotate(360deg); } }
+
+/* ------------------------------------------------------------
+   4. Alerts — slide in, auto-dismiss progress bar
+------------------------------------------------------------ */
+.alert{
+  position: relative;
+  overflow: hidden;
+  animation: hriAlertIn .35s var(--hri-ease) both;
+}
+@keyframes hriAlertIn{
+  from{ opacity:0; transform: translateY(-8px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+.alert.hri-leaving{
+  animation: hriAlertOut .25s ease forwards;
+}
+@keyframes hriAlertOut{
+  to{ opacity:0; transform: translateY(-8px); max-height:0; margin:0; padding-top:0; padding-bottom:0; }
+}
+.alert.hri-autohide::after{
+  content:"";
+  position:absolute;
+  left:0; bottom:0; height:3px;
+  background: currentColor;
+  opacity:.35;
+  width:100%;
+  animation: hriShrink 5s linear forwards;
+}
+@keyframes hriShrink{ from{ width:100%; } to{ width:0%; } }
+
+/* ------------------------------------------------------------
+   5. Tables — row hover + fade
+------------------------------------------------------------ */
+.table tbody tr{
+  transition: background-color .15s ease;
+}
+.table tbody tr:hover{
+  background-color: #f5f8fc;
+}
+.table.hri-stagger tbody tr{
+  opacity:0;
+  animation: hriFadeUp .35s var(--hri-ease) both;
+}
+.hri-row-anim{ opacity:0; animation: hriFadeUp .35s var(--hri-ease) both; }
+.hri-card-anim{ opacity:0; animation: hriFadeUp .4s var(--hri-ease) both; }
+
+/* ------------------------------------------------------------
+   6. Badges — soft pulse for "pending / in-progress" states
+------------------------------------------------------------ */
+.badge.hri-pulse,
+.badge.text-bg-warning.hri-pulse,
+.status-badge.status-screening,
+.status-badge.status-interview_scheduled{
+  position: relative;
+}
+.badge.hri-pulse::before{
+  content:"";
+  position:absolute; inset:0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 0 currentColor;
+  opacity:.5;
+  animation: hriPulse 1.8s ease-out infinite;
+}
+@keyframes hriPulse{
+  0%{ box-shadow:0 0 0 0 currentColor; opacity:.35; }
+  100%{ box-shadow:0 0 0 8px currentColor; opacity:0; }
+}
+
+/* ------------------------------------------------------------
+   7. Form controls — focus glow + validity shake
+------------------------------------------------------------ */
+.form-control, .form-select, .radio-option input{
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.form-control:focus, .form-select:focus{
+  box-shadow: 0 0 0 3px rgba(0,48,135,.12);
+}
+.hri-shake{ animation: hriShake .4s ease; }
+@keyframes hriShake{
+  10%,90%{ transform: translateX(-1px); }
+  20%,80%{ transform: translateX(2px); }
+  30%,50%,70%{ transform: translateX(-4px); }
+  40%,60%{ transform: translateX(4px); }
+}
+
+/* radio-option (register/welcome form) selection feedback already
+   has .selected — just add a smoother transition + tap feedback */
+.radio-option{ transition: border-color .15s ease, background-color .15s ease, transform .1s ease; }
+.radio-option:active{ transform: scale(.99); }
+
+/* ------------------------------------------------------------
+   8. Modals — soften Bootstrap's default zoom
+------------------------------------------------------------ */
+.modal.fade .modal-dialog{
+  transition: transform .25s var(--hri-ease), opacity .25s var(--hri-ease);
+}
+
+/* ------------------------------------------------------------
+   9. Accordion (extracted.blade / import review) smoother collapse
+------------------------------------------------------------ */
+.accordion-button{ transition: background-color .15s ease; }
+.accordion-collapse{ transition: height .2s ease; }
+
+/* ------------------------------------------------------------
+   10. Stat / count-up numbers (dashboard cards) — generalized
+       Any element with [data-count] gets counted up by JS.
+------------------------------------------------------------ */
+[data-count]{ font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------
+   11. Search inputs — clear (×) button injected by JS
+------------------------------------------------------------ */
+.hri-search-wrap{ position: relative; }
+.hri-search-wrap input{ padding-right: 28px !important; }
+.hri-search-clear{
+  position:absolute; right:8px; top:50%; transform:translateY(-50%);
+  border:none; background:none; color:#9aa5b1; font-size:.85rem;
+  cursor:pointer; display:none; line-height:1; padding:2px;
+}
+.hri-search-wrap.has-value .hri-search-clear{ display:block; }
+.hri-search-clear:hover{ color: var(--hri-primary); }
+
+/* No-results empty state (used by talent pool search, etc.) */
+.hri-no-results{
+  text-align:center; color:#8a94a3; padding:2.5rem 1rem; font-size:.875rem;
+  display:none;
+}
+
+/* ------------------------------------------------------------
+   12. Copy-to-clipboard helper (transaction numbers)
+------------------------------------------------------------ */
+.hri-copyable{ cursor: pointer; position: relative; }
+.hri-copyable:hover{ opacity:.85; }
+.hri-copy-toast{
+  position: fixed;
+  bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--hri-primary-dark);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: .82rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+  z-index: 2000;
+}
+.hri-copy-toast.show{
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ------------------------------------------------------------
+   13. Back-to-top button (injected by JS on long pages)
+------------------------------------------------------------ */
+.hri-to-top{
+  position: fixed;
+  right: 22px; bottom: 22px;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--hri-primary);
+  color: #fff;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(0,0,0,.22);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity .2s ease, transform .2s ease, visibility .2s;
+  cursor: pointer;
+  z-index: 1500;
+}
+.hri-to-top.show{ opacity:1; visibility: visible; transform: translateY(0); }
+.hri-to-top:hover{ filter: brightness(1.1); }
+
+/* ------------------------------------------------------------
+   14. Skeleton loading shimmer (optional, .hri-skeleton)
+------------------------------------------------------------ */
+.hri-skeleton{
+  background: linear-gradient(90deg, #eef1f5 25%, #f7f9fb 37%, #eef1f5 63%);
+  background-size: 400% 100%;
+  animation: hriShimmer 1.4s ease infinite;
+  border-radius: 6px;
+  color: transparent !important;
+}
+@keyframes hriShimmer{
+  0%{ background-position: 100% 50%; }
+  100%{ background-position: 0 50%; }
+}
+
+/* ------------------------------------------------------------
+   15. Toggle-able "collapsed" nav icon nudge (admin sidebar)
+------------------------------------------------------------ */
+.hr-sidebar .nav-link{ transition: background-color .15s ease, color .15s ease, border-color .15s ease, padding-left .15s ease; }
+.hr-sidebar .nav-link:hover{ padding-left: 1.4rem; }
+.hr-sidebar.collapsed .nav-link:hover{ padding-left: 0; }

@@ -16,7 +16,7 @@
                 </ul>
             </div>
         @endif
-        <form id="postingForm" action="{{ ($posting->exists ?? false) ? route('job-postings.update', $posting->id) : route('job-postings.store') }}" method="POST">
+        <form action="{{ ($posting->exists ?? false) ? route('job-postings.update', $posting->id) : route('job-postings.store') }}" method="POST">
             @if ($posting->exists ?? false)
                 @method('PUT')
             @endif
@@ -304,47 +304,8 @@
     </div>
 </div>
 
-{{-- ── Floating save bar ──────────────────────────────────────────────── --}}
-<div id="floatingSaveBar" style="
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1040;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    border-top: 1px solid #dee2e6;
-    padding: 10px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
-">
-    <span class="small text-muted">
-        @if ($posting->exists ?? false)
-            Editing: <strong>{{ $posting->title ?? 'Job posting' }}</strong>
-        @else
-            New job posting
-        @endif
-    </span>
-    <div class="d-flex gap-2">
-        <a href="{{ route('job-postings.index') }}" class="btn btn-sm btn-outline-secondary">Cancel</a>
-        <button type="button" id="floatingSaveBtn" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
-            <i class="bi bi-floppy me-1"></i> Save posting
-        </button>
-    </div>
-</div>
-{{-- Push page content up so the floating bar doesn't cover the bottom buttons --}}
-<div style="height: 64px;"></div>
-
 @push('scripts')
 <script>
-    // Floating save bar → submit the posting form
-    document.getElementById('floatingSaveBtn').addEventListener('click', function () {
-        document.getElementById('postingForm').requestSubmit();
-    });
-
     (function () {
         const titles = @json($jobTitles ?? []);
         const searchInput = document.getElementById('titleSearchInput');

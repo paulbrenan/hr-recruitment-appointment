@@ -16,18 +16,25 @@ class Application extends Model
         'status',
         'applied_at',
         'notes',
-        'ranking_notified_at' => 'datetime',
+        'ranking_notified_at',
+        'qualification_check',
+        'qualification_result',
+        'qualification_checked_at',
+        'qualification_notified_at',
     ];
 
     protected $casts = [
         'applied_at' => 'date',
-        'ranking_notified_at'   => 'datetime',
+        'ranking_notified_at' => 'datetime',
+        'qualification_check' => 'array',
+        'qualification_checked_at' => 'datetime',
+        'qualification_notified_at' => 'datetime',
     ];
 
     public function talentPool()
-{
-    return $this->hasOne(\App\Models\TalentPool::class);
-}
+    {
+        return $this->hasOne(\App\Models\TalentPool::class);
+    }
 
     public function candidate(): BelongsTo
     {

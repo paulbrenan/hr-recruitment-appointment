@@ -50,21 +50,6 @@ class ApplicationController extends Controller
 
         $application->update($validated);
 
-        // When an applicant is marked hired:
-        //   1. Close the job posting
-        //   2. Reject all other applicants on the same posting
-        if ($validated['status'] === 'hired') {
-            $posting = JobPosting::find($application->job_posting_id);
-            if ($posting) {
-                $posting->update(['status' => 'closed']);
-
-                Application::where('job_posting_id', $posting->id)
-                    ->where('id', '!=', $application->id)
-                    ->where('status', '!=', 'hired')
-                    ->update(['status' => 'rejected']);
-            }
-        }
-
         return redirect()
             ->route('applications.show', $application->id)
             ->with('success', 'Application status updated successfully.');

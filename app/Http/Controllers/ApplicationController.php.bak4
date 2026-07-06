@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Application;
 use App\Models\InterviewSchedule;
-use App\Models\JobPosting;
 use App\Notifications\QualificationResultNotification;
 use Illuminate\Http\Request;
 
@@ -49,21 +48,6 @@ class ApplicationController extends Controller
         ]);
 
         $application->update($validated);
-
-        // When an applicant is marked hired:
-        //   1. Close the job posting
-        //   2. Reject all other applicants on the same posting
-        if ($validated['status'] === 'hired') {
-            $posting = JobPosting::find($application->job_posting_id);
-            if ($posting) {
-                $posting->update(['status' => 'closed']);
-
-                Application::where('job_posting_id', $posting->id)
-                    ->where('id', '!=', $application->id)
-                    ->where('status', '!=', 'hired')
-                    ->update(['status' => 'rejected']);
-            }
-        }
 
         return redirect()
             ->route('applications.show', $application->id)

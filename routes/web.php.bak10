@@ -15,7 +15,6 @@ use App\Http\Controllers\TalentPoolController;
 use App\Http\Controllers\PipelineController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\RankingController;
-use App\Http\Controllers\PanelistController;
 
 // Admin (HR staff) authentication
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -86,10 +85,6 @@ Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name(
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
 // Mark one applicant as hired → rejects all others on same posting + closes posting
 Route::post('/job-postings/{postingId}/hire/{applicationId}', [JobPostingController::class, 'hireApplicant'])->name('job-postings.hire');
-
-// Panelist pool management
-Route::put('/panelists/{id}', [PanelistController::class, 'update'])->name('panelists.update');
-Route::delete('/panelists/{id}', [PanelistController::class, 'destroy'])->name('panelists.destroy');
 
 // Rankings
 Route::get('/rankings', [RankingController::class, 'index'])->name('rankings.index');

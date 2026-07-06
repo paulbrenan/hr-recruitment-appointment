@@ -119,26 +119,6 @@
     </div>
 </div>
 
-@if ($panelists->isNotEmpty())
-<div class="card mb-3">
-    <div class="card-body p-4">
-        <h6 class="mb-3">Interview Panel / Ranking Committee</h6>
-        <ul class="list-group">
-            @foreach ($panelists as $panelist)
-            <li class="list-group-item d-flex justify-content-between align-items-center py-2">
-                <span class="small fw-medium">{{ $panelist->name }}</span>
-                @if ($panelist->pivot->is_available)
-                    <span class="badge text-bg-success">Available</span>
-                @else
-                    <span class="badge text-bg-secondary">Unavailable</span>
-                @endif
-            </li>
-            @endforeach
-        </ul>
-    </div>
-</div>
-@endif
-
 <div class="card">
     <div class="card-body p-4">
         <h6 class="mb-3">Applications for this posting</h6>

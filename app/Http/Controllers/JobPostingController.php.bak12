@@ -86,20 +86,16 @@ class JobPostingController extends Controller
         $posting = new JobPosting();
         $posting->exists = false;
         $posting->mandatory_requirements = implode("\n", self::DEFAULT_MANDATORY_REQUIREMENTS);
-        $jobTitles         = config('job_titles.titles', []);
-        $panelists         = Panelist::orderBy('name')->get();
-        $assignedPanelists = collect(); // empty for new posting
+        $jobTitles = config('job_titles.titles', []);
 
-        return view('job-postings.form', compact('posting', 'jobTitles', 'panelists', 'assignedPanelists'));
+        return view('job-postings.form', compact('posting', 'jobTitles'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate($this->rules());
 
-        $posting = JobPosting::create($validated);
-
-        $this->syncPanelists($posting, $request);
+        JobPosting::create($validated);
 
         return redirect()
             ->route('job-postings.index')
@@ -110,12 +106,9 @@ class JobPostingController extends Controller
     {
         $posting = JobPosting::findOrFail($id);
         $posting->exists = true;
-        $jobTitles  = config('job_titles.titles', []);
-        $panelists  = Panelist::orderBy('name')->get();
-        // IDs of panelists already assigned to this posting, keyed by panelist_id => is_available
-        $assignedPanelists = $posting->panelists()->get()->keyBy('id');
+        $jobTitles = config('job_titles.titles', []);
 
-        return view('job-postings.form', compact('posting', 'jobTitles', 'panelists', 'assignedPanelists'));
+        return view('job-postings.form', compact('posting', 'jobTitles'));
     }
 
     public function update(Request $request, $id)
@@ -133,8 +126,6 @@ class JobPostingController extends Controller
         if ($oldStatus !== $newStatus) {
             $this->cascadeStatusToApplications($posting, $newStatus);
         }
-
-        $this->syncPanelists($posting, $request);
 
         return redirect()
             ->route('job-postings.index')
@@ -181,41 +172,6 @@ class JobPostingController extends Controller
     }
 
     /**
-     * Sync panelist assignments and availability from the form submission.
-     * Expects:
-     *   panelist_ids[]        — checked panelist IDs to assign
-     *   panelist_available[]  — panelist IDs that are marked available
-     *   new_panelist_names[]  — names of brand-new panelists to create and assign
-     */
-    private function syncPanelists(JobPosting $posting, \Illuminate\Http\Request $request): void
-    {
-        // Create any newly added panelists
-        $newNames = array_filter(array_map('trim', $request->input('new_panelist_names', [])));
-        foreach ($newNames as $name) {
-            if ($name !== '') {
-                $new = Panelist::create(['name' => $name]);
-                // Add to assigned list so they get synced below
-                $request->merge([
-                    'panelist_ids' => array_merge($request->input('panelist_ids', []), [$new->id]),
-                    'panelist_available' => array_merge($request->input('panelist_available', []), [$new->id]),
-                ]);
-            }
-        }
-
-        $assignedIds   = array_map('intval', $request->input('panelist_ids', []));
-        $availableIds  = array_map('intval', $request->input('panelist_available', []));
-
-        // Build pivot data: assigned panelists with their availability flag
-        $syncData = [];
-        foreach ($assignedIds as $panelistId) {
-            $syncData[$panelistId] = ['is_available' => in_array($panelistId, $availableIds)];
-        }
-
-        // sync() removes unassigned, adds new, updates existing
-        $posting->panelists()->sync($syncData);
-    }
-
-    /**
      * Mark one applicant as Hired, reject all others on the same posting,
      * and close the posting. Called from ApplicationController or a
      * dedicated route — not directly from the form.
@@ -252,9 +208,7 @@ class JobPostingController extends Controller
             ->latest('applied_at')
             ->get();
 
-        $panelists = $posting->panelists()->orderBy('name')->get();
-
-        return view('job-postings.show', compact('posting', 'applications', 'panelists'));
+        return view('job-postings.show', compact('posting', 'applications'));
     }
 
     public function destroy($id)

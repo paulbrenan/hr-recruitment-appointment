@@ -243,11 +243,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <label for="activityLogDateFilter" class="form-label small text-muted mb-0">Filter by date:</label>
-                        <input type="date" id="activityLogDateFilter" class="form-control form-control-sm" style="max-width: 180px;">
-                        <button type="button" id="activityLogDateClear" class="btn btn-sm btn-outline-secondary d-none">Clear</button>
-                    </div>
                     <div id="activityLogLoading" class="text-center text-muted py-4">
                         <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                         Loading activity...
@@ -409,88 +404,6 @@
                         loading.classList.add('d-none');
                         errorState.classList.remove('d-none');
                     });
-            });
-        })();
-    </script>
-        <script>
-        (function () {
-            var modal = document.getElementById('activityLogModal');
-            var loading = document.getElementById('activityLogLoading');
-            var tableWrap = document.getElementById('activityLogTableWrap');
-            var tableBody = document.getElementById('activityLogTableBody');
-            var emptyState = document.getElementById('activityLogEmpty');
-            var errorState = document.getElementById('activityLogError');
-            var dateFilter = document.getElementById('activityLogDateFilter');
-            var dateClear = document.getElementById('activityLogDateClear');
-
-            if (!modal || !dateFilter || !dateClear) {
-                return;
-            }
-
-            function actionBadgeFiltered(action) {
-                var map = { created: 'success', updated: 'primary', deleted: 'danger' };
-                var cls = map[action] || 'secondary';
-                return '<span class="badge bg-' + cls + '-subtle text-' + cls + ' border border-' + cls + '-subtle text-capitalize">' + action + '</span>';
-            }
-
-            function renderFiltered(logs) {
-                loading.classList.add('d-none');
-                emptyState.classList.add('d-none');
-                errorState.classList.add('d-none');
-                tableBody.innerHTML = '';
-                if (!logs.length) {
-                    emptyState.classList.remove('d-none');
-                    tableWrap.classList.add('d-none');
-                    return;
-                }
-                tableBody.innerHTML = logs.map(function (log) {
-                    return '<tr>' +
-                        '<td class="text-nowrap small">' + log.created_at + '</td>' +
-                        '<td class="small">' + log.user + '</td>' +
-                        '<td>' + actionBadgeFiltered(log.action) + '</td>' +
-                        '<td class="small">' + (log.subject_label || log.description || '') + '</td>' +
-                        '</tr>';
-                }).join('');
-                tableWrap.classList.remove('d-none');
-            }
-
-            function loadFiltered(date) {
-                loading.classList.remove('d-none');
-                tableWrap.classList.add('d-none');
-                emptyState.classList.add('d-none');
-                errorState.classList.add('d-none');
-                tableBody.innerHTML = '';
-                dateClear.classList.toggle('d-none', !date);
-                var url = '{{ route("activity-logs.index") }}';
-                if (date) {
-                    url += '?date=' + encodeURIComponent(date);
-                }
-                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                    .then(function (res) {
-                        if (!res.ok) throw new Error('bad response');
-                        return res.json();
-                    })
-                    .then(function (data) {
-                        renderFiltered(data.logs || []);
-                    })
-                    .catch(function () {
-                        loading.classList.add('d-none');
-                        errorState.classList.remove('d-none');
-                    });
-            }
-
-            dateFilter.addEventListener('change', function () {
-                loadFiltered(dateFilter.value || null);
-            });
-
-            dateClear.addEventListener('click', function () {
-                dateFilter.value = '';
-                loadFiltered(null);
-            });
-
-            modal.addEventListener('show.bs.modal', function () {
-                dateFilter.value = '';
-                dateClear.classList.add('d-none');
             });
         })();
     </script>

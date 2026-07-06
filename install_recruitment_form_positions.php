@@ -1,3 +1,34 @@
+<?php
+/**
+ * install_recruitment_form_positions.php
+ * Connects the public recruitment form's Position dropdown to open
+ * job_postings (title + place of assignment, keyed by ID instead of
+ * matching on title string), and hides the whole form (showing a
+ * friendly empty-state message instead) when there are zero open postings.
+ *
+ * Run from project root: php install_recruitment_form_positions.php
+ * Delete after use.
+ */
+
+$root = __DIR__;
+$errors = [];
+
+function backup_file($fullPath) {
+    if (!file_exists($fullPath)) return;
+    $i = 1;
+    $bak = $fullPath . '.bak';
+    while (file_exists($bak)) {
+        $i++;
+        $bak = $fullPath . '.bak' . $i;
+    }
+    copy($fullPath, $bak);
+    echo "  backed up -> " . basename($bak) . "\n";
+}
+
+// ------------------------------------------------------------------
+// 1. register.blade.php — full file replace
+// ------------------------------------------------------------------
+$newRegisterBlade = <<<'BLADE'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -332,3 +363,159 @@ document.querySelectorAll('.radio-option input[type=radio]').forEach(r => {
 </script>
 </body>
 </html>
+BLADE;
+
+$registerRel = 'resources/views/portal/register.blade.php';
+$registerFull = $root . '/' . $registerRel;
+if (!file_exists($registerFull)) {
+    $errors[] = "$registerRel not found";
+    echo "[ABORT] $registerRel not found.\n";
+} else {
+    backup_file($registerFull);
+    file_put_contents($registerFull, $newRegisterBlade . "\n");
+    echo "[OK] Replaced $registerRel\n";
+}
+
+// ------------------------------------------------------------------
+// 2. CandidateAuthController.php — targeted patch (register method only)
+// ------------------------------------------------------------------
+$controllerRel = 'app/Http/Controllers/CandidateAuthController.php';
+$controllerFull = $root . '/' . $controllerRel;
+
+$searchValidation = <<<'PHP'
+            'position_applied' => ['required', 'string', 'max:255'],
+            'address'          => ['required', 'string', 'max:500'],
+PHP;
+
+$replaceValidation = <<<'PHP'
+            'job_posting_id'   => ['required', 'integer', 'exists:job_postings,id'],
+            'address'          => ['required', 'string', 'max:500'],
+PHP;
+
+$searchResolve = <<<'PHP'
+        // Resolve the job posting BEFORE creating any account/records, so
+        // an invalid or no-longer-open position stops registration cleanly
+        // instead of silently creating a candidate with no application and
+        // telling them "submitted successfully" anyway.
+        $jobPosting = \App\Models\JobPosting::where('title', $validated['position_applied'])->first();
+
+        if (!$jobPosting || $jobPosting->status !== 'open') {
+            return back()
+                ->withInput()
+                ->withErrors(['position_applied' => 'Sorry, this position is no longer available. Please choose another open position.']);
+        }
+PHP;
+
+$replaceResolve = <<<'PHP'
+        // Resolve the job posting BEFORE creating any account/records, so
+        // an invalid or no-longer-open position stops registration cleanly
+        // instead of silently creating a candidate with no application and
+        // telling them "submitted successfully" anyway. Resolved by ID
+        // (not title) so two postings sharing a title but differing in
+        // place of assignment can never be confused with one another.
+        $jobPosting = \App\Models\JobPosting::find($validated['job_posting_id']);
+
+        if (!$jobPosting || $jobPosting->status !== 'open') {
+            return back()
+                ->withInput()
+                ->withErrors(['job_posting_id' => 'Sorry, this position is no longer available. Please choose another open position.']);
+        }
+PHP;
+
+$searchCandidateCreate = <<<'PHP'
+        $candidate = Candidate::create([
+            'first_name'       => $validated['first_name'],
+            'middle_name'      => $validated['middle_name'] ?? null,
+            'last_name'        => $validated['last_name'],
+PHP;
+
+$replaceCandidateCreate = <<<'PHP'
+        $candidate = Candidate::create([
+            'first_name'       => $validated['first_name'],
+            'middle_name'      => $validated['middle_name'] ?? null,
+            'last_name'        => $validated['last_name'],
+            'position_applied' => $jobPosting->title,
+PHP;
+
+$searchMailAndReturn = <<<'PHP'
+        try {
+            Mail::to($candidate->email)
+                ->send(new ApplicationSubmitted($candidate, $txn, $validated['position_applied'], $jobPosting));
+        } catch (\Throwable $e) {
+            Log::error('Recruitment confirmation email failed: ' . $e->getMessage());
+        }
+
+        return view('portal.submitted', [
+            'candidate'         => $candidate,
+            'transactionNumber' => $txn,
+            'position'          => $validated['position_applied'],
+            'jobPosting'        => $jobPosting,
+        ]);
+PHP;
+
+$replaceMailAndReturn = <<<'PHP'
+        try {
+            Mail::to($candidate->email)
+                ->send(new ApplicationSubmitted($candidate, $txn, $jobPosting->title, $jobPosting));
+        } catch (\Throwable $e) {
+            Log::error('Recruitment confirmation email failed: ' . $e->getMessage());
+        }
+
+        return view('portal.submitted', [
+            'candidate'         => $candidate,
+            'transactionNumber' => $txn,
+            'position'          => $jobPosting->title,
+            'jobPosting'        => $jobPosting,
+        ]);
+PHP;
+
+if (!file_exists($controllerFull)) {
+    $errors[] = "$controllerRel not found";
+    echo "[ABORT] $controllerRel not found.\n";
+} else {
+    $content = file_get_contents($controllerFull);
+    $checks = [
+        'validation rule' => $searchValidation,
+        'job posting resolve block' => $searchResolve,
+        'candidate create block' => $searchCandidateCreate,
+        'mail + return block' => $searchMailAndReturn,
+    ];
+    $bad = [];
+    foreach ($checks as $label => $needle) {
+        $count = substr_count($content, $needle);
+        if ($count !== 1) {
+            $bad[] = "$label (found $count, expected 1)";
+        }
+    }
+    if (!empty($bad)) {
+        $errors[] = "$controllerRel patch aborted — anchors not found exactly once: " . implode('; ', $bad);
+        echo "[ABORT] $controllerRel: anchors not matched exactly once:\n";
+        foreach ($bad as $b) echo "   - $b\n";
+        echo "No changes made to this file.\n";
+    } else {
+        backup_file($controllerFull);
+        $content = str_replace($searchValidation, $replaceValidation, $content);
+        $content = str_replace($searchResolve, $replaceResolve, $content);
+        $content = str_replace($searchCandidateCreate, $replaceCandidateCreate, $content);
+        $content = str_replace($searchMailAndReturn, $replaceMailAndReturn, $content);
+        file_put_contents($controllerFull, $content);
+        echo "[OK] Patched $controllerRel\n";
+    }
+}
+
+// ------------------------------------------------------------------
+echo "\n=== Done ===\n";
+if (empty($errors)) {
+    echo "All steps completed successfully.\n";
+    echo "NEXT STEPS:\n";
+    echo "  1. php artisan view:clear\n";
+    echo "  2. Visit /portal/register and confirm: dropdown shows title + place of assignment,\n";
+    echo "     and the form is replaced by the empty-state message if there are zero open postings\n";
+    echo "     (you can test that by temporarily setting all job_postings.status away from 'open').\n";
+    echo "  3. Delete this script once confirmed working.\n";
+} else {
+    echo "Completed with " . count($errors) . " issue(s):\n";
+    foreach ($errors as $e) {
+        echo "  - $e\n";
+    }
+}

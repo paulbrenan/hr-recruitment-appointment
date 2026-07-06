@@ -263,31 +263,6 @@
 
 @push('scripts')
 <script>
-    // ── Posting filter dropdowns ──────────────────────────────────────────────
-    (function () {
-        const form        = document.getElementById('postingFilterForm');
-        const titleSelect = document.getElementById('titleSelect');
-        const locSelect   = document.getElementById('locationSelect');
-
-        if (!form || !titleSelect) return;
-
-        // Title changes → clear job_posting and resubmit (controller picks first location)
-        titleSelect.addEventListener('change', function () {
-            if (locSelect) locSelect.value = '';
-            // Remove job_posting from form so controller auto-selects first location
-            let hidden = form.querySelector('input[name="job_posting"]');
-            if (hidden) hidden.remove();
-            form.submit();
-        });
-
-        // Location changes → just submit (both title + job_posting are in the form)
-        if (locSelect) {
-            locSelect.addEventListener('change', function () {
-                form.submit();
-            });
-        }
-    })();
-
     @if ($errors->has('weight_percentage'))
     document.addEventListener('DOMContentLoaded', function () {
         new bootstrap.Modal(document.getElementById('addCriterionModal')).show();

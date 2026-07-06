@@ -13,12 +13,27 @@ class AssessmentController extends Controller
 {
     public function index(Request $request)
     {
-        $postings = JobPosting::orderBy('title')->get();
+        // All postings with their locations eager-loaded
+        $allPostings = JobPosting::with('locations')->orderBy('title')->get();
 
+        // Unique titles for the first dropdown
+        $postings = $allPostings->unique('title')->values();
+
+        // Which title is selected? Default to the first unique title.
+        $selectedTitle = $request->query('title');
+        if (!$selectedTitle && $postings->isNotEmpty()) {
+            $selectedTitle = $postings->first()->title;
+        }
+
+        // All postings matching the selected title (one per place of assignment)
+        $locationPostings = $allPostings->where('title', $selectedTitle)->values();
+
+        // Which specific posting (place of assignment) is selected?
         $selectedPostingId = $request->query('job_posting');
 
-        if (!$selectedPostingId && $postings->isNotEmpty()) {
-            $selectedPostingId = $postings->first()->id;
+        // Auto-select the first location posting if none chosen yet
+        if (!$selectedPostingId && $locationPostings->isNotEmpty()) {
+            $selectedPostingId = $locationPostings->first()->id;
         }
 
         $criteria = AssessmentCriterion::where('job_posting_id', $selectedPostingId)
@@ -66,7 +81,7 @@ class AssessmentController extends Controller
             return $cand;
         });
 
-        return view('assessments.index', compact('criteria', 'rankedCandidates', 'postings', 'selectedPostingId', 'selectedPosting', 'usedWeight', 'remainingWeight'));
+        return view('assessments.index', compact('criteria', 'rankedCandidates', 'postings', 'selectedPostingId', 'selectedPosting', 'usedWeight', 'remainingWeight', 'locationPostings', 'selectedTitle'));
     }
 
     public function storeCriterion(Request $request)

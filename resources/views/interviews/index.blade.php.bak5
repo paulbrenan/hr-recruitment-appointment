@@ -72,8 +72,8 @@
                             data-type="{{ $s->type }}"
                             data-scheduled-at="{{ \Carbon\Carbon::parse($s->scheduled_at)->format('Y-m-d\TH:i') }}"
                             data-location="{{ $s->location }}"
-                            data-job-posting-id="{{ $s->application->job_posting_id }}"
-                            data-panelist-ids="{{ json_encode($s->panelists->pluck('id')) }}"
+                            data-interviewer-name="{{ $s->interviewer_name }}"
+                            data-interviewer-email="{{ $s->interviewer_email }}"
                             data-status="{{ $s->status }}"
                             data-remarks="{{ $s->remarks }}"
                         >
@@ -109,7 +109,7 @@
                         <select name="application_id" class="form-select form-select-sm" required>
                             <option value="" disabled selected>Select candidate / application</option>
                             @foreach ($applications as $application)
-                                <option value="{{ $application->id }}" data-job-posting-id="{{ $application->job_posting_id }}">
+                                <option value="{{ $application->id }}">
                                     {{ $application->candidate->full_name }} — {{ $application->jobPosting->title }}
                                 </option>
                             @endforeach
@@ -229,72 +229,10 @@
         document.getElementById('edit_type').value = button.getAttribute('data-type');
         document.getElementById('edit_scheduled_at').value = button.getAttribute('data-scheduled-at');
         document.getElementById('edit_location').value = button.getAttribute('data-location') || '';
+        document.getElementById('edit_interviewer_name').value = button.getAttribute('data-interviewer-name') || '';
+        document.getElementById('edit_interviewer_email').value = button.getAttribute('data-interviewer-email') || '';
         document.getElementById('edit_status').value = button.getAttribute('data-status');
         document.getElementById('edit_remarks').value = button.getAttribute('data-remarks') || '';
-
-        // Load panelists for this schedule's job posting
-        const editJobPostingId = button.getAttribute('data-job-posting-id');
-        const editSelectedIds  = JSON.parse(button.getAttribute('data-panelist-ids') || '[]');
-        loadPanelists('editPanelistList', 'editPanelistPlaceholder', editJobPostingId, editSelectedIds);
-    });
-
-    // ── Panelist checklist helpers ────────────────────────────────────────────
-
-    /**
-     * Fetch panelists for a job posting and render checkboxes into a container.
-     * @param {string} listId        - ID of the container div
-     * @param {string} placeholderId - ID of the placeholder span
-     * @param {string|number} jobPostingId
-     * @param {number[]} selectedIds - IDs to pre-check (for edit modal)
-     */
-    function loadPanelists(listId, placeholderId, jobPostingId, selectedIds) {
-        const list = document.getElementById(listId);
-        const placeholder = document.getElementById(placeholderId);
-
-        if (!jobPostingId) {
-            list.innerHTML = '<span class="text-muted small" id="' + placeholderId + '">Select an application above to load panelists.</span>';
-            return;
-        }
-
-        list.innerHTML = '<span class="text-muted small">Loading...</span>';
-
-        fetch('/interviews/panelists-for-posting/' + jobPostingId)
-            .then(function (res) {
-                if (!res.ok) throw new Error('Server error ' + res.status);
-                return res.json();
-            })
-            .then(function (panelists) {
-                if (!panelists.length) {
-                    list.innerHTML = '<span class="text-muted small">No panelists assigned to this vacancy. Assign them on the Job Posting edit page first.</span>';
-                    return;
-                }
-
-                list.innerHTML = panelists.map(function (p) {
-                    const checked    = selectedIds.includes(p.id) ? 'checked' : '';
-                    const available  = p.is_available
-                        ? '<span class="badge text-bg-success ms-2" style="font-size:0.65rem;">Available</span>'
-                        : '<span class="badge text-bg-secondary ms-2" style="font-size:0.65rem;">Unavailable</span>';
-                    return '<div class="form-check mb-1">' +
-                        '<input class="form-check-input" type="checkbox" name="panelist_ids[]"' +
-                        ' value="' + p.id + '" id="panCheck_' + listId + '_' + p.id + '" ' + checked + '>' +
-                        '<label class="form-check-label small" for="panCheck_' + listId + '_' + p.id + '">' +
-                        p.name + available +
-                        '</label>' +
-                        '</div>';
-                }).join('');
-            })
-            .catch(function () {
-                list.innerHTML = '<span class="text-danger small">Failed to load panelists.</span>';
-            });
-    }
-
-    // New schedule modal — load panelists when application changes
-    document.querySelector('#newScheduleModal select[name="application_id"]').addEventListener('change', function () {
-        const selected = this.options[this.selectedIndex];
-        // We need the job_posting_id from the selected application
-        // Pass it via a data attribute on each <option> — see the patched view
-        const jobPostingId = selected.getAttribute('data-job-posting-id');
-        loadPanelists('newPanelistList', 'newPanelistPlaceholder', jobPostingId, []);
     });
 </script>
 @endpush

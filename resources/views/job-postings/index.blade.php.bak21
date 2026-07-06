@@ -62,26 +62,16 @@
 
 <div class="card">
     <div class="table-responsive">
-        <table class="table align-top mb-0" style="vertical-align: top; table-layout: fixed; width: 100%;">
-            <colgroup>
-                <col style="width: 20%;">  {{-- Title --}}
-                <col style="width: 25%;">  {{-- Place of assignment --}}
-                <col style="width: 10%;">  {{-- Employment type --}}
-                <col style="width: 5%;">   {{-- SG --}}
-                <col style="width: 8%;">   {{-- Posted --}}
-                <col style="width: 8%;">   {{-- Closes --}}
-                <col style="width: 8%;">   {{-- Status --}}
-                <col style="width: 16%;">  {{-- Actions — wide enough for 3 buttons --}}
-            </colgroup>
+        <table class="table align-top mb-0" style="vertical-align: top;">
             <thead>
                 <tr>
                     <th>Title</th>
                     <th>Place of assignment</th>
-                    <th class="text-nowrap">Employment type</th>
+                    <th>Employment type</th>
                     <th class="text-nowrap">SG</th>
                     {{-- Vacancies now shown per-location in the Places column --}}
-                    <th class="text-nowrap">Posted</th>
-                    <th class="text-nowrap">Closes</th>
+                    <th>Posted</th>
+                    <th>Closes</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -89,7 +79,7 @@
             <tbody>
                 @foreach ($postings as $posting)
                 <tr class="posting-row" style="cursor: pointer; vertical-align: top;" data-href="{{ route('job-postings.show', $posting->id) }}">
-                    <td class="fw-medium" style="word-break: break-word;">{{ $posting->title }}</td>
+                    <td class="fw-medium">{{ $posting->title }}</td>
                     <td>
                         @if ($posting->locations->isNotEmpty())
                             @php $locs = $posting->locations; $extra = $locs->count() - 2; @endphp

@@ -340,11 +340,6 @@
 
 @push('scripts')
 <script>
-    // Floating save bar → submit the posting form
-    document.getElementById('floatingSaveBtn').addEventListener('click', function () {
-        document.getElementById('postingForm').requestSubmit();
-    });
-
     (function () {
         const titles = @json($jobTitles ?? []);
         const searchInput = document.getElementById('titleSearchInput');

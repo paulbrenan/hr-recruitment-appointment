@@ -28,4 +28,9 @@ class InterviewSchedule extends Model
     {
         return $this->belongsTo(Application::class);
     }
+    public function panelists()
+    {
+        return $this->belongsToMany(\App\Models\Panelist::class, 'interview_schedule_panelist')
+                    ->withTimestamps();
+    }
 }

@@ -49,7 +49,7 @@ class InterviewScheduleController extends Controller
     {
         // Farthest future date at the top, nearest dates below it,
         // descending all the way down to the oldest past schedule.
-        $schedules = InterviewSchedule::with(['application.candidate', 'application.jobPosting', 'panelists'])
+        $schedules = InterviewSchedule::with(['application.candidate', 'application.jobPosting'])
             ->orderBy('scheduled_at', 'desc')
             ->get();
         $applications    = Application::with(['candidate', 'jobPosting'])->get();
@@ -123,24 +123,6 @@ class InterviewScheduleController extends Controller
             ->route('interviews.index')
             ->with('success', 'Schedule updated successfully.');
     }
-    /**
-     * GET /interviews/panelists-for-posting/{jobPostingId}
-     * Returns JSON list of panelists assigned to a job posting with availability flag.
-     * Used by the scheduling modal to populate the checklist when an application is selected.
-     */
-    public function panelistsForPosting($jobPostingId)
-    {
-        $posting = JobPosting::findOrFail($jobPostingId);
-        $panelists = $posting->panelists()->orderBy('name')->get()->map(function ($p) {
-            return [
-                'id'           => $p->id,
-                'name'         => $p->name,
-                'is_available' => (bool) $p->pivot->is_available,
-            ];
-        });
-        return response()->json($panelists);
-    }
-
     public function destroy($id)
     {
         $schedule = InterviewSchedule::findOrFail($id);

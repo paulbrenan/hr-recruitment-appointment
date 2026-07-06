@@ -62,48 +62,38 @@
 
 <div class="card">
     <div class="table-responsive">
-        <table class="table align-top mb-0" style="vertical-align: top; table-layout: fixed; width: 100%;">
-            <colgroup>
-                <col style="width: 20%;">  {{-- Title --}}
-                <col style="width: 25%;">  {{-- Place of assignment --}}
-                <col style="width: 10%;">  {{-- Employment type --}}
-                <col style="width: 5%;">   {{-- SG --}}
-                <col style="width: 8%;">   {{-- Posted --}}
-                <col style="width: 8%;">   {{-- Closes --}}
-                <col style="width: 8%;">   {{-- Status --}}
-                <col style="width: 16%;">  {{-- Actions — wide enough for 3 buttons --}}
-            </colgroup>
+        <table class="table align-middle mb-0">
             <thead>
                 <tr>
                     <th>Title</th>
                     <th>Place of assignment</th>
-                    <th class="text-nowrap">Employment type</th>
+                    <th>Employment type</th>
                     <th class="text-nowrap">SG</th>
                     {{-- Vacancies now shown per-location in the Places column --}}
-                    <th class="text-nowrap">Posted</th>
-                    <th class="text-nowrap">Closes</th>
+                    <th>Posted</th>
+                    <th>Closes</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($postings as $posting)
-                <tr class="posting-row" style="cursor: pointer; vertical-align: top;" data-href="{{ route('job-postings.show', $posting->id) }}">
-                    <td class="fw-medium" style="word-break: break-word;">{{ $posting->title }}</td>
+                <tr class="posting-row" style="cursor: pointer;" data-href="{{ route('job-postings.show', $posting->id) }}">
+                    <td class="fw-medium">{{ $posting->title }}</td>
                     <td>
                         @if ($posting->locations->isNotEmpty())
                             @php $locs = $posting->locations; $extra = $locs->count() - 2; @endphp
-                            <div class="d-flex flex-column" style="gap: 2px;">
+                            <div class="d-flex flex-column gap-1">
                                 @foreach ($locs->take(2) as $loc)
-                                    <span style="font-size: 0.82rem; line-height: 1.3;">{{ $loc->place_of_assignment }}
-                                        <span class="text-muted" style="font-size: 0.75rem;">({{ $loc->vacancies }} {{ Str::plural('vacancy', $loc->vacancies) }})</span>
+                                    <span class="small">{{ $loc->place_of_assignment }}
+                                        <span class="text-muted">({{ $loc->vacancies }} {{ Str::plural('vacancy', $loc->vacancies) }})</span>
                                     </span>
                                 @endforeach
                                 @if ($extra > 0)
-                                    <div class="location-extra d-none" style="margin-top: 2px;">
+                                    <div class="location-extra d-none">
                                         @foreach ($locs->skip(2) as $loc)
-                                            <span class="d-block" style="font-size: 0.82rem; line-height: 1.3;">{{ $loc->place_of_assignment }}
-                                                <span class="text-muted" style="font-size: 0.75rem;">({{ $loc->vacancies }} {{ Str::plural('vacancy', $loc->vacancies) }})</span>
+                                            <span class="small d-block">{{ $loc->place_of_assignment }}
+                                                <span class="text-muted">({{ $loc->vacancies }} {{ Str::plural('vacancy', $loc->vacancies) }})</span>
                                             </span>
                                         @endforeach
                                     </div>
@@ -150,7 +140,7 @@
                             {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
                         </span>
                     </td>
-                    <td class="text-end" onclick="event.stopPropagation()" style="vertical-align: top; padding-top: 10px; white-space: nowrap;">
+                    <td class="text-end" onclick="event.stopPropagation()">
                         <a href="{{ route('job-postings.show', $posting->id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-eye"></i>
                         </a>

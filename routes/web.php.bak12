@@ -107,7 +107,6 @@ Route::get('/interviews', [InterviewScheduleController::class, 'index'])->name('
 Route::post('/interviews', [InterviewScheduleController::class, 'store'])->name('interviews.store');
 Route::put('/interviews/{id}', [InterviewScheduleController::class, 'update'])->name('interviews.update');
 Route::delete('/interviews/{id}', [InterviewScheduleController::class, 'destroy'])->name('interviews.destroy');
-Route::get('/interviews/panelists-for-posting/{jobPostingId}', [InterviewScheduleController::class, 'panelistsForPosting'])->name('interviews.panelists-for-posting');
 
 // Assessment & ranking
 Route::get('/assessments', [AssessmentController::class, 'index'])->name('assessments.index');

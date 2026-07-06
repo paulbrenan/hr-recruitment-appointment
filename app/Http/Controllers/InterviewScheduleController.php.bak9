@@ -49,7 +49,7 @@ class InterviewScheduleController extends Controller
     {
         // Farthest future date at the top, nearest dates below it,
         // descending all the way down to the oldest past schedule.
-        $schedules = InterviewSchedule::with(['application.candidate', 'application.jobPosting', 'panelists'])
+        $schedules = InterviewSchedule::with(['application.candidate', 'application.jobPosting'])
             ->orderBy('scheduled_at', 'desc')
             ->get();
         $applications    = Application::with(['candidate', 'jobPosting'])->get();

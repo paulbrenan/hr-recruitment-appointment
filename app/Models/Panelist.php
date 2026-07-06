@@ -14,4 +14,9 @@ class Panelist extends Model
                     ->withPivot('is_available')
                     ->withTimestamps();
     }
+    public function interviewSchedules()
+    {
+        return $this->belongsToMany(\App\Models\InterviewSchedule::class, 'interview_schedule_panelist')
+                    ->withTimestamps();
+    }
 }

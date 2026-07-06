@@ -109,7 +109,7 @@
                         <select name="application_id" class="form-select form-select-sm" required>
                             <option value="" disabled selected>Select candidate / application</option>
                             @foreach ($applications as $application)
-                                <option value="{{ $application->id }}" data-job-posting-id="{{ $application->job_posting_id }}">
+                                <option value="{{ $application->id }}">
                                     {{ $application->candidate->full_name }} — {{ $application->jobPosting->title }}
                                 </option>
                             @endforeach

@@ -89,7 +89,7 @@
             <tbody>
                 @foreach ($postings as $posting)
                 <tr class="posting-row" style="cursor: pointer; vertical-align: top;" data-href="{{ route('job-postings.show', $posting->id) }}">
-                    <td class="fw-medium" style="word-break: break-word;">{{ $posting->title }}</td>
+                    <td class="fw-medium">{{ $posting->title }}</td>
                     <td>
                         @if ($posting->locations->isNotEmpty())
                             @php $locs = $posting->locations; $extra = $locs->count() - 2; @endphp

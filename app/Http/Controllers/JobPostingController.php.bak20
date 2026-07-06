@@ -61,7 +61,7 @@ class JobPostingController extends Controller
                     }
                 },
             ],
-            // vacancies is now per-location in job_posting_locations table
+            'vacancies' => ['required', 'integer', 'min:1'],
             'posted_at' => ['nullable', 'date'],
             'closes_at' => [
                 'nullable',
@@ -77,7 +77,7 @@ class JobPostingController extends Controller
 
     public function index()
     {
-        $postings = JobPosting::with('locations')->latest()->get();
+        $postings = JobPosting::latest()->get();
 
         return view('job-postings.index', compact('postings'));
     }
@@ -90,9 +90,8 @@ class JobPostingController extends Controller
         $jobTitles         = config('job_titles.titles', []);
         $panelists         = Panelist::orderBy('name')->get();
         $assignedPanelists = collect(); // empty for new posting
-        $locations         = collect();
 
-        return view('job-postings.form', compact('posting', 'jobTitles', 'panelists', 'assignedPanelists', 'locations'));
+        return view('job-postings.form', compact('posting', 'jobTitles', 'panelists', 'assignedPanelists'));
     }
 
     public function store(Request $request)
@@ -101,7 +100,6 @@ class JobPostingController extends Controller
 
         $posting = JobPosting::create($validated);
 
-        $this->syncLocations($posting, $request);
         $this->syncPanelists($posting, $request);
 
         return redirect()
@@ -114,11 +112,11 @@ class JobPostingController extends Controller
         $posting = JobPosting::findOrFail($id);
         $posting->exists = true;
         $jobTitles  = config('job_titles.titles', []);
-        $panelists         = Panelist::orderBy('name')->get();
+        $panelists  = Panelist::orderBy('name')->get();
+        // IDs of panelists already assigned to this posting, keyed by panelist_id => is_available
         $assignedPanelists = $posting->panelists()->get()->keyBy('id');
-        $locations         = $posting->locations()->get();
 
-        return view('job-postings.form', compact('posting', 'jobTitles', 'panelists', 'assignedPanelists', 'locations'));
+        return view('job-postings.form', compact('posting', 'jobTitles', 'panelists', 'assignedPanelists'));
     }
 
     public function update(Request $request, $id)
@@ -137,7 +135,6 @@ class JobPostingController extends Controller
             $this->cascadeStatusToApplications($posting, $newStatus);
         }
 
-        $this->syncLocations($posting, $request);
         $this->syncPanelists($posting, $request);
 
         return redirect()
@@ -182,49 +179,6 @@ class JobPostingController extends Controller
         }
 
         $query->update(['status' => $applicationStatus]);
-    }
-
-    /**
-     * Sync place-of-assignment locations from the form submission.
-     * Expects parallel arrays:
-     *   location_place[]    — place of assignment strings
-     *   location_vacancies[] — vacancy count per place
-     * Empty/blank place rows are skipped.
-     */
-    private function syncLocations(JobPosting $posting, \Illuminate\Http\Request $request): void
-    {
-        $places    = $request->input('location_place', []);
-        $vacancies = $request->input('location_vacancies', []);
-
-        // Delete all existing location rows for this posting then re-insert
-        $posting->locations()->delete();
-
-        $rows = [];
-        foreach ($places as $i => $place) {
-            $place = trim($place);
-            if ($place === '') continue;
-
-            $rows[] = [
-                'job_posting_id'     => $posting->id,
-                'place_of_assignment' => $place,
-                'vacancies'          => max(1, (int) ($vacancies[$i] ?? 1)),
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ];
-        }
-
-        if (!empty($rows)) {
-            JobPostingLocation::insert($rows);
-        }
-
-        // Keep the legacy place_of_assignment column in sync (first location)
-        // so existing code that reads it doesn't break
-        $first = $rows[0]['place_of_assignment'] ?? null;
-        $totalVacancies = array_sum(array_column($rows, 'vacancies')) ?: 1;
-        $posting->updateQuietly([
-            'place_of_assignment' => $first,
-            'vacancies'           => $totalVacancies,
-        ]);
     }
 
     /**
@@ -300,9 +254,8 @@ class JobPostingController extends Controller
             ->get();
 
         $panelists = $posting->panelists()->orderBy('name')->get();
-        $locations = $posting->locations()->get();
 
-        return view('job-postings.show', compact('posting', 'applications', 'panelists', 'locations'));
+        return view('job-postings.show', compact('posting', 'applications', 'panelists'));
     }
 
     public function destroy($id)

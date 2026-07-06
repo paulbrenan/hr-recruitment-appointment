@@ -79,10 +79,4 @@ class JobPosting extends Model
 
         return array_values(array_filter(array_map('trim', explode("\n", $text)), fn ($line) => $line !== ''));
     }
-    public function panelists()
-    {
-        return $this->belongsToMany(Panelist::class, 'job_posting_panelist')
-                    ->withPivot('is_available')
-                    ->withTimestamps();
-    }
 }

@@ -87,10 +87,6 @@ Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->n
 // Mark one applicant as hired → rejects all others on same posting + closes posting
 Route::post('/job-postings/{postingId}/hire/{applicationId}', [JobPostingController::class, 'hireApplicant'])->name('job-postings.hire');
 
-// Panelist pool management
-Route::put('/panelists/{id}', [PanelistController::class, 'update'])->name('panelists.update');
-Route::delete('/panelists/{id}', [PanelistController::class, 'destroy'])->name('panelists.destroy');
-
 // Rankings
 Route::get('/rankings', [RankingController::class, 'index'])->name('rankings.index');
 Route::post('/rankings/send/{application}', [RankingController::class, 'sendOne'])->name('rankings.send-one');
@@ -143,5 +139,3 @@ Route::get('/appointments', [AppointmentController::class, 'index'])->name('appo
 Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
 Route::put('/appointments/{id}', [AppointmentController::class, 'update'])->name('appointments.update');
 Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy'])->name('appointments.destroy');
-// Activity Log Book (added by install_activity_log_book.php)
-Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');

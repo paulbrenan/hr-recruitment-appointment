@@ -22,40 +22,28 @@
 </div>
 
 <div class="row mb-3 g-2">
-    <div class="col-md-2">
+    <div class="col-md-3">
         <div class="card p-3">
-            <div class="text-muted small">Open</div>
+            <div class="text-muted small">Open postings</div>
             <div class="fs-4 fw-semibold">{{ $postings->where('status', 'open')->count() }}</div>
         </div>
     </div>
-    <div class="col-md-2">
-        <div class="card p-3">
-            <div class="text-muted small">Screening</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'screening')->count() }}</div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card p-3">
-            <div class="text-muted small">Interview</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'interview_scheduled')->count() }}</div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card p-3">
-            <div class="text-muted small">Ranking</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'ranking')->count() }}</div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card p-3">
-            <div class="text-muted small">Closed</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'closed')->count() }}</div>
-        </div>
-    </div>
-    <div class="col-md-2">
+    <div class="col-md-3">
         <div class="card p-3">
             <div class="text-muted small">Total vacancies</div>
             <div class="fs-4 fw-semibold">{{ $postings->sum('vacancies') }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3">
+            <div class="text-muted small">Filled</div>
+            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'filled')->count() }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3">
+            <div class="text-muted small">Closed</div>
+            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'closed')->count() }}</div>
         </div>
     </div>
 </div>
@@ -95,22 +83,14 @@
                     <td>
                         @php
                             $statusColors = [
-                                'open'                => 'success',
-                                'screening'           => 'info',
-                                'interview_scheduled' => 'primary',
-                                'ranking'             => 'warning',
-                                'closed'              => 'dark',
-                            ];
-                            $statusLabels = [
-                                'open'                => 'Open',
-                                'screening'           => 'Screening',
-                                'interview_scheduled' => 'Interview',
-                                'ranking'             => 'Ranking',
-                                'closed'              => 'Closed',
+                                'draft' => 'secondary',
+                                'open' => 'success',
+                                'filled' => 'primary',
+                                'closed' => 'dark',
                             ];
                         @endphp
                         <span class="badge badge-status text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }}">
-                            {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
+                            {{ ucfirst($posting->status) }}
                         </span>
                     </td>
                     <td class="text-end">

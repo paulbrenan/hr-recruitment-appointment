@@ -12,3 +12,7 @@ Artisan::command('inspire', function () {
 // already gone out (reminder_sent_at is null), so it's safe to run
 // this often without duplicate emails.
 Schedule::command('schedules:send-reminders')->hourly();
+
+// Auto-close job postings whose closes_at date has passed.
+// Runs once a day at midnight; safe to run more often if needed.
+Schedule::command('job-postings:close-expired')->dailyAt('00:00');

@@ -95,22 +95,14 @@
                     <td>
                         @php
                             $statusColors = [
-                                'open'                => 'success',
-                                'screening'           => 'info',
-                                'interview_scheduled' => 'primary',
-                                'ranking'             => 'warning',
-                                'closed'              => 'dark',
-                            ];
-                            $statusLabels = [
-                                'open'                => 'Open',
-                                'screening'           => 'Screening',
-                                'interview_scheduled' => 'Interview',
-                                'ranking'             => 'Ranking',
-                                'closed'              => 'Closed',
+                                'draft' => 'secondary',
+                                'open' => 'success',
+                                'filled' => 'primary',
+                                'closed' => 'dark',
                             ];
                         @endphp
                         <span class="badge badge-status text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }}">
-                            {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
+                            {{ ucfirst($posting->status) }}
                         </span>
                     </td>
                     <td class="text-end">

@@ -3,14 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
-use App\Models\AssessmentCriterion;
 use App\Models\InterviewSchedule;
 use App\Models\JobPosting;
 use App\Notifications\QualificationResultNotification;
 use Illuminate\Http\Request;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class ApplicationController extends Controller
 {
@@ -41,17 +39,29 @@ class ApplicationController extends Controller
      * Two modes, chosen by whether a job posting is selected in the filter
      * bar (same filter logic as index() above):
      *
-     *  - Scoped to a job posting: outputs Application Code + Candidate Name
-     *    + one column per that posting's actual assessment criteria (e.g.
-     *    "Education (10 pts)") — identical layout to what
-     *    AssessmentController@importScores expects. HR can fill in scores
-     *    and re-upload it directly on the Assessment & ranking page's
-     *    "Import scores from Excel", with no separate template download
-     *    step and no manual re-typing of tracking numbers/names.
+     *  - Scoped to a job posting: loads the official CAR template file
+     *    (resources/templates/car-school-admin-elem.xlsx — the real CSC/
+     *    DepEd form, letterhead and all) and fills in "Application Code"
+     *    (col D) and "Name of Applicant" (col C) starting at row 16 on
+     *    every sheet in the file, for each applicant on that posting. All
+     *    other formatting, merges, and instructions in the template are
+     *    left untouched. Score columns (E–M) stay blank for the committee
+     *    to fill in by hand.
      *  - No posting selected: a flat reference list (tracking number, name,
      *    posting, applied date, status) across whatever's currently
-     *    filtered by status. No score columns here since criteria differ
-     *    per posting.
+     *    filtered by status.
+     */
+    /**
+     * Export applicants to Excel from the Applications page.
+     *
+     * Always uses the official CAR template file (resources/templates/
+     * car-school-admin-elem.xlsx — the real CSC/DepEd form, letterhead and
+     * all) and fills in "Application Code" (col D) and "Name of Applicant"
+     * (col C) starting at row 16 on every sheet in the file, for whichever
+     * applications are currently filtered (status and/or job posting, same
+     * filters as index() above). Score columns (E–M) stay blank for the
+     * committee to fill in by hand and re-upload via "Import scores from
+     * Excel" on the Assessment & ranking page.
      */
     public function exportExcel(Request $request)
     {
@@ -69,66 +79,41 @@ class ApplicationController extends Controller
 
         $applications = $query->get();
 
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Applicants');
+        $templatePath = resource_path('templates/car-school-admin-elem.xlsx');
 
-        if ($jobPostingId) {
-            $criteria = AssessmentCriterion::where('job_posting_id', $jobPostingId)
-                ->orderBy('id')
-                ->get();
-
-            if ($criteria->isEmpty()) {
-                return back()->with('error', 'Add assessment criteria for this posting (on the Assessment & ranking page) before exporting a scoring sheet.');
-            }
-
-            $col = 1;
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', 'Application Code');
-            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', 'Candidate Name');
-            foreach ($criteria as $c) {
-                $label = rtrim(rtrim(number_format($c->weight_percentage, 2), '0'), '.');
-                $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', "{$c->name} ({$label} pts)");
-            }
-            $lastColLetter = Coordinate::stringFromColumnIndex($col - 1);
-            $sheet->getStyle("A1:{$lastColLetter}1")->getFont()->setBold(true);
-
-            $row = 2;
-            foreach ($applications as $app) {
-                $sheet->setCellValue('A' . $row, $app->transaction_number);
-                $sheet->setCellValue('B' . $row, $app->candidate?->full_name ?? 'Unknown');
-                $row++;
-            }
-
-            foreach (range(1, $col - 1) as $c) {
-                $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
-            }
-
-            $postingTitle = optional(JobPosting::find($jobPostingId))->title ?? 'posting';
-            $filename = 'applicant-scoring-' . \Illuminate\Support\Str::slug($postingTitle) . '.xlsx';
-        } else {
-            $sheet->setCellValue('A1', 'Tracking Number');
-            $sheet->setCellValue('B1', 'Candidate Name');
-            $sheet->setCellValue('C1', 'Job Posting');
-            $sheet->setCellValue('D1', 'Applied');
-            $sheet->setCellValue('E1', 'Status');
-            $sheet->getStyle('A1:E1')->getFont()->setBold(true);
-
-            $row = 2;
-            foreach ($applications as $app) {
-                $sheet->setCellValue('A' . $row, $app->transaction_number);
-                $sheet->setCellValue('B' . $row, $app->candidate?->full_name ?? 'Unknown');
-                $sheet->setCellValue('C' . $row, $app->jobPosting?->title ?? '');
-                $sheet->setCellValue('D' . $row, $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '');
-                $sheet->setCellValue('E' . $row, str_replace('_', ' ', ucfirst($app->status)));
-                $row++;
-            }
-
-            foreach (range(1, 5) as $c) {
-                $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
-            }
-
-            $filename = 'applicant-tracking-' . now()->format('Y-m-d') . '.xlsx';
+        if (!file_exists($templatePath)) {
+            return back()->with('error', 'CAR template file is missing. It should be at resources/templates/car-school-admin-elem.xlsx.');
         }
+
+        $spreadsheet = IOFactory::load($templatePath);
+
+        // First data row in the template; rows 16–25 are pre-numbered 1–10.
+        // If there are more than 10 applicants, extend past row 25 by
+        // copying that row's style so borders/formatting continue.
+        $firstDataRow = 16;
+        $lastTemplateRow = 25;
+
+        foreach ($spreadsheet->getAllSheets() as $sheet) {
+            $row = $firstDataRow;
+            foreach ($applications as $app) {
+                if ($row > $lastTemplateRow) {
+                    $sheet->duplicateStyle(
+                        $sheet->getStyle('B' . $lastTemplateRow . ':M' . $lastTemplateRow),
+                        'B' . $row . ':M' . $row
+                    );
+                    $sheet->setCellValue('B' . $row, $row - $firstDataRow + 1);
+                }
+
+                $sheet->setCellValue('C' . $row, $app->candidate?->full_name ?? 'Unknown');
+                $sheet->setCellValue('D' . $row, $app->transaction_number);
+                $row++;
+            }
+        }
+
+        $postingTitle = $jobPostingId
+            ? (optional(JobPosting::find($jobPostingId))->title ?? 'posting')
+            : 'all-postings';
+        $filename = 'CAR-' . \Illuminate\Support\Str::slug($postingTitle) . '.xlsx';
 
         $writer = new Xlsx($spreadsheet);
 

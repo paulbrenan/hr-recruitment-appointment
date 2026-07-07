@@ -88,11 +88,15 @@
   @endif
 
   @php
-    // Live open postings, keyed by ID (not title) so two postings that
-    // happen to share a title but differ in place of assignment can't be
-    // confused with one another. Both fields shown to the applicant.
-    $openPostings = \App\Models\JobPosting::with('locations')
-        ->where('status', 'open')
+// Live open postings, expanded into one option per place of
+    // assignment (job_posting_locations). Falls back to the legacy
+    // single place_of_assignment column for postings created before
+    // the locations table existed. Option values encode
+    // "posting_id:location_id" (location_id 0 = legacy/no specific
+    // location row) so two postings sharing a title but differing in
+    // place of assignment can never be confused with one another.
+    $openPostingOptions = collect();
+    \App\Models\JobPosting::where('status', 'open')
         ->orderBy('title')
         ->with(['locations' => fn ($q) => $q->orderBy('place_of_assignment')])
         ->get(['id', 'title', 'place_of_assignment'])

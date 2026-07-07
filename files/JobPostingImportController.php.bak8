@@ -103,36 +103,9 @@ class JobPostingImportController extends Controller
         $grouped = collect($batch->candidates)
             ->groupBy('group_key')
             ->map(function ($rows) {
-                // Build parsed_locations for the review form.
-                // For table-type blocks: one entry per school row.
-                // For single-type blocks: one entry with the inline place text.
-                // place_of_assignment_parsed is null for unrecoverable/TBD rows.
-                $parsedLocations = $rows->map(function ($row) {
-                    $parsed = array_key_exists('place_of_assignment_parsed', $row)
-                        ? $row['place_of_assignment_parsed']
-                        : ($row['place_of_assignment'] ?? null);
-
-                    // Don't pre-fill "To be determined" or unrecoverable markers
-                    if ($parsed !== null) {
-                        $lc = strtolower(trim($parsed));
-                        if (str_starts_with($lc, 'to be determined') ||
-                            str_starts_with($lc, '[unreadable') ||
-                            str_starts_with($lc, '[unreadable')) {
-                            $parsed = null;
-                        }
-                    }
-
-                    return [
-                        'school'        => $parsed,
-                        'unrecoverable' => !empty($row['needs_manual_review']),
-                        'row_number'    => $row['school_row_number'] ?? null,
-                    ];
-                })->values()->toArray();
-
                 return [
-                    'label'            => $rows->first()['group_label'] ?? 'Untitled position',
-                    'rows'             => $rows->values(),
-                    'parsed_locations' => $parsedLocations,
+                    'label' => $rows->first()['group_label'] ?? 'Untitled position',
+                    'rows' => $rows->values(),
                 ];
             });
 
@@ -172,20 +145,13 @@ class JobPostingImportController extends Controller
         }
 
         $validated = $request->validate([
-        'selected'                          => ['nullable', 'array'],
-        'selected.*'                        => ['integer'],
-        'rows'                              => ['required', 'array'],
-        'rows.*.title'                      => ['nullable', 'string', 'max:255'],
-        'rows.*.salary_grade'               => ['nullable', 'string', 'max:50'],
-        'rows.*.vacancies'                  => ['nullable', 'integer', 'min:1'],
-        'rows.*.location_place'             => ['nullable', 'array'],
-        'rows.*.location_place.*'           => ['nullable', 'string', 'max:500'],
-        'rows.*.qualification_education'    => ['nullable', 'string'],
-        'rows.*.qualification_training'     => ['nullable', 'string'],
-        'rows.*.qualification_experience'   => ['nullable', 'string'],
-        'rows.*.qualification_eligibility'  => ['nullable', 'string'],
-        'rows.*.duties_responsibilities'    => ['nullable', 'string'],
-            ]);
+            'selected' => ['nullable', 'array'],
+            'selected.*' => ['integer'],
+            'rows' => ['required', 'array'],
+            'rows.*.locations' => ['nullable', 'array'],
+            'rows.*.locations.*.place' => ['nullable', 'string', 'max:255'],
+            'rows.*.locations.*.vacancies' => ['nullable', 'integer', 'min:1'],
+        ]);
 
         $selectedIndexes = array_flip($validated['selected'] ?? []);
         $editedRows = $validated['rows'];
@@ -238,27 +204,19 @@ class JobPostingImportController extends Controller
 
             $title = $rowData['title'];
 
-            // Build location rows from the flat location_place[] array.
-            // Duplicate entries for the same school name = multiple vacancies
-            // for that school. Blank rows are dropped.
-            $placeCounts = [];
-            foreach (($rowData['location_place'] ?? []) as $place) {
-                $place = trim($place);
-                if ($place === '') continue;
-                $placeCounts[$place] = ($placeCounts[$place] ?? 0) + 1;
-            }
-
+            // Clean up the locations the user typed in: drop any blank rows
+            // (e.g. a trailing empty row left over from the add-on-Enter UI).
             $locationRows = [];
-            foreach ($placeCounts as $place => $count) {
+            foreach (($rowData['locations'] ?? []) as $loc) {
+                $place = trim($loc['place'] ?? '');
+                if ($place === '') {
+                    continue;
+                }
                 $locationRows[] = [
                     'place_of_assignment' => $place,
-                    'vacancies'           => $count,
+                    'vacancies' => max(1, (int) ($loc['vacancies'] ?? 1)),
                 ];
             }
-
-            // Use the top-level vacancies field HR edited (or fall back to
-            // total from location rows, or 1 if nothing was entered).
-            $hrVacancies = max(1, (int) ($rowData['vacancies'] ?? 0));
 
             $alreadyImported = JobPosting::where('title', $title)
                 ->where('created_at', '>=', $recentWindow)
@@ -269,8 +227,8 @@ class JobPostingImportController extends Controller
                 continue;
             }
 
-            $firstPlace     = $locationRows[0]['place_of_assignment'] ?? null;
-            $totalVacancies = $hrVacancies; // HR's edited top-level vacancies field
+            $firstPlace = $locationRows[0]['place_of_assignment'] ?? null;
+            $totalVacancies = array_sum(array_column($locationRows, 'vacancies')) ?: 1;
 
             $posting = JobPosting::create([
                 'title' => $title,

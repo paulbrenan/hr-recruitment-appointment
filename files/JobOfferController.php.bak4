@@ -34,31 +34,29 @@ class JobOfferController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'application_id'  => 'required|exists:applications,id|unique:job_offers,application_id',
-            'salary_grade'    => 'required|integer|min:1|max:33',
-            'salary_step'     => 'required|integer|min:1|max:8',
-            'response_deadline' => 'nullable|date|after_or_equal:today',
-            'benefits'        => 'nullable|string',
-            'terms'           => 'nullable|string',
-        ]);
-
-        // Resolve the exact compensation from the official SG table
-        $grade        = (int) $validated['salary_grade'];
-        $step         = (int) $validated['salary_step'];
-        $sgTable      = config('salary_grades.table');
-        $compensation = $sgTable[$grade][$step - 1] ?? $this->minCompensation();
+        $validated = $request->validate(
+            [
+                'application_id' => 'required|exists:applications,id|unique:job_offers,application_id',
+                'compensation' => 'required|numeric|min:' . self::MIN_COMPENSATION,
+                'response_deadline' => 'nullable|date|after_or_equal:today',
+                'benefits' => 'nullable|string',
+                'terms' => 'nullable|string',
+            ],
+            [
+                'compensation.min' => 'Compensation cannot be below \u20b1' . number_format(self::MIN_COMPENSATION, 0) . ' (Salary Grade 1, Step 1, the government minimum).',
+            ]
+        );
 
         JobOffer::create([
-            'application_id'    => $validated['application_id'],
-            'compensation'      => $compensation,
+            'application_id' => $validated['application_id'],
+            'compensation' => $validated['compensation'],
             'response_deadline' => $validated['response_deadline'] ?? null,
-            'benefits'          => $validated['benefits'] ?? null,
-            'terms'             => $validated['terms'] ?? null,
-            'status'            => 'draft',
+            'benefits' => $validated['benefits'] ?? null,
+            'terms' => $validated['terms'] ?? null,
+            'status' => 'draft',
         ]);
 
-        return redirect()->route('offers.index')->with('success', "Offer generated as draft — SG {$grade} Step {$step} (₱" . number_format($compensation, 2) . ').');
+        return redirect()->route('offers.index')->with('success', 'Offer generated as draft.');
     }
 
     public function send($id)

@@ -717,6 +717,16 @@ class VacancyTableParser
 
     private function cleanArtifacts(string $text): string
     {
+        // Strip em-dashes and en-dashes used as column separators by pdftotext -layout.
+        // pdftotext renders table cell borders as runs of —— or – characters.
+        // Must happen BEFORE collapsing whitespace so "School —sNone" becomes "School None".
+        // The "s" prefix on "sNone" is a pdftotext artifact where the dash runs into
+        // the word "None" — strip it: "—sNone" → " None", "—None" → " None".
+        $text = preg_replace('/\x{2014}+s?(?=None)/u', ' ', $text);   // —sNone or —None
+        $text = preg_replace('/\x{2013}+s?(?=None)/u', ' ', $text);   // –sNone or –None
+        $text = preg_replace('/\x{2014}+/u', ' ', $text);              // remaining em-dashes
+        $text = preg_replace('/\x{2013}+/u', ' ', $text);              // remaining en-dashes
+
         // Collapse stray table-border characters and extra whitespace.
         $text = preg_replace('/[_|=]+/', ' ', $text);
         $text = preg_replace('/\s+/', ' ', $text);
@@ -725,12 +735,18 @@ class VacancyTableParser
 
     private function normalizeSchoolName(string $name): string
     {
+        // Strip em/en-dash artifacts that may remain after cleanArtifacts()
+        // in certain edge cases (e.g. leading "——i" before a school name).
+        $name = preg_replace('/^[\x{2013}\x{2014}\s]+/u', '', $name);
+        $name = preg_replace('/[\x{2013}\x{2014}]+/u', ' ', $name);
+
         // Fix the one confirmed, predictable OCR substitution seen so far:
         // ñ -> fi (e.g. "Acufia" -> "Acuña"). Extend this list as more
         // real OCR artifacts are confirmed against actual output.
         $corrections = [
             'Acufia' => 'Acuña',
-            'TuaEs' => 'Tua ES',
+            'TuaEs'  => 'Tua ES',
+            'sNone'  => '',        // stray "sNone" artifact from em-dash+None
         ];
 
         foreach ($corrections as $wrong => $right) {
@@ -740,6 +756,9 @@ class VacancyTableParser
         // Confirmed real OCR pattern: a Roman numeral glued directly onto
         // "ES" with no space (e.g. "IVES)" should be "IV ES)").
         $name = preg_replace('/\b(I{1,3}|IV|VI{0,3}|IX|X)ES\b/', '$1 ES', $name);
+
+        // Strip trailing noise (numbers, symbols, stray letters after the school name)
+        $name = preg_replace('/\s+\d+\s*$/', '', $name);
 
         return trim($name);
     }

@@ -69,7 +69,7 @@ class ProcessPdfImportJob implements ShouldQueue
             Storage::disk('public')->put($memoPdfPath, file_get_contents($pdfPath));
 
             $batch->update([
-                'candidates' => $candidates,
+                'candidates' => self::sanitizeUtf8($candidates),
                 'status' => 'ready',
                 'memo_pdf_path' => $memoPdfPath,
             ]);
@@ -166,6 +166,31 @@ class ProcessPdfImportJob implements ShouldQueue
 
         ksort($pageTexts);
         return array_values($pageTexts);
+    }
+
+    /**
+     * Recursively sanitize all string values in an array to valid UTF-8.
+     * Tesseract can output invalid byte sequences for characters like ñ, é
+     * which cause JSON encoding to fail when Laravel tries to store the array.
+     */
+    private static function sanitizeUtf8(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            // Convert to UTF-8, replacing invalid sequences with '?'
+            $converted = @mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+            if ($converted === false || !mb_check_encoding($converted, 'UTF-8')) {
+                // Strip any remaining invalid bytes as last resort
+                $converted = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $value);
+                $converted = mb_convert_encoding($converted ?? '', 'UTF-8', 'ISO-8859-1');
+            }
+            return $converted;
+        }
+
+        if (is_array($value)) {
+            return array_map([self::class, 'sanitizeUtf8'], $value);
+        }
+
+        return $value;
     }
 
     private function cleanupTmp(string $dir): void

@@ -259,18 +259,7 @@ class PositionBlockDetector
 
     private function extractLabeledField(string $text, string $label): ?string
     {
-        $stopLabels = [
-            'Education',
-            'Training',
-            'Experience',
-            'Eligibility',
-            'Number of Vacant Positions',
-            'Number of Vacant Position',  // singular form used in some PDFs
-            'Place of Assignment',
-            'Duties and Responsibilities',
-            'Job Summary',
-            'Preferred Qualification',
-        ];
+        $stopLabels = ['Education', 'Training', 'Experience', 'Eligibility', 'Number of Vacant Positions'];
         $stopLabels = array_filter($stopLabels, fn ($l) => $l !== $label);
         $stopPattern = implode('|', array_map(fn ($l) => preg_quote($l, '/'), $stopLabels));
 
@@ -303,33 +292,6 @@ class PositionBlockDetector
     ): array {
         if (preg_match('/Place of Assignment:?\s*To be determined/i', $blockText)) {
             return ['type' => 'single', 'value' => 'To be determined'];
-        }
-
-        // Detect inline place of assignment (no school table).
-        // Pattern: "Place of Assignment: <text>" where <text> ends at the
-        // next known section heading. Some PDFs use "Job Summary:" or
-        // "Duties and Responsibilities:" or "Terms of Reference:" as the
-        // next heading — stop at whichever comes first.
-        // This MUST run before the table parser so inline-place PDFs
-        // don't fall through to VacancyTableParser which misreads footer
-        // numbers as table row numbers.
-        $inlineStopPattern = '(?:Duties\s+and\s+Responsibilities|Job\s+Summary|Terms\s+of\s+Reference|Preferred\s+Qualification|Qualification\s+Standards|Number\s+of\s+Vacant\s+Position)';
-        if (preg_match(
-            '/Place\s+of\s+Assignment:?\s+(.+?)(?=\s*' . $inlineStopPattern . '|$)/is',
-            $blockText,
-            $m
-        )) {
-            $value = trim(preg_replace('/\s+/', ' ', $m[1]));
-
-            // Only treat as inline if the extracted value looks like a real
-            // place name (not a table header like "No. Mother School ...").
-            // A table header will contain "Mother School" or "No." at the start.
-            $looksLikeTable = preg_match('/\bNo\.?\s+(Mother\s+School|Place\s+of\s+Assignment)\b/i', $value)
-                || preg_match('/^\s*\d+\s+\w/', $value); // starts with a row number
-
-            if (!$looksLikeTable && strlen($value) > 2 && strlen($value) < 300) {
-                return ['type' => 'single', 'value' => $value];
-            }
         }
 
         $startPage = $this->pageForOffset($blockStartOffset, $pageBoundaries);

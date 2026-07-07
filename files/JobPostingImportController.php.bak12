@@ -103,35 +103,21 @@ class JobPostingImportController extends Controller
         $grouped = collect($batch->candidates)
             ->groupBy('group_key')
             ->map(function ($rows) {
-                // Build parsed_locations for the review form.
-                // For table-type blocks: one entry per school row.
-                // For single-type blocks: one entry with the inline place text.
-                // place_of_assignment_parsed is null for unrecoverable/TBD rows.
+                // Collect the parsed school names from all rows in this group.
+                // These pre-populate the location inputs on the review form.
+                // Rows with unrecoverable OCR have null here — the form shows
+                // an empty editable input for those.
                 $parsedLocations = $rows->map(function ($row) {
-                    $parsed = array_key_exists('place_of_assignment_parsed', $row)
-                        ? $row['place_of_assignment_parsed']
-                        : ($row['place_of_assignment'] ?? null);
-
-                    // Don't pre-fill "To be determined" or unrecoverable markers
-                    if ($parsed !== null) {
-                        $lc = strtolower(trim($parsed));
-                        if (str_starts_with($lc, 'to be determined') ||
-                            str_starts_with($lc, '[unreadable') ||
-                            str_starts_with($lc, '[unreadable')) {
-                            $parsed = null;
-                        }
-                    }
-
                     return [
-                        'school'        => $parsed,
-                        'unrecoverable' => !empty($row['needs_manual_review']),
-                        'row_number'    => $row['school_row_number'] ?? null,
+                        'school'           => $row['place_of_assignment_parsed'] ?? null,
+                        'unrecoverable'    => !empty($row['needs_manual_review']),
+                        'row_number'       => $row['school_row_number'] ?? null,
                     ];
                 })->values()->toArray();
 
                 return [
-                    'label'            => $rows->first()['group_label'] ?? 'Untitled position',
-                    'rows'             => $rows->values(),
+                    'label'           => $rows->first()['group_label'] ?? 'Untitled position',
+                    'rows'            => $rows->values(),
                     'parsed_locations' => $parsedLocations,
                 ];
             });
@@ -172,20 +158,15 @@ class JobPostingImportController extends Controller
         }
 
         $validated = $request->validate([
-        'selected'                          => ['nullable', 'array'],
-        'selected.*'                        => ['integer'],
-        'rows'                              => ['required', 'array'],
-        'rows.*.title'                      => ['nullable', 'string', 'max:255'],
-        'rows.*.salary_grade'               => ['nullable', 'string', 'max:50'],
-        'rows.*.vacancies'                  => ['nullable', 'integer', 'min:1'],
-        'rows.*.location_place'             => ['nullable', 'array'],
-        'rows.*.location_place.*'           => ['nullable', 'string', 'max:500'],
-        'rows.*.qualification_education'    => ['nullable', 'string'],
-        'rows.*.qualification_training'     => ['nullable', 'string'],
-        'rows.*.qualification_experience'   => ['nullable', 'string'],
-        'rows.*.qualification_eligibility'  => ['nullable', 'string'],
-        'rows.*.duties_responsibilities'    => ['nullable', 'string'],
-            ]);
+            'selected'                   => ['nullable', 'array'],
+            'selected.*'                 => ['integer'],
+            'rows'                       => ['required', 'array'],
+            'rows.*.title'               => ['nullable', 'string', 'max:255'],
+            'rows.*.salary_grade'        => ['nullable', 'string', 'max:50'],
+            'rows.*.vacancies'           => ['nullable', 'integer', 'min:1'],
+            'rows.*.location_place'      => ['nullable', 'array'],
+            'rows.*.location_place.*'    => ['nullable', 'string', 'max:500'],
+        ]);
 
         $selectedIndexes = array_flip($validated['selected'] ?? []);
         $editedRows = $validated['rows'];

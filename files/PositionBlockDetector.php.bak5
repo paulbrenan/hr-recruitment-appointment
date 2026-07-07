@@ -259,18 +259,7 @@ class PositionBlockDetector
 
     private function extractLabeledField(string $text, string $label): ?string
     {
-        $stopLabels = [
-            'Education',
-            'Training',
-            'Experience',
-            'Eligibility',
-            'Number of Vacant Positions',
-            'Number of Vacant Position',  // singular form used in some PDFs
-            'Place of Assignment',
-            'Duties and Responsibilities',
-            'Job Summary',
-            'Preferred Qualification',
-        ];
+        $stopLabels = ['Education', 'Training', 'Experience', 'Eligibility', 'Number of Vacant Positions'];
         $stopLabels = array_filter($stopLabels, fn ($l) => $l !== $label);
         $stopPattern = implode('|', array_map(fn ($l) => preg_quote($l, '/'), $stopLabels));
 

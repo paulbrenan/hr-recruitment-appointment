@@ -80,36 +80,15 @@
   @endif
 
   @php
-    // Live open postings, expanded into one option per place of
-    // assignment (job_posting_locations). Falls back to the legacy
-    // single place_of_assignment column for postings created before
-    // the locations table existed. Option values encode
-    // "posting_id:location_id" (location_id 0 = legacy/no specific
-    // location row) so two postings sharing a title but differing in
-    // place of assignment can never be confused with one another.
-    $openPostingOptions = collect();
-    \App\Models\JobPosting::where('status', 'open')
+    // Live open postings, keyed by ID (not title) so two postings that
+    // happen to share a title but differ in place of assignment can't be
+    // confused with one another. Both fields shown to the applicant.
+    $openPostings = \App\Models\JobPosting::where('status', 'open')
         ->orderBy('title')
-        ->with(['locations' => fn ($q) => $q->orderBy('place_of_assignment')])
-        ->get(['id', 'title', 'place_of_assignment'])
-        ->each(function ($posting) use ($openPostingOptions) {
-            if ($posting->locations->isNotEmpty()) {
-                foreach ($posting->locations as $location) {
-                    $openPostingOptions->push([
-                        'value' => $posting->id . ':' . $location->id,
-                        'label' => $posting->title . ' - ' . $location->place_of_assignment,
-                    ]);
-                }
-            } else {
-                $openPostingOptions->push([
-                    'value' => $posting->id . ':0',
-                    'label' => $posting->title . ($posting->place_of_assignment ? ' - ' . $posting->place_of_assignment : ''),
-                ]);
-            }
-        });
+        ->get(['id', 'title', 'place_of_assignment']);
   @endphp
 
-  @if ($openPostingOptions->isEmpty())
+  @if ($openPostings->isEmpty())
     <div class="form-body">
       <div class="no-openings-card">
         <i class="bi bi-info-circle"></i>
@@ -155,9 +134,9 @@
             class="form-select @error('job_posting_id') is-invalid @enderror"
               required>
             <option value="" disabled {{ old('job_posting_id') ? '' : 'selected' }}>— Select a position —</option>
-                @foreach($openPostingOptions as $option)
-              <option value="{{ $option['value'] }}" {{ (string) old('job_posting_id') === (string) $option['value'] ? 'selected' : '' }}>
-                {{ $option['label'] }}
+                @foreach($openPostings as $posting)
+              <option value="{{ $posting->id }}" {{ (string) old('job_posting_id') === (string) $posting->id ? 'selected' : '' }}>
+                {{ $posting->title }}{{ $posting->place_of_assignment ? ' — ' . $posting->place_of_assignment : '' }}
               </option>
             @endforeach
         </select>

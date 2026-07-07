@@ -389,7 +389,6 @@
             }
 
             modal.addEventListener('show.bs.modal', function () {
-                if (window.__activityLogUseFilter) { return; }
                 loading.classList.remove('d-none');
                 tableWrap.classList.add('d-none');
                 emptyState.classList.add('d-none');
@@ -427,8 +426,6 @@
             if (!modal || !dateFilter || !dateClear) {
                 return;
             }
-
-            window.__activityLogUseFilter = true;
 
             function actionBadgeFiltered(action) {
                 var map = { created: 'success', updated: 'primary', deleted: 'danger' };

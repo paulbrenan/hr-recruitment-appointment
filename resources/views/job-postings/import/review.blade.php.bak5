@@ -18,8 +18,7 @@
         <div class="text-muted small">
             {{ $grouped->count() }} position(s) detected ({{ collect($batch->candidates)->count() }} row(s) scanned from the PDF).
             Review and edit the fields below — vacancies defaults to the number of rows scanned for that position,
-            and places of assignment are pre-filled from the PDF table (editable).
-            Rows marked ⚠️ were unreadable and need manual entry.
+            and place of assignment is left blank for you to fill in manually since OCR placement isn't reliable.
             Check the ones you want to import, then confirm.
             Imported postings are created as <span class="badge text-bg-success">Open</span>.
         </div>

@@ -18,8 +18,7 @@
         <div class="text-muted small">
             {{ $grouped->count() }} position(s) detected ({{ collect($batch->candidates)->count() }} row(s) scanned from the PDF).
             Review and edit the fields below — vacancies defaults to the number of rows scanned for that position,
-            and places of assignment are pre-filled from the PDF table (editable).
-            Rows marked ⚠️ were unreadable and need manual entry.
+            and place of assignment is left blank for you to fill in manually since OCR placement isn't reliable.
             Check the ones you want to import, then confirm.
             Imported postings are created as <span class="badge text-bg-success">Open</span>.
         </div>
@@ -70,7 +69,7 @@
                     <label class="form-label small text-muted mb-1">
                         Places of assignment
                         <span class="text-muted fw-normal" style="font-size: 0.72rem;">
-                            — pre-filled from PDF. Edit, remove, or add rows as needed. Duplicate rows = more vacancies for that school.
+                            — one row per vacancy slot. Add the same school twice for 2 vacancies there.
                         </span>
                     </label>
                     <div class="border rounded p-2" style="background: #fafafa;">
@@ -82,31 +81,27 @@
                                 </tr>
                             </thead>
                             <tbody class="location-tbody" data-group="{{ $i }}">
-                                @foreach ($group['parsed_locations'] as $loc)
+                                @for ($v = 0; $v < $group['rows']->count(); $v++)
                                 <tr class="location-import-row">
                                     <td>
                                         <div class="position-relative location-import-wrapper">
                                             <input
                                                 type="text"
-                                                class="form-control form-control-sm location-import-input {{ $loc['unrecoverable'] ? 'border-warning' : '' }}"
+                                                class="form-control form-control-sm location-import-input"
                                                 name="rows[{{ $i }}][location_place][]"
                                                 autocomplete="off"
-                                                placeholder="{{ $loc['unrecoverable'] ? 'Row ' . $loc['row_number'] . ' unreadable — type school name manually' : 'Search or type a school...' }}"
-                                                value="{{ $loc['school'] ?? '' }}"
+                                                placeholder="Search or type a school..."
                                             >
                                             <div class="list-group position-absolute w-100 shadow-sm location-import-results"
                                                  style="z-index:1050;max-height:180px;overflow-y:auto;display:none;top:100%;"></div>
                                         </div>
                                     </td>
                                     <td class="text-center">
-                                        @if ($loc['unrecoverable'])
-                                            <span title="This row was unreadable in the PDF" style="font-size:0.8rem;">⚠️</span>
-                                        @endif
                                         <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-import-location"
                                                 title="Remove row"><i class="bi bi-x-lg"></i></button>
                                     </td>
                                 </tr>
-                                @endforeach
+                                @endfor
                             </tbody>
                         </table>
                         <button type="button" class="btn btn-sm btn-outline-secondary add-import-location" data-group="{{ $i }}">

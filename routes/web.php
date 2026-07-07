@@ -91,6 +91,7 @@ Route::post('/rankings/send-all', [RankingController::class, 'sendAll'])->name('
 
 // Applications
 Route::get('/applications', [ApplicationController::class, 'index'])->name('applications.index');
+Route::get('/applications/export', [ApplicationController::class, 'exportExcel'])->name('applications.export');
 Route::get('/applications/{id}', [ApplicationController::class, 'show'])->name('applications.show');
 Route::put('/applications/{id}/status', [ApplicationController::class, 'updateStatus'])->name('applications.updateStatus');
 Route::post('/applications/{id}/qualification-check', [ApplicationController::class, 'saveQualificationCheck'])->name('applications.qualification-check');
@@ -109,6 +110,8 @@ Route::post('/assessments/send/{application}', [AssessmentController::class, 'se
 Route::post('/assessments/criteria', [AssessmentController::class, 'storeCriterion'])->name('assessments.criteria.store');
 Route::delete('/assessments/criteria/{id}', [AssessmentController::class, 'destroyCriterion'])->name('assessments.criteria.destroy');
 Route::post('/assessments/scores', [AssessmentController::class, 'saveScores'])->name('assessments.scores.save');
+Route::get('/assessments/scores/import-template', [AssessmentController::class, 'downloadImportTemplate'])->name('assessments.scores.import-template');
+Route::post('/assessments/scores/import', [AssessmentController::class, 'importScores'])->name('assessments.scores.import');
 Route::post('/assessments/send-all', [AssessmentController::class, 'sendAll'])->name('assessments.send-all');
 
 // Offer management

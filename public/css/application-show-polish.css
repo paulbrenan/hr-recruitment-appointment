@@ -1,0 +1,78 @@
+/* ============================================
+   Application Details — interactive polish
+   Save to: public/css/application-show-polish.css
+   ============================================ */
+
+.card {
+    animation: appshow-fade-in 0.3s ease both;
+}
+@keyframes appshow-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Left column sticks while the (usually longer) right column scrolls ─── */
+@media (min-width: 768px) {
+    .col-md-4.d-flex.flex-column.gap-3 {
+        position: sticky;
+        top: 12px;
+        align-self: flex-start;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+    }
+}
+
+/* ── Transaction number: click-to-copy ───────────────────────────────────── */
+.appshow-txn {
+    cursor: pointer;
+    border-bottom: 1px dashed #adb5bd;
+    transition: color 0.15s ease;
+}
+.appshow-txn:hover {
+    color: var(--hr-primary, #003087);
+}
+.appshow-copied-badge {
+    font-size: 0.68rem;
+    color: #198754;
+    margin-left: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.appshow-copied-badge.show {
+    opacity: 1;
+}
+
+/* ── Qualification criteria rows: tint green/red once marked ────────────── */
+.appshow-criteria-pass {
+    background-color: rgba(25, 135, 84, 0.06);
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
+.appshow-criteria-fail {
+    background-color: rgba(220, 53, 69, 0.06);
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
+
+/* ── Overall qualification result badge: gentle pulse to draw the eye ───── */
+.appshow-result-pulse {
+    animation: appshow-pulse 1.4s ease-in-out 2;
+}
+@keyframes appshow-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+}
+
+/* ── Print button ─────────────────────────────────────────────────────────── */
+.appshow-print-btn {
+    transition: filter 0.15s ease;
+}
+.appshow-print-btn:hover {
+    filter: brightness(1.1);
+}
+
+@media print {
+    .btn, a.btn, form, .appshow-print-btn, .col-md-4 form {
+        display: none !important;
+    }
+}

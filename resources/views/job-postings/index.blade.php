@@ -4,6 +4,7 @@
 @section('page-title', 'Job postings')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('css/jobpostings-index-polish.css') }}">
 @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
@@ -193,5 +194,6 @@
         });
     });
 </script>
+<script src="{{ asset('js/jobpostings-index-polish.js') }}"></script>
 @endpush
 @endsection

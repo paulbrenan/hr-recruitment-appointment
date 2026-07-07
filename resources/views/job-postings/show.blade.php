@@ -4,6 +4,7 @@
 @section('page-title', 'Job posting details')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('css/jobposting-show-polish.css') }}">
 <div class="card mb-3">
     <div class="card-body p-4">
         <div class="d-flex justify-content-between align-items-start mb-3">
@@ -189,4 +190,8 @@
         </table>
     </div>
 </div>
+
+@push('scripts')
+<script src="{{ asset('js/jobposting-show-polish.js') }}"></script>
+@endpush
 @endsection

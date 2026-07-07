@@ -8,6 +8,11 @@ use App\Models\CandidateAssessment;
 use App\Models\Application;
 use App\Notifications\RankingResultNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class AssessmentController extends Controller
 {
@@ -47,7 +52,7 @@ class AssessmentController extends Controller
             ->where('job_posting_id', $selectedPostingId)
             ->get();
 
-        $selectedPosting = JobPosting::find($selectedPostingId);
+        $selectedPosting = JobPosting::with('locations')->find($selectedPostingId);
 
         $rankedCandidates = $applications->map(function ($app) use ($criteria) {
             $scores = [];
@@ -62,12 +67,20 @@ class AssessmentController extends Controller
                 }
             }
 
+            // The official CAR form's "Application Code" is the applicant-facing
+            // identifier that stays visible when the name is concealed for public
+            // posting (RA No. 10163 / Data Privacy Act) — the app already generates
+            // one per application, so reuse it rather than adding a new field.
+            $remarks = optional($app->assessments->first())->evaluator_remarks;
+
             return (object) [
-                'application_id' => $app->id,
-                'candidate'      => $app->candidate,
-                'candidate_name' => $app->candidate?->full_name ?? 'Unknown',
-                'scores'         => $scores,
-                'total_score'    => $total,
+                'application_id'   => $app->id,
+                'application_code' => $app->transaction_number,
+                'candidate'        => $app->candidate,
+                'candidate_name'   => $app->candidate?->full_name ?? 'Unknown',
+                'scores'           => $scores,
+                'total_score'      => $total,
+                'remarks'          => $remarks,
                 'notification_sent' => $app->status === 'ranking_sent',
             ];
         })->sortByDesc('total_score')->values();
@@ -123,6 +136,209 @@ class AssessmentController extends Controller
         return redirect()
             ->route('assessments.index', ['job_posting' => $jobPostingId])
             ->with('success', 'Assessment criterion removed.');
+    }
+
+    /**
+     * Generate a ready-to-fill Excel template for this posting: Application
+     * Code + candidate name (reference only, not read back on import) for
+     * every current applicant, then one column per this posting's actual
+     * criteria — so HR only has to type in scores, not codes or headers.
+     */
+    public function downloadImportTemplate(Request $request)
+    {
+        $request->validate([
+            'job_posting_id' => 'required|exists:job_postings,id',
+        ]);
+
+        $jobPostingId = $request->query('job_posting_id') ?? $request->input('job_posting_id');
+
+        $criteria = AssessmentCriterion::where('job_posting_id', $jobPostingId)
+            ->orderBy('id')
+            ->get();
+
+        if ($criteria->isEmpty()) {
+            return back()->with('error', 'Add assessment criteria for this posting before downloading a template.');
+        }
+
+        $applications = Application::with('candidate')
+            ->where('job_posting_id', $jobPostingId)
+            ->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Scores');
+
+        // Header row
+        $col = 1;
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', 'Application Code');
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', 'Candidate Name');
+        foreach ($criteria as $c) {
+            $label = rtrim(rtrim(number_format($c->weight_percentage, 2), '0'), '.');
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', "{$c->name} ({$label} pts)");
+        }
+        $lastColLetter = Coordinate::stringFromColumnIndex($col - 1);
+        $sheet->getStyle("A1:{$lastColLetter}1")->getFont()->setBold(true);
+
+        // One row per current applicant, code + name pre-filled, scores blank
+        $row = 2;
+        foreach ($applications as $app) {
+            $sheet->setCellValue('A' . $row, $app->transaction_number);
+            $sheet->setCellValue('B' . $row, $app->candidate?->full_name ?? 'Unknown');
+            $row++;
+        }
+
+        foreach (range(1, $col - 1) as $c) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'car-import-template-' . $jobPostingId . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * Bulk-import scores from the official CAR-format Excel file.
+     *
+     * Rows are matched to applicants by "Application Code" (the app's own
+     * transaction_number), and columns are matched to this posting's
+     * criteria by name (e.g. "Education (10 pts)" -> criterion "Education"),
+     * so it works regardless of which/how many criteria the posting has.
+     */
+    public function importScores(Request $request)
+    {
+        $validated = $request->validate([
+            'job_posting_id' => 'required|exists:job_postings,id',
+            'import_file' => 'required|file|mimes:xlsx,xls',
+        ]);
+
+        $jobPostingId = $validated['job_posting_id'];
+        $criteria = AssessmentCriterion::where('job_posting_id', $jobPostingId)->get();
+
+        if ($criteria->isEmpty()) {
+            return back()->with('error', 'Add assessment criteria for this posting before importing scores.');
+        }
+
+        try {
+            $spreadsheet = IOFactory::load($request->file('import_file')->getRealPath());
+        } catch (\Exception $e) {
+            return back()->with('error', 'Could not read the uploaded file: ' . $e->getMessage());
+        }
+
+        $sheet = $spreadsheet->getActiveSheet();
+        // Keyed by column letter (A, B, C...) and 1-indexed row number
+        $rows = $sheet->toArray(null, true, true, true);
+
+        // Locate the header row/column that says "Application Code" — this
+        // anchors everything else, so we don't have to assume a fixed row
+        // number (the official template has it on row 14, but be tolerant).
+        $headerRow = null;
+        $appCodeCol = null;
+        foreach ($rows as $rowNum => $row) {
+            foreach ($row as $col => $val) {
+                if (is_string($val) && trim($val) === 'Application Code') {
+                    $headerRow = $rowNum;
+                    $appCodeCol = $col;
+                    break 2;
+                }
+            }
+        }
+
+        if (!$headerRow) {
+            return back()->with('error', 'Could not find an "Application Code" column in the uploaded file. Please use the official CAR template for this posting.');
+        }
+
+        // Match criterion columns against a small helper so we can try two
+        // header layouts: our own template (Application Code + criteria all
+        // on one row) and the official CAR template (criteria one row below
+        // "Application Code", matching its two-row header).
+        $mapColumns = function (array $headerRowValues) use ($criteria) {
+            $map = [];
+            foreach ($headerRowValues as $col => $val) {
+                if (!is_string($val) || trim($val) === '') continue;
+                $cleanName = trim(preg_replace('/\(.*?pts?\)/i', '', $val));
+
+                foreach ($criteria as $c) {
+                    if (strcasecmp(trim($c->name), $cleanName) === 0) {
+                        $map[$col] = $c;
+                        break;
+                    }
+                }
+            }
+            return $map;
+        };
+
+        $subHeaderRow = $headerRow;
+        $columnCriterionMap = $mapColumns($rows[$headerRow]);
+
+        if (empty($columnCriterionMap)) {
+            // Fall back to the official template's two-row header.
+            $subHeaderRow = $headerRow + 1;
+            $columnCriterionMap = $mapColumns($rows[$subHeaderRow] ?? []);
+        }
+
+        if (empty($columnCriterionMap)) {
+            return back()->with('error', 'None of the score columns in the uploaded file matched this posting\'s criteria names. Check that criterion names (e.g. "Education") match exactly.');
+        }
+
+        $dataStartRow = $subHeaderRow + 1;
+        $matched = 0;
+        $unmatchedCodes = [];
+        $outOfRange = [];
+
+        foreach ($rows as $rowNum => $row) {
+            if ($rowNum < $dataStartRow) continue;
+
+            $code = trim((string) ($row[$appCodeCol] ?? ''));
+            if ($code === '') continue;
+
+            $application = Application::where('job_posting_id', $jobPostingId)
+                ->where('transaction_number', $code)
+                ->first();
+
+            if (!$application) {
+                $unmatchedCodes[] = $code;
+                continue;
+            }
+
+            foreach ($columnCriterionMap as $col => $criterion) {
+                $rawScore = $row[$col] ?? null;
+                if ($rawScore === null || $rawScore === '') continue;
+                if (!is_numeric($rawScore)) continue;
+
+                $score = (float) $rawScore;
+                if ($score > (float) $criterion->weight_percentage) {
+                    $outOfRange[] = "{$code} / {$criterion->name}";
+                    continue;
+                }
+
+                CandidateAssessment::updateOrCreate(
+                    [
+                        'application_id' => $application->id,
+                        'assessment_criteria_id' => $criterion->id,
+                    ],
+                    ['score' => $score]
+                );
+            }
+
+            $matched++;
+        }
+
+        $message = "Imported scores for {$matched} applicant(s).";
+        if (!empty($unmatchedCodes)) {
+            $message .= ' Unmatched application codes: ' . implode(', ', array_unique($unmatchedCodes)) . '.';
+        }
+        if (!empty($outOfRange)) {
+            $message .= ' Skipped out-of-range scores: ' . implode(', ', array_unique($outOfRange)) . '.';
+        }
+
+        return redirect()
+            ->route('assessments.index', ['job_posting' => $jobPostingId])
+            ->with((!empty($unmatchedCodes) || !empty($outOfRange)) ? 'error' : 'success', $message);
     }
 
     public function saveScores(Request $request)
@@ -224,7 +440,7 @@ class AssessmentController extends Controller
             }
         } catch (\Exception $e) {
             // Silently fail — don't block the score save if notification fails
-            \Log::error('Auto ranking notification failed: ' . $e->getMessage());
+            Log::error('Auto ranking notification failed: ' . $e->getMessage());
         }
     }
 

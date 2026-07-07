@@ -89,12 +89,6 @@ class CandidateAuthController extends Controller
             }
         }
 
-        // Clean up any orphaned candidate record for this email
-        // (a previous registration that failed before creating the application).
-        Candidate::where('email', $validated['email'])
-            ->whereDoesntHave('applications')
-            ->delete();
-
         $candidate = Candidate::create([
             'first_name'       => $validated['first_name'],
             'middle_name'      => $validated['middle_name'] ?? null,

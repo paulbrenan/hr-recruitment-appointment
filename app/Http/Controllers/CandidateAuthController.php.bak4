@@ -40,19 +40,7 @@ class CandidateAuthController extends Controller
             'disability'       => ['required', 'string', 'max:255'],
             'ethnic_group'     => ['required', 'string', 'max:100'],
             'phone'            => ['required', 'string', 'max:50'],
-            // Only block the email if this candidate already has a submitted
-            // application. A candidate record without an application means a
-            // previous registration attempt failed partway through — allow retry.
-            'email'            => [
-                'required', 'email', 'max:255',
-                \Illuminate\Validation\Rule::unique('candidates', 'email')->where(function ($query) {
-                    return $query->whereExists(function ($sub) {
-                        $sub->select(\DB::raw(1))
-                            ->from('applications')
-                            ->whereColumn('applications.candidate_id', 'candidates.id');
-                    });
-                }),
-            ],
+            'email'            => ['required', 'email', 'max:255', 'unique:candidates,email'],
             // Qualifications
             'education'        => ['required', 'string', 'max:500'],
             'training_hours'   => ['required', 'string', 'max:100'],
@@ -88,12 +76,6 @@ class CandidateAuthController extends Controller
                     ->withErrors(['job_posting_id' => 'Sorry, that place of assignment is no longer available. Please choose another option.']);
             }
         }
-
-        // Clean up any orphaned candidate record for this email
-        // (a previous registration that failed before creating the application).
-        Candidate::where('email', $validated['email'])
-            ->whereDoesntHave('applications')
-            ->delete();
 
         $candidate = Candidate::create([
             'first_name'       => $validated['first_name'],

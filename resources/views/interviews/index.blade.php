@@ -18,14 +18,14 @@
 @endif
 <div class="d-flex justify-content-between align-items-center mb-3">
     <p class="text-muted mb-0 small">Schedule and track interviews, exams, and open ranking sessions</p>
-    <button class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
+    <button class="btn btn-sm sched-new-btn" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
         <i class="bi bi-plus-lg me-1"></i> New schedule
     </button>
 </div>
 
-<div class="card">
+<div class="card sched-table-card">
     <div class="table-responsive">
-        <table class="table align-middle mb-0">
+        <table class="table align-middle mb-0 sched-table">
             <thead>
                 <tr>
                     <th>Candidate</th>
@@ -42,7 +42,9 @@
                 <tr>
                     <td class="fw-medium">{{ $s->application->candidate->full_name }}</td>
                     <td>
-                        <span class="badge text-bg-light text-dark border">{{ str_replace('_', ' ', ucfirst($s->type)) }}</span>
+                        @foreach (explode(',', $s->type) as $t)
+                            <span class="badge sched-type-badge" data-type="{{ trim($t) }}">{{ str_replace('_', ' ', ucfirst(trim($t))) }}</span>
+                        @endforeach
                     </td>
                     <td>{{ $s->scheduled_at ? \Carbon\Carbon::parse($s->scheduled_at)->format('M d, Y h:i A') : '—' }}</td>
                     <td>{{ $s->location ?? '—' }}</td>
@@ -96,12 +98,12 @@
 
 <div class="modal fade" id="newScheduleModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content sched-modal">
             <form action="{{ route('interviews.store') }}" method="POST">
                 @csrf
-                <div class="modal-header">
-                    <h6 class="modal-title">Schedule interview / exam</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header sched-modal-header">
+                    <h6 class="modal-title"><i class="bi bi-calendar-plus me-2"></i>Schedule interview / exam</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-2">
@@ -115,33 +117,51 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <label class="form-label small">Type</label>
-                        <select name="type" class="form-select form-select-sm">
-                            <option value="open_ranking">Open ranking</option>
-                            <option value="interview">Interview</option>
-                            <option value="exam">Exam</option>
-                        </select>
+                        <div class="sched-type-group" role="group">
+                            <input type="checkbox" class="btn-check sched-type-check" name="type_display" value="open_ranking" id="new_type_open_ranking" autocomplete="off" checked>
+                            <label class="btn sched-type-btn" for="new_type_open_ranking">Open ranking</label>
+
+                            <input type="checkbox" class="btn-check sched-type-check" name="type_display" value="interview" id="new_type_interview" autocomplete="off">
+                            <label class="btn sched-type-btn" for="new_type_interview">Interview</label>
+
+                            <input type="checkbox" class="btn-check sched-type-check" name="type_display" value="exam" id="new_type_exam" autocomplete="off">
+                            <label class="btn sched-type-btn" for="new_type_exam">Exam</label>
+
+                            <span class="sched-type-sep"></span>
+
+                            <input type="checkbox" class="btn-check sched-type-selectall" id="new_type_selectall" autocomplete="off">
+                            <label class="btn sched-type-btn sched-type-btn-all" for="new_type_selectall"><i class="bi bi-check2-all me-1"></i>Select all</label>
+                        </div>
+                        <input type="hidden" name="type" id="new_type" value="open_ranking">
+                        <div class="sched-type-hint text-muted">Select one or more that apply.</div>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <label class="form-label small">Date &amp; time</label>
-                        <input type="datetime-local" name="scheduled_at" class="form-control form-control-sm" required>
+                        <div class="sched-datetime-confirm">
+                            <input type="datetime-local" name="scheduled_at" class="form-control form-control-sm sched-datetime-input" required>
+                            <button type="button" class="btn btn-sm sched-confirm-btn" title="Confirm date & time">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </div>
+                        <div class="sched-datetime-hint text-muted">Press Enter or tap the check to confirm.</div>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <label class="form-label small">Location</label>
                         <input type="text" name="location" class="form-control form-control-sm">
                     </div>
                     {{-- Panelist checklist — populated via AJAX when application is selected --}}
                     <div class="mb-2" id="newPanelistSection">
                         <label class="form-label small">Vacancy for Screening / Interview</label>
-                        <div id="newPanelistList" class="border rounded p-2" style="min-height: 48px; background: #f8f9fa;">
+                        <div id="newPanelistList" class="border rounded p-2 sched-panelist-box">
                             <span class="text-muted small" id="newPanelistPlaceholder">Select an application above to load panelists.</span>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer sched-modal-footer">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Send invitation</button>
+                    <button type="submit" class="btn btn-sm sched-submit-btn">Send invitation</button>
                 </div>
             </form>
         </div>
@@ -150,13 +170,13 @@
 
 <div class="modal fade" id="editScheduleModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content sched-modal">
             <form id="editScheduleForm" action="" method="POST">
                 @csrf
                 @method('PUT')
-                <div class="modal-header">
-                    <h6 class="modal-title">Edit schedule</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header sched-modal-header">
+                    <h6 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit schedule</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-2">
@@ -169,26 +189,44 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <label class="form-label small">Type</label>
-                        <select name="type" id="edit_type" class="form-select form-select-sm">
-                            <option value="open_ranking">Open ranking</option>
-                            <option value="interview">Interview</option>
-                            <option value="exam">Exam</option>
-                        </select>
+                        <div class="sched-type-group" role="group">
+                            <input type="checkbox" class="btn-check sched-type-check" name="type_display" value="open_ranking" id="edit_type_open_ranking" autocomplete="off">
+                            <label class="btn sched-type-btn" for="edit_type_open_ranking">Open ranking</label>
+
+                            <input type="checkbox" class="btn-check sched-type-check" name="type_display" value="interview" id="edit_type_interview" autocomplete="off">
+                            <label class="btn sched-type-btn" for="edit_type_interview">Interview</label>
+
+                            <input type="checkbox" class="btn-check sched-type-check" name="type_display" value="exam" id="edit_type_exam" autocomplete="off">
+                            <label class="btn sched-type-btn" for="edit_type_exam">Exam</label>
+
+                            <span class="sched-type-sep"></span>
+
+                            <input type="checkbox" class="btn-check sched-type-selectall" id="edit_type_selectall" autocomplete="off">
+                            <label class="btn sched-type-btn sched-type-btn-all" for="edit_type_selectall"><i class="bi bi-check2-all me-1"></i>Select all</label>
+                        </div>
+                        <input type="hidden" name="type" id="edit_type" value="open_ranking">
+                        <div class="sched-type-hint text-muted">Select one or more that apply.</div>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <label class="form-label small">Date &amp; time</label>
-                        <input type="datetime-local" name="scheduled_at" id="edit_scheduled_at" class="form-control form-control-sm" required>
+                        <div class="sched-datetime-confirm">
+                            <input type="datetime-local" name="scheduled_at" id="edit_scheduled_at" class="form-control form-control-sm sched-datetime-input" required>
+                            <button type="button" class="btn btn-sm sched-confirm-btn" title="Confirm date & time">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </div>
+                        <div class="sched-datetime-hint text-muted">Press Enter or tap the check to confirm.</div>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <label class="form-label small">Location</label>
                         <input type="text" name="location" id="edit_location" class="form-control form-control-sm">
                     </div>
                     {{-- Panelist checklist — populated when modal opens --}}
                     <div class="mb-2" id="editPanelistSection">
                         <label class="form-label small">Vacancy for Screening / Interview</label>
-                        <div id="editPanelistList" class="border rounded p-2" style="min-height: 48px; background: #f8f9fa;">
+                        <div id="editPanelistList" class="border rounded p-2 sched-panelist-box">
                             <span class="text-muted small" id="editPanelistPlaceholder">Loading panelists...</span>
                         </div>
                     </div>
@@ -206,14 +244,190 @@
                         <textarea name="remarks" id="edit_remarks" class="form-control form-control-sm" rows="2"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer sched-modal-footer">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Save changes</button>
+                    <button type="submit" class="btn btn-sm sched-submit-btn">Save changes</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<style>
+    /* ── Table ─────────────────────────────────────────────────────────── */
+    .sched-table-card {
+        border: 1px solid rgba(0, 0, 0, .06);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+    }
+    .sched-table thead th {
+        font-size: .7rem;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: #6b7280;
+        background: #f8f9fb;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .sched-table tbody tr {
+        transition: background-color .12s ease;
+    }
+    .sched-table tbody tr:hover {
+        background-color: rgba(0, 92, 82, .04);
+    }
+
+    /* ── Type badges — colored per type ───────────────────────────────── */
+    .sched-type-badge {
+        font-weight: 500;
+        border: 1px solid transparent;
+    }
+    .sched-type-badge[data-type="open_ranking"] {
+        background: #fff4d6; color: #8a6d1d; border-color: #f0dfa4;
+    }
+    .sched-type-badge[data-type="interview"] {
+        background: #e3f1ee; color: var(--hr-primary, #005c52); border-color: #bfe0d9;
+    }
+    .sched-type-badge[data-type="exam"] {
+        background: #eae6f7; color: #4b2f8f; border-color: #d6cdef;
+    }
+
+    /* ── New schedule button ──────────────────────────────────────────── */
+    .sched-new-btn {
+        background-color: var(--hr-primary, #005c52);
+        color: #fff;
+        border: none;
+        transition: filter .15s ease, transform .1s ease;
+    }
+    .sched-new-btn:hover { filter: brightness(1.08); color: #fff; }
+    .sched-new-btn:active { transform: scale(.98); }
+
+    /* ── Modal shell ───────────────────────────────────────────────────── */
+    .sched-modal {
+        border: none;
+        border-radius: .6rem;
+        overflow: hidden;
+    }
+    .sched-modal-header {
+        background: linear-gradient(135deg, var(--hr-primary, #005c52), #00463f);
+        color: #fff;
+        border-bottom: none;
+    }
+    .sched-modal-header .modal-title {
+        color: #fff;
+        font-weight: 600;
+    }
+    .sched-modal-footer {
+        border-top: 1px solid #eef0f2;
+        background: #fbfbfc;
+    }
+    .sched-submit-btn {
+        background-color: var(--hr-primary, #005c52);
+        color: #fff;
+        border: none;
+    }
+    .sched-submit-btn:hover { filter: brightness(1.08); color: #fff; }
+
+    /* ── Type pills (checkbox-styled, single-select) ─────────────────────── */
+    .sched-type-group {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+    .sched-type-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        font-size: .78rem;
+        padding: .3rem .75rem;
+        border-radius: 999px;
+        border: 1px solid #d7dbe0;
+        background: #fff;
+        color: #495057;
+        cursor: pointer;
+        transition: all .15s ease;
+    }
+    .sched-type-btn::before {
+        content: "";
+        width: .85em;
+        height: .85em;
+        border-radius: .2em;
+        border: 1.5px solid #adb5bd;
+        display: inline-block;
+        background: #fff;
+        transition: all .15s ease;
+    }
+    .sched-type-check:checked + .sched-type-btn {
+        background: var(--hr-primary, #005c52);
+        border-color: var(--hr-primary, #005c52);
+        color: #fff;
+    }
+    .sched-type-check:checked + .sched-type-btn::before {
+        background: #fff;
+        border-color: #fff;
+        box-shadow: inset 0 0 0 2px var(--hr-primary, #005c52);
+    }
+    .sched-type-check:focus-visible + .sched-type-btn {
+        outline: 2px solid var(--hr-primary, #005c52);
+        outline-offset: 1px;
+    }
+    .sched-type-sep {
+        width: 1px;
+        align-self: stretch;
+        background: #e1e4e8;
+        margin: 0 .15rem;
+    }
+    .sched-type-btn-all {
+        border-style: dashed;
+        color: #6b7280;
+        font-weight: 500;
+    }
+    .sched-type-selectall:checked + .sched-type-btn-all,
+    .sched-type-selectall:indeterminate + .sched-type-btn-all {
+        background: #eef1f3;
+        border-style: solid;
+        border-color: #c7ccd1;
+        color: #374151;
+    }
+
+    /* ── Date & time confirm control ──────────────────────────────────── */
+    .sched-datetime-confirm {
+        display: flex;
+        gap: .4rem;
+        align-items: stretch;
+    }
+    .sched-datetime-input { flex: 1; }
+    .sched-confirm-btn {
+        border: 1px solid #d7dbe0;
+        background: #fff;
+        color: #adb5bd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.1rem;
+        flex-shrink: 0;
+        transition: all .15s ease;
+    }
+    .sched-datetime-confirm.is-confirmed .sched-confirm-btn {
+        background: var(--hr-primary, #005c52);
+        border-color: var(--hr-primary, #005c52);
+        color: #fff;
+    }
+    .sched-datetime-confirm.is-confirmed .sched-datetime-input {
+        border-color: var(--hr-primary, #005c52);
+    }
+    .sched-type-hint {
+        font-size: .7rem;
+        margin-top: .35rem;
+    }
+    .sched-datetime-hint {
+        font-size: .7rem;
+        margin-top: .25rem;
+    }
+
+    /* ── Panelist checklist box ───────────────────────────────────────── */
+    .sched-panelist-box {
+        min-height: 48px;
+        background: #f8f9fa;
+    }
+</style>
 
 @push('scripts')
 <script>
@@ -226,8 +440,12 @@
         form.action = '/interviews/' + id;
 
         document.getElementById('edit_application_id').value = button.getAttribute('data-application-id');
-        document.getElementById('edit_type').value = button.getAttribute('data-type');
+
+        const editType = button.getAttribute('data-type'); // may be "open_ranking" or "open_ranking,interview"
+        setTypePills('editScheduleModal', editType);
+
         document.getElementById('edit_scheduled_at').value = button.getAttribute('data-scheduled-at');
+        markDatetimeConfirmed('editScheduleModal', !!button.getAttribute('data-scheduled-at'));
         document.getElementById('edit_location').value = button.getAttribute('data-location') || '';
         document.getElementById('edit_status').value = button.getAttribute('data-status');
         document.getElementById('edit_remarks').value = button.getAttribute('data-remarks') || '';
@@ -295,6 +513,105 @@
         // Pass it via a data attribute on each <option> — see the patched view
         const jobPostingId = selected.getAttribute('data-job-posting-id');
         loadPanelists('newPanelistList', 'newPanelistPlaceholder', jobPostingId, []);
+    });
+
+    // ── Type pills (multi-select, styled as checkboxes) ──────────────────────
+    // Any combination of Open ranking / Interview / Exam can be checked at
+    // once. The hidden input keeps a comma-separated list of whatever is
+    // checked, e.g. "open_ranking,interview", so the form still submits a
+    // single "type" field. At least one option must stay checked.
+    function setTypePills(modalId, values) {
+        const modal = document.getElementById(modalId);
+        const list = Array.isArray(values) ? values : String(values || '').split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+        modal.querySelectorAll('.sched-type-check').forEach(function (input) {
+            input.checked = list.includes(input.value);
+        });
+        syncTypeHidden(modal);
+        syncSelectAll(modal);
+    }
+
+    function syncTypeHidden(modal) {
+        const checked = Array.from(modal.querySelectorAll('.sched-type-check:checked')).map(function (i) { return i.value; });
+        modal.querySelector('input[type="hidden"][id$="_type"]').value = checked.join(',') || 'open_ranking';
+    }
+
+    // Keeps the "Select all" checkbox reflecting the current state of the
+    // individual type checkboxes: checked when all are checked, indeterminate
+    // (dash) when some but not all are checked, unchecked when none are.
+    function syncSelectAll(modal) {
+        const selectAll = modal.querySelector('.sched-type-selectall');
+        if (!selectAll) return;
+        const boxes = modal.querySelectorAll('.sched-type-check');
+        const checkedCount = modal.querySelectorAll('.sched-type-check:checked').length;
+        selectAll.checked = checkedCount === boxes.length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+    }
+
+    document.querySelectorAll('.sched-type-check').forEach(function (input) {
+        input.addEventListener('change', function () {
+            const modal = this.closest('.modal');
+            const anyChecked = modal.querySelectorAll('.sched-type-check:checked').length > 0;
+            if (!anyChecked) {
+                // Prevent unchecking the last remaining type — re-check it
+                this.checked = true;
+            }
+            syncTypeHidden(modal);
+            syncSelectAll(modal);
+        });
+    });
+
+    document.querySelectorAll('.sched-type-selectall').forEach(function (selectAll) {
+        selectAll.addEventListener('change', function () {
+            const modal = this.closest('.modal');
+            const boxes = modal.querySelectorAll('.sched-type-check');
+            if (this.checked) {
+                boxes.forEach(function (b) { b.checked = true; });
+            } else {
+                // Keep at least one checked — leave the first one on
+                boxes.forEach(function (b, i) { b.checked = (i === 0); });
+                this.checked = false;
+            }
+            syncTypeHidden(modal);
+            syncSelectAll(modal);
+        });
+    });
+
+    // ── Date & time confirm (Enter key or check button) ──────────────────────
+    function markDatetimeConfirmed(modalId, confirmed) {
+        const modal = document.getElementById(modalId);
+        const wrap = modal.querySelector('.sched-datetime-confirm');
+        if (!wrap) return;
+        wrap.classList.toggle('is-confirmed', !!confirmed);
+    }
+
+    document.querySelectorAll('.sched-datetime-confirm').forEach(function (wrap) {
+        const input = wrap.querySelector('.sched-datetime-input');
+        const confirmBtn = wrap.querySelector('.sched-confirm-btn');
+        const modalId = wrap.closest('.modal').id;
+
+        function confirmValue() {
+            if (input.value) {
+                markDatetimeConfirmed(modalId, true);
+                input.blur();
+            }
+        }
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmValue();
+            }
+        });
+        input.addEventListener('input', function () {
+            markDatetimeConfirmed(modalId, false);
+        });
+        confirmBtn.addEventListener('click', confirmValue);
+    });
+
+    // Reset the "new schedule" modal each time it opens
+    document.getElementById('newScheduleModal').addEventListener('show.bs.modal', function () {
+        setTypePills('newScheduleModal', 'open_ranking');
+        markDatetimeConfirmed('newScheduleModal', false);
     });
 </script>
 @endpush

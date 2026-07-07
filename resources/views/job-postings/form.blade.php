@@ -4,6 +4,9 @@
 @section('page-title', ($posting->exists ?? false) ? 'Edit job posting' : 'New job posting')
 
 @section('content')
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/form-polish.css') }}">
+@endpush
 <div class="card">
     <div class="card-body p-4">
         @if ($errors->any())
@@ -729,5 +732,6 @@
         });
     });
 </script>
+<script src="{{ asset('js/form-polish.js') }}"></script>
 @endpush
 @endsection

@@ -1,0 +1,48 @@
+/* ============================================
+   Applications List — interactive polish
+   Save to: public/css/applications-index-polish.css
+   ============================================ */
+
+.card {
+    animation: appidx-fade-in 0.3s ease both;
+}
+@keyframes appidx-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Quick client-side name/email search, injected above the table ──────── */
+.appidx-search-wrap {
+    position: relative;
+    width: 260px;
+}
+.appidx-search-wrap input {
+    padding-left: 2rem;
+}
+.appidx-search-wrap i.bi-search {
+    position: absolute;
+    left: 0.65rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #adb5bd;
+    font-size: 0.85rem;
+}
+
+/* Rows hidden by the quick search */
+tr.appidx-row-hidden {
+    display: none;
+}
+
+.appidx-no-results {
+    text-align: center;
+    color: #6c7780;
+    font-size: 0.85rem;
+    padding: 2rem 0;
+}
+
+/* ── Status filter select: subtle dim while the page reloads ─────────────── */
+.appidx-filtering {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}

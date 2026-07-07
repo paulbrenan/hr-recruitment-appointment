@@ -25,6 +25,7 @@ class CandidateAuthController extends Controller
             'middle_name'      => ['nullable', 'string', 'max:255'],
             'last_name'        => ['required', 'string', 'max:255'],
             'job_posting_id'   => ['required', 'integer', 'exists:job_postings,id'],
+            'job_posting_location_id' => ['nullable', 'integer', 'exists:job_posting_locations,id'],
             'address'          => ['required', 'string', 'max:500'],
             'age'              => ['required', 'integer', 'min:18', 'max:70'],
             'sex'              => ['required', 'in:Male,Female'],
@@ -55,6 +56,16 @@ class CandidateAuthController extends Controller
                 ->withErrors(['job_posting_id' => 'Sorry, this position is no longer available. Please choose another open position.']);
         }
 
+        // If a location was submitted, make sure it actually belongs to
+        // THIS posting -- prevents a tampered/mismatched request from
+        // attaching an application to some other posting's location.
+        $jobPostingLocationId = $validated['job_posting_location_id'] ?? null;
+        if ($jobPostingLocationId && !$jobPosting->locations()->where('id', $jobPostingLocationId)->exists()) {
+            return back()
+                ->withInput()
+                ->withErrors(['job_posting_location_id' => 'The selected place of assignment does not belong to the chosen position. Please pick again.']);
+        }
+
         $candidate = Candidate::create([
             'first_name'       => $validated['first_name'],
             'middle_name'      => $validated['middle_name'] ?? null,
@@ -83,6 +94,7 @@ class CandidateAuthController extends Controller
             'transaction_number' => $txn,
             'candidate_id'       => $candidate->id,
             'job_posting_id'     => $jobPosting->id,
+            'job_posting_location_id' => $jobPostingLocationId,
             'status'             => 'submitted',
             'applied_at'         => now()->toDateString(),
             'notes'              => 'Submitted via Online Recruitment Form.',

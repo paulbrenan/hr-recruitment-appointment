@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\AssessmentCriterion;
 use App\Models\InterviewSchedule;
 use App\Models\JobPosting;
 use App\Notifications\QualificationResultNotification;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class ApplicationController extends Controller
 {
@@ -18,9 +22,121 @@ class ApplicationController extends Controller
             $query->where('status', $request->input('status'));
         }
 
+        if ($request->filled('job_posting')) {
+            $query->where('job_posting_id', $request->input('job_posting'));
+        }
+
         $applications = $query->get();
 
-        return view('applications.index', compact('applications'));
+        // For the job-posting filter dropdown, and so it doubles as the
+        // scope selector for the Excel export below.
+        $jobPostings = JobPosting::orderBy('title')->get();
+
+        return view('applications.index', compact('applications', 'jobPostings'));
+    }
+
+    /**
+     * Export applicants to Excel from the Applications page.
+     *
+     * Two modes, chosen by whether a job posting is selected in the filter
+     * bar (same filter logic as index() above):
+     *
+     *  - Scoped to a job posting: outputs Application Code + Candidate Name
+     *    + one column per that posting's actual assessment criteria (e.g.
+     *    "Education (10 pts)") — identical layout to what
+     *    AssessmentController@importScores expects. HR can fill in scores
+     *    and re-upload it directly on the Assessment & ranking page's
+     *    "Import scores from Excel", with no separate template download
+     *    step and no manual re-typing of tracking numbers/names.
+     *  - No posting selected: a flat reference list (tracking number, name,
+     *    posting, applied date, status) across whatever's currently
+     *    filtered by status. No score columns here since criteria differ
+     *    per posting.
+     */
+    public function exportExcel(Request $request)
+    {
+        $query = Application::with(['candidate', 'jobPosting'])->latest();
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        $jobPostingId = $request->input('job_posting');
+
+        if ($jobPostingId) {
+            $query->where('job_posting_id', $jobPostingId);
+        }
+
+        $applications = $query->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Applicants');
+
+        if ($jobPostingId) {
+            $criteria = AssessmentCriterion::where('job_posting_id', $jobPostingId)
+                ->orderBy('id')
+                ->get();
+
+            if ($criteria->isEmpty()) {
+                return back()->with('error', 'Add assessment criteria for this posting (on the Assessment & ranking page) before exporting a scoring sheet.');
+            }
+
+            $col = 1;
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', 'Application Code');
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', 'Candidate Name');
+            foreach ($criteria as $c) {
+                $label = rtrim(rtrim(number_format($c->weight_percentage, 2), '0'), '.');
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($col++) . '1', "{$c->name} ({$label} pts)");
+            }
+            $lastColLetter = Coordinate::stringFromColumnIndex($col - 1);
+            $sheet->getStyle("A1:{$lastColLetter}1")->getFont()->setBold(true);
+
+            $row = 2;
+            foreach ($applications as $app) {
+                $sheet->setCellValue('A' . $row, $app->transaction_number);
+                $sheet->setCellValue('B' . $row, $app->candidate?->full_name ?? 'Unknown');
+                $row++;
+            }
+
+            foreach (range(1, $col - 1) as $c) {
+                $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
+            }
+
+            $postingTitle = optional(JobPosting::find($jobPostingId))->title ?? 'posting';
+            $filename = 'applicant-scoring-' . \Illuminate\Support\Str::slug($postingTitle) . '.xlsx';
+        } else {
+            $sheet->setCellValue('A1', 'Tracking Number');
+            $sheet->setCellValue('B1', 'Candidate Name');
+            $sheet->setCellValue('C1', 'Job Posting');
+            $sheet->setCellValue('D1', 'Applied');
+            $sheet->setCellValue('E1', 'Status');
+            $sheet->getStyle('A1:E1')->getFont()->setBold(true);
+
+            $row = 2;
+            foreach ($applications as $app) {
+                $sheet->setCellValue('A' . $row, $app->transaction_number);
+                $sheet->setCellValue('B' . $row, $app->candidate?->full_name ?? 'Unknown');
+                $sheet->setCellValue('C' . $row, $app->jobPosting?->title ?? '');
+                $sheet->setCellValue('D' . $row, $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '');
+                $sheet->setCellValue('E' . $row, str_replace('_', ' ', ucfirst($app->status)));
+                $row++;
+            }
+
+            foreach (range(1, 5) as $c) {
+                $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
+            }
+
+            $filename = 'applicant-tracking-' . now()->format('Y-m-d') . '.xlsx';
+        }
+
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public function show($id)

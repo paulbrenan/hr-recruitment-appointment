@@ -4,6 +4,7 @@
 @section('page-title', 'Import job postings from PDF')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('css/upload-polish.css') }}">
 <div class="card">
     <div class="card-body p-4">
         <p class="text-muted small mb-3">
@@ -34,4 +35,6 @@
         </form>
     </div>
 </div>
+
+<script src="{{ asset('js/upload-polish.js') }}"></script>
 @endsection

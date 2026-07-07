@@ -13,6 +13,7 @@ class Application extends Model
         'transaction_number',
         'candidate_id',
         'job_posting_id',
+        'job_posting_location_id',
         'status',
         'applied_at',
         'notes',
@@ -44,6 +45,11 @@ class Application extends Model
     public function jobPosting(): BelongsTo
     {
         return $this->belongsTo(JobPosting::class);
+    }
+
+    public function jobPostingLocation(): BelongsTo
+    {
+        return $this->belongsTo(JobPostingLocation::class);
     }
 
     public function documents(): HasMany

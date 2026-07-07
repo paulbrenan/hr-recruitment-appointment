@@ -145,6 +145,7 @@
 @endsection
 
 @push('scripts')
+<link rel="stylesheet" href="{{ asset('css/review-polish.css') }}">
 <style>
 .import-fab {
     position: fixed;
@@ -277,4 +278,5 @@
         </button>
     </div>
 </div>
+<script src="{{ asset('js/review-polish.js') }}"></script>
 @endpush

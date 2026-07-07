@@ -27,6 +27,14 @@
   .no-openings-card i { font-size:2.6rem; color:var(--teal-mid); margin-bottom:14px; display:block; }
   .no-openings-card h5 { font-weight:600; margin-bottom:8px; }
   .no-openings-card p { color:#666; font-size:.92rem; margin-bottom:0; }
+
+  /* Place of assignment — dependent field */
+  #placeFieldWrap.place-field-in { animation: place-field-in .25s ease both; }
+  @keyframes place-field-in {
+    from { opacity:0; transform:translateY(-6px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  #placeVacancyHint { color:var(--teal-mid,#2b7a78); font-weight:500; }
 </style>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 <style>
@@ -83,7 +91,8 @@
     // Live open postings, keyed by ID (not title) so two postings that
     // happen to share a title but differ in place of assignment can't be
     // confused with one another. Both fields shown to the applicant.
-    $openPostings = \App\Models\JobPosting::where('status', 'open')
+    $openPostings = \App\Models\JobPosting::with('locations')
+        ->where('status', 'open')
         ->orderBy('title')
         ->get(['id', 'title', 'place_of_assignment']);
   @endphp
@@ -131,6 +140,7 @@
         <label class="form-label"><span class="q-num">2.</span> Position Applying For <span class="required-star">*</span></label>
         @error('job_posting_id')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
         <select name="job_posting_id"
+            id="jobPostingSelect"
             class="form-select @error('job_posting_id') is-invalid @enderror"
               required>
             <option value="" disabled {{ old('job_posting_id') ? '' : 'selected' }}>— Select a position —</option>
@@ -141,6 +151,35 @@
             @endforeach
         </select>
       </div>
+
+      {{-- 2b. Place of assignment — populated based on the position picked above --}}
+      <div class="mb-4 d-none" id="placeFieldWrap">
+        <label class="form-label">Place of Assignment <span class="required-star">*</span></label>
+        @error('job_posting_location_id')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
+        <select name="job_posting_location_id" id="placeSelect" class="form-select @error('job_posting_location_id') is-invalid @enderror">
+          <option value="">— Select a place —</option>
+        </select>
+        <p class="hint" id="placeVacancyHint"></p>
+      </div>
+
+      @php
+        // Every open posting's locations (id, place, remaining vacancies),
+        // keyed by posting id, so the Place dropdown can populate instantly
+        // client-side without a page reload or AJAX round-trip.
+        $postingLocationsMap = $openPostings->mapWithKeys(function ($posting) {
+            return [$posting->id => $posting->locations->map(function ($loc) {
+                return [
+                    'id' => $loc->id,
+                    'place' => $loc->place_of_assignment,
+                    'vacancies' => $loc->vacancies,
+                ];
+            })->values()];
+        });
+      @endphp
+      <script>
+        window.__postingLocations = @json($postingLocationsMap);
+        window.__oldJobPostingLocationId = @json(old('job_posting_location_id'));
+      </script>
 
       {{-- 3. Address --}}
       <div class="mb-4">
@@ -328,6 +367,62 @@ document.querySelectorAll('.radio-option input[type=radio]').forEach(r => {
           placeholder: '— Select a position —',
           allowClear: true,
       });
+      $('#placeSelect').select2({
+          placeholder: '— Select a place —',
+          allowClear: true,
+      });
+
+      const postingLocations = window.__postingLocations || {};
+      const oldLocationId = window.__oldJobPostingLocationId;
+      const $positionSelect = $('#jobPostingSelect');
+      const $placeWrap = $('#placeFieldWrap');
+      const $placeSelect = $('#placeSelect');
+      const $placeHint = $('#placeVacancyHint');
+
+      function populatePlaces(postingId, preselectId) {
+          const locations = postingLocations[postingId] || [];
+
+          $placeSelect.empty().append('<option value="">— Select a place —</option>');
+
+          if (locations.length === 0) {
+              // This posting has no separate location rows (legacy single
+              // place_of_assignment only) -- nothing to choose, hide the field
+              // entirely and let job_posting_location_id submit as empty.
+              $placeWrap.addClass('d-none');
+              $placeSelect.prop('required', false);
+              $placeHint.text('');
+              $placeSelect.trigger('change.select2');
+              return;
+          }
+
+          locations.forEach(function (loc) {
+              const label = loc.place + ' (' + loc.vacancies + ' vacanc' + (loc.vacancies === 1 ? 'y' : 'ies') + ')';
+              const opt = new Option(label, loc.id, false, String(loc.id) === String(preselectId));
+              $placeSelect.append(opt);
+          });
+
+          $placeSelect.prop('required', true);
+          $placeWrap.removeClass('d-none').addClass('place-field-in');
+          $placeSelect.trigger('change.select2');
+          updateVacancyHint();
+      }
+
+      function updateVacancyHint() {
+          const selected = postingLocations[$positionSelect.val()] || [];
+          const match = selected.find(function (loc) { return String(loc.id) === String($placeSelect.val()); });
+          $placeHint.text(match ? match.vacancies + ' vacanc' + (match.vacancies === 1 ? 'y' : 'ies') + ' available at this location.' : '');
+      }
+
+      $positionSelect.on('change', function () {
+          populatePlaces(this.value, null);
+      });
+      $placeSelect.on('change', updateVacancyHint);
+
+      // Repopulate on load if a position (and possibly place) was already
+      // selected -- e.g. validation error bounced the user back here.
+      if ($positionSelect.val()) {
+          populatePlaces($positionSelect.val(), oldLocationId);
+      }
   });
 </script>
 </body>

@@ -4,6 +4,7 @@
 @section('page-title', 'Application details')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('css/application-show-polish.css') }}">
 @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
@@ -429,4 +430,8 @@
 
     </div>
 </div>
+
+@push('scripts')
+<script src="{{ asset('js/application-show-polish.js') }}"></script>
+@endpush
 @endsection

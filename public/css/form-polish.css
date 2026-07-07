@@ -1,0 +1,120 @@
+/* ============================================
+   Review Imported Postings — interactive polish
+   Save to: public/css/review-polish.css
+
+   Purely additive — targets existing classes/IDs in review.blade.php,
+   changes no HTML structure or PHP logic.
+   ============================================ */
+
+/* ── Candidate/group cards: staggered fade-in on load ────────────────────── */
+.candidate-row {
+    animation: review-card-in 0.3s ease both;
+}
+.candidate-row:nth-of-type(1) { animation-delay: 0.03s; }
+.candidate-row:nth-of-type(2) { animation-delay: 0.06s; }
+.candidate-row:nth-of-type(3) { animation-delay: 0.09s; }
+.candidate-row:nth-of-type(4) { animation-delay: 0.12s; }
+.candidate-row:nth-of-type(5) { animation-delay: 0.15s; }
+
+@keyframes review-card-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Unchecked group: visually dim to show it won't be imported ─────────── */
+/* Toggled by review-polish.js — doesn't touch the checkbox's own behavior */
+.candidate-row.review-excluded {
+    opacity: 0.5;
+    filter: grayscale(0.4);
+    transition: opacity 0.2s ease, filter 0.2s ease;
+}
+.candidate-row {
+    transition: opacity 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+.candidate-row:not(.review-excluded):hover {
+    box-shadow: 0 8px 24px rgba(0, 48, 135, 0.08);
+}
+
+/* ── Collapsible card body (toggled by clicking the group label) ────────── */
+.card-header .fw-medium {
+    cursor: pointer;
+    user-select: none;
+}
+.card-header .fw-medium:hover {
+    color: var(--hr-primary, #003087);
+}
+.review-collapse-icon {
+    transition: transform 0.2s ease;
+    color: #adb5bd;
+    margin-left: auto;
+}
+.review-collapse-icon.is-collapsed {
+    transform: rotate(-90deg);
+}
+
+/* ── School search dropdown (import rows) ────────────────────────────────── */
+.location-import-results {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e2e6e8;
+    box-shadow: 0 12px 30px rgba(0, 48, 135, 0.12);
+    animation: review-dropdown-in 0.15s ease both;
+}
+@keyframes review-dropdown-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.location-import-results .list-group-item {
+    border: none;
+    border-bottom: 1px solid #f0f2f5;
+    transition: background-color 0.12s ease, padding-left 0.12s ease;
+}
+.location-import-results .list-group-item:hover {
+    background-color: rgba(0, 48, 135, 0.06);
+    padding-left: 1rem;
+    color: var(--hr-primary, #003087);
+}
+.location-import-results .list-group-item:last-child {
+    border-bottom: none;
+}
+
+/* ── Location rows: entrance animation when a new row is added ──────────── */
+.location-import-row {
+    animation: review-row-in 0.2s ease both;
+}
+@keyframes review-row-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── A place input left empty gets a soft amber hint border ─────────────── */
+.location-import-input.review-needs-place {
+    border-color: #ffc107;
+    background-color: rgba(255, 193, 7, 0.06);
+}
+
+.remove-import-location {
+    transition: transform 0.15s ease;
+}
+.remove-import-location:hover {
+    transform: scale(1.15);
+}
+
+.add-import-location {
+    transition: transform 0.12s ease;
+}
+.add-import-location:hover {
+    transform: translateY(-1px);
+}
+
+/* ── Floating confirm bar ────────────────────────────────────────────────── */
+.import-fab {
+    animation: review-fab-in 0.3s ease both;
+}
+@keyframes review-fab-in {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+.import-fab .selected-count small {
+    color: #b98600;
+}

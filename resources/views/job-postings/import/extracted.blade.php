@@ -4,6 +4,7 @@
 @section('page-title', 'Extracted text')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('css/extracted-polish.css') }}">
 <div class="card mb-3">
     <div class="card-body p-3 d-flex justify-content-between align-items-center">
         <div>
@@ -42,4 +43,6 @@
         </div>
     </div>
 </div>
+
+<script src="{{ asset('js/extracted-polish.js') }}"></script>
 @endsection

@@ -42,17 +42,6 @@
 
     $check = $application->qualification_check ?? [];
     $jobPosting = $application->jobPosting;
-
-    // Candidate's self-reported qualifications, used only as a starting
-    // point for HR's editable "actual" fields below when no qualification
-    // check has been saved yet. Once a check exists, the saved actual
-    // value always takes precedence and this fallback is never shown.
-    $selfReported = [
-        'education' => $application->candidate->education ?? null,
-        'experience' => $application->candidate->years_experience ?? null,
-        'training' => $application->candidate->training_hours ?? null,
-        'eligibility' => $application->candidate->eligibility ?? null,
-    ];
     $candidate = $application->candidate;
 @endphp
 
@@ -302,6 +291,25 @@
                 @endif
             </div>
             <div class="card-body p-3">
+                <p class="text-muted mb-2" style="font-size:.75rem;">Candidate's self-reported qualifications</p>
+                <div class="row g-2 small">
+                    <div class="col-12">
+                        <div class="text-muted mb-1">Highest Educational Attainment</div>
+                        <div class="fw-medium">{{ $application->candidate->education ?? '—' }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted mb-1">Training Hours</div>
+                        <div class="fw-medium">{{ $application->candidate->training_hours ?? '—' }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted mb-1">Years of Experience</div>
+                        <div class="fw-medium">{{ $application->candidate->years_experience ?? '—' }}</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="text-muted mb-1">Eligibility</div>
+                        <div class="fw-medium">{{ $application->candidate->eligibility ?? '—' }}</div>
+                    </div>
+                </div>
                 <hr class="my-3">
                 <form action="{{ route('applications.qualification-check', $application->id) }}" method="POST">
                     @csrf
@@ -347,7 +355,7 @@
                     <div class="mb-2">
                         @foreach ($criteriaFields as $key => $meta)
                             @php
-                                $rowActual = old($key . '_actual', $check['criteria'][$key]['actual'] ?? $selfReported[$key] ?? '');
+                                $rowActual = old($key . '_actual', $check['criteria'][$key]['actual'] ?? '');
                                 $rowPassed = old($key . '_passed', array_key_exists($key, $check['criteria'] ?? []) ? ($check['criteria'][$key]['passed'] ? '1' : '0') : null);
                             @endphp
                             <div class="border-bottom py-2">

@@ -207,8 +207,8 @@
   .s-screening   { background: #e3f2fd; color: #1565c0; }
   .s-shortlisted { background: #e8f5e9; color: #2e7d32; }
   .s-interview,.s-assessed,.s-ranked,.s-ranking_sent { background: #fff8e1; color: #f57f17; }
-  .s-offer_sent,.s-offer_accepted,.s-hired,.s-qualified { background: #e8f5e9; color: #1b5e20; }
-  .s-offer_declined,.s-rejected,.s-not_qualified { background: #ffebee; color: #b71c1c; }
+  .s-offer_sent,.s-offer_accepted,.s-hired { background: #e8f5e9; color: #1b5e20; }
+  .s-offer_declined,.s-rejected { background: #ffebee; color: #b71c1c; }
   .s-default { background: #f5f5f5; color: #616161; }
 
   .steps { display: flex; align-items: flex-start; margin: 18px 0; }
@@ -396,13 +396,13 @@ function renderModal(txn, data) {
         Please double-check your transaction number.</p>
       </div>`;
   } else {
-    const stepMap = { submitted:1, screening:2, shortlisted:3, qualified:4, not_qualified:6, interview_scheduled:4, assessed:4, ranked:4, ranking_sent:4, offer_sent:5, offer_accepted:6, hired:6, offer_declined:6, rejected:6 };
+    const stepMap = { submitted:1, screening:2, shortlisted:3, interview_scheduled:4, assessed:4, ranked:4, ranking_sent:4, offer_sent:5, offer_accepted:6, hired:6, offer_declined:6, rejected:6 };
     const stepLabels = ['Submitted','Screening','Shortlisted','Assessment','Offer','Final'];
     const current = stepMap[data.status] || 1;
     const label   = data.status.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
 
     const badgeMap = {
-      submitted:'s-submitted', screening:'s-screening', shortlisted:'s-shortlisted', qualified:'s-qualified', not_qualified:'s-not_qualified',
+      submitted:'s-submitted', screening:'s-screening', shortlisted:'s-shortlisted',
       interview_scheduled:'s-interview', assessed:'s-assessed', ranked:'s-ranked',
       ranking_sent:'s-ranking_sent', offer_sent:'s-offer_sent',
       offer_accepted:'s-offer_accepted', hired:'s-hired',

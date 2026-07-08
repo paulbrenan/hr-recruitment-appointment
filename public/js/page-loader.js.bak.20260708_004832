@@ -113,11 +113,6 @@
 
         // Show loader on any form submit (login, register, apply, etc.)
         document.addEventListener('submit', function (e) {
-            // If the form's own handler already cancelled this submit
-            // (e.g. onsubmit="return confirm(...)" and the user clicked
-            // Cancel), don't show the loader -- no navigation is going to
-            // happen, so nothing would ever hide it again.
-            if (e.defaultPrevented) return;
             const form = e.target;
             if (form.hasAttribute('data-no-loader')) return;
             showLoader();

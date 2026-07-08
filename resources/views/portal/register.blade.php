@@ -88,33 +88,17 @@
   @endif
 
   @php
-// Live open postings, expanded into one option per place of
-    // assignment (job_posting_locations). Falls back to the legacy
-    // single place_of_assignment column for postings created before
-    // the locations table existed. Option values encode
-    // "posting_id:location_id" (location_id 0 = legacy/no specific
-    // location row) so two postings sharing a title but differing in
-    // place of assignment can never be confused with one another.
-    $openPostingOptions = collect();
-    \App\Models\JobPosting::where('status', 'open')
-        ->orderBy('title')
-        ->with(['locations' => fn ($q) => $q->orderBy('place_of_assignment')])
-        ->get(['id', 'title', 'place_of_assignment'])
-        ->each(function ($posting) use ($openPostingOptions) {
-            if ($posting->locations->isNotEmpty()) {
-                foreach ($posting->locations as $location) {
-                    $openPostingOptions->push([
-                        'value' => $posting->id . ':' . $location->id,
-                        'label' => $posting->title . ' - ' . $location->place_of_assignment,
-                    ]);
-                }
-            } else {
-                $openPostingOptions->push([
-                    'value' => $posting->id . ':0',
-                    'label' => $posting->title . ($posting->place_of_assignment ? ' - ' . $posting->place_of_assignment : ''),
-                ]);
-            }
-        });
+    // Position dropdown: ONE entry per open job posting (title only --
+    // place of assignment is picked separately in the dependent Place
+    // field below, once a position is chosen). Uses $openPostings passed
+    // in from the controller so we don't re-query the same data twice.
+    $openPostingOptions = $openPostings
+        ->sortBy('title')
+        ->map(fn ($posting) => [
+            'value' => $posting->id,
+            'label' => $posting->title,
+        ])
+        ->values();
   @endphp
 
   @if ($openPostingOptions->isEmpty())
@@ -183,15 +167,17 @@
       </div>
 
       @php
-        // Every open posting's locations (id, place, remaining vacancies),
-        // keyed by posting id, so the Place dropdown can populate instantly
-        // client-side without a page reload or AJAX round-trip.
+        // Every open posting's OPEN locations only (already-filled places
+        // are excluded server-side by hasAnyOpenVacancy()/openLocations()),
+        // keyed by posting id, with the REMAINING vacancy count -- so the
+        // Place dropdown can populate instantly client-side without a page
+        // reload or AJAX round-trip.
         $postingLocationsMap = $openPostings->mapWithKeys(function ($posting) {
-            return [$posting->id => $posting->locations->map(function ($loc) {
+            return [$posting->id => $posting->openLocations()->map(function ($loc) {
                 return [
                     'id' => $loc->id,
                     'place' => $loc->place_of_assignment,
-                    'vacancies' => $loc->vacancies,
+                    'vacancies' => $loc->remainingVacancies(),
                 ];
             })->values()];
         });

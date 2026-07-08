@@ -263,9 +263,13 @@ class JobPostingController extends Controller
     }
 
     /**
-     * Mark one applicant as Hired, reject all others on the same posting,
-     * and close the posting. Called from ApplicationController or a
-     * dedicated route — not directly from the form.
+     * Mark one applicant as Hired and reject other applicants competing
+     * for that SAME place of assignment. Sibling places under the same
+     * posting are left untouched. The posting itself is only closed once
+     * every place of assignment (or, for legacy postings, the single
+     * vacancies count) has no open slots left. Called from
+     * ApplicationController or a dedicated route -- not directly from
+     * the form.
      */
     public function hireApplicant(Request $request, $postingId, $applicationId)
     {
@@ -276,18 +280,36 @@ class JobPostingController extends Controller
         // Hire the selected applicant
         $application->update(['status' => 'hired']);
 
-        // Reject all others on this posting
+        // Reject other applicants competing for the SAME place of
+        // assignment only. Applicants at a different place under this
+        // same posting are unaffected -- their slot is still open.
         Application::where('job_posting_id', $postingId)
                    ->where('id', '!=', $applicationId)
                    ->where('status', '!=', 'hired')
+                   ->when(
+                       $application->job_posting_location_id !== null,
+                       fn ($q) => $q->where('job_posting_location_id', $application->job_posting_location_id),
+                       fn ($q) => $q->whereNull('job_posting_location_id')
+                   )
                    ->update(['status' => 'rejected']);
 
-        // Close the posting
-        $posting->update(['status' => 'closed']);
+        // Close the posting only once EVERY place of assignment (or, for
+        // a legacy posting with no location rows, the single vacancies
+        // count) has no open slots left.
+        $posting = $posting->fresh('locations');
+        $stillOpenElsewhere = $posting->hasAnyOpenVacancy();
+
+        if (!$stillOpenElsewhere) {
+            $posting->update(['status' => 'closed']);
+        }
+
+        $message = $stillOpenElsewhere
+            ? 'Applicant marked as hired. That place of assignment is now filled; other places under this posting remain open.'
+            : 'Applicant marked as hired. All vacancies for this posting are now filled and it has been closed.';
 
         return redirect()
             ->back()
-            ->with('success', 'Applicant marked as hired. All other applicants have been rejected and the posting is now closed.');
+            ->with('success', $message);
     }
 
     public function show($id)

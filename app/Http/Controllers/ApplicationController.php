@@ -152,17 +152,28 @@ class ApplicationController extends Controller
         $application->update($validated);
 
         // When an applicant is marked hired:
-        //   1. Close the job posting
-        //   2. Reject all other applicants on the same posting
+        //   1. Reject other applicants competing for the SAME place of
+        //      assignment only -- a different place under the same
+        //      posting is unaffected and stays open.
+        //   2. Close the job posting itself only once EVERY place of
+        //      assignment (or, for a legacy posting with no location
+        //      rows, the single vacancies count) has no open slots left.
         if ($validated['status'] === 'hired') {
-            $posting = JobPosting::find($application->job_posting_id);
+            $posting = JobPosting::with('locations')->find($application->job_posting_id);
             if ($posting) {
-                $posting->update(['status' => 'closed']);
-
                 Application::where('job_posting_id', $posting->id)
                     ->where('id', '!=', $application->id)
                     ->where('status', '!=', 'hired')
+                    ->when(
+                        $application->job_posting_location_id !== null,
+                        fn ($q) => $q->where('job_posting_location_id', $application->job_posting_location_id),
+                        fn ($q) => $q->whereNull('job_posting_location_id')
+                    )
                     ->update(['status' => 'rejected']);
+
+                if (!$posting->fresh('locations')->hasAnyOpenVacancy()) {
+                    $posting->update(['status' => 'closed']);
+                }
             }
         }
 

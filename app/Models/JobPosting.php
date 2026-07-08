@@ -84,6 +84,47 @@ class JobPosting extends Model
         return $this->hasMany(JobPostingLocation::class);
     }
 
+    /**
+     * Locations under this posting that still have at least one open
+     * (unhired) slot. Empty for legacy postings with no location rows --
+     * use hasOpenLegacyVacancy() for those instead.
+     */
+    public function openLocations()
+    {
+        return $this->locations->reject(fn ($loc) => $loc->isFilled())->values();
+    }
+
+    /**
+     * For legacy postings (created before job_posting_locations existed,
+     * so they have no location rows): checks the single `vacancies`
+     * column on the posting itself against hired applications that have
+     * no specific location attached.
+     */
+    public function hasOpenLegacyVacancy(): bool
+    {
+        if ($this->locations->isNotEmpty()) {
+            return false; // not legacy -- handled per-location instead
+        }
+
+        $hired = $this->applications()->where('status', 'hired')->count();
+
+        return $hired < max(1, (int) $this->vacancies);
+    }
+
+    /**
+     * True if this posting still has room anywhere -- a place of
+     * assignment with an open slot, or (for legacy postings) the single
+     * vacancies column not yet fully hired. Used to decide whether the
+     * position should still show up on the public register page and
+     * whether the posting should auto-close after a hire.
+     */
+    public function hasAnyOpenVacancy(): bool
+    {
+        return $this->locations->isNotEmpty()
+            ? $this->openLocations()->isNotEmpty()
+            : $this->hasOpenLegacyVacancy();
+    }
+
     public function panelists()
     {
         return $this->belongsToMany(Panelist::class, 'job_posting_panelist')

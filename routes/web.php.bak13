@@ -83,8 +83,6 @@ Route::get('/job-postings/{id}', [JobPostingController::class, 'show'])->name('j
 Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-postings.store');
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
-Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
-Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');
 
 // Rankings
 Route::get('/rankings', [RankingController::class, 'index'])->name('rankings.index');

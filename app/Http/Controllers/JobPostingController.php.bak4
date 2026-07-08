@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Application;
 use App\Models\AssessmentCriterion;
+use App\Models\Application;
 use App\Models\InterviewSchedule;
 use App\Models\JobPosting;
 use App\Models\JobPostingLocation;
@@ -315,112 +316,17 @@ class JobPostingController extends Controller
 
     public function show($id)
     {
-        $posting   = JobPosting::with(['locations', 'panelists', 'assessmentCriteria'])->findOrFail($id);
-        $locations = $posting->locations;
-        $panelists = $posting->panelists;
+        $posting = JobPosting::findOrFail($id);
 
-        $applications = Application::with(['candidate', 'assessments'])
+        $applications = Application::with('candidate')
             ->where('job_posting_id', $id)
             ->latest('applied_at')
             ->get();
 
-        // Step 2 — interview schedules for this posting's applications
-        $applicationIds = $applications->pluck('id');
-        $schedules = InterviewSchedule::with(['application.candidate', 'panelists'])
-            ->whereIn('application_id', $applicationIds)
-            ->orderBy('scheduled_at', 'desc')
-            ->get();
+        $panelists = $posting->panelists()->orderBy('name')->get();
+        $locations = $posting->locations()->get();
 
-        // Step 3 — assessment criteria + ranking
-        $criteria        = $posting->assessmentCriteria()->orderBy('id')->get();
-        $usedWeight      = $criteria->sum('weight_percentage');
-        $remainingWeight = max(0, 100 - $usedWeight);
-
-        $rankedCandidates = $applications->map(function ($app) use ($criteria) {
-            $scores = [];
-            $total  = 0;
-            foreach ($criteria as $c) {
-                $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
-                $score = $assessment ? (float) $assessment->score : null;
-                $scores[$c->id] = $score;
-                if ($score !== null) $total += $score;
-            }
-            return (object) [
-                'application_id'    => $app->id,
-                'candidate'         => $app->candidate,
-                'candidate_name'    => $app->candidate?->full_name ?? 'Unknown',
-                'scores'            => $scores,
-                'total_score'       => $total,
-                'notification_sent' => $app->status === 'ranking_sent',
-            ];
-        })->sortByDesc('total_score')->values()->map(function ($cand, $i) use ($applications) {
-            $cand->rank   = $i + 1;
-            $cand->passed = $cand->total_score >= 75;
-            $cand->total  = $applications->count();
-            return $cand;
-        });
-
-        // Derive current pipeline step from posting status.
-        // Overview (1) and Qualification Checking (2) both live under status
-        // "open" — they're two views of the same stage, not separate statuses.
-        // $currentStep is the LOCK BOUNDARY (highest step unlocked so far);
-        // $activeStep is which panel is shown by default on page load.
-        $stepMap = [
-            'open'                => 2,
-            'interview_scheduled' => 3,
-            'ranking'             => 4,
-            'closed'              => 4,
-        ];
-        $currentStep = $stepMap[$posting->status] ?? 1;
-        $activeStep  = $posting->status === 'open' ? 1 : $currentStep;
-
-        return view('job-postings.show', compact(
-            'posting', 'locations', 'panelists', 'applications',
-            'schedules', 'criteria', 'usedWeight', 'remainingWeight',
-            'rankedCandidates', 'currentStep', 'activeStep'
-        ));
-    }
-
-    /**
-     * POST /job-postings/{id}/advance
-     * Advances the posting to the next pipeline step.
-     */
-    public function advance(Request $request, $id)
-    {
-        $posting = JobPosting::findOrFail($id);
-
-        $transitions = [
-            'open'                => 'interview_scheduled',
-            'interview_scheduled' => 'ranking',
-            'ranking'             => 'closed',
-        ];
-
-        $nextStatus = $transitions[$posting->status] ?? null;
-
-        if ($nextStatus) {
-            $oldStatus = $posting->status;
-            $posting->update(['status' => $nextStatus]);
-            $this->cascadeStatusToApplications($posting, $nextStatus);
-        }
-
-        if ($request->expectsJson()) {
-            return response()->json(['status' => $posting->fresh()->status, 'ok' => true]);
-        }
-
-        return redirect()->route('job-postings.show', $posting->id)
-            ->with('success', 'Posting advanced to next stage.');
-    }
-
-    /**
-     * DELETE /job-postings/{posting}/panelists/{panelist}
-     * Removes a panelist from this posting's panel (pivot only, not global pool).
-     */
-    public function detachPanelist($postingId, $panelistId)
-    {
-        $posting = JobPosting::findOrFail($postingId);
-        $posting->panelists()->detach($panelistId);
-
-        return back()->with('success', 'Panelist removed from this posting.');
+        return view('job-postings.show', compact('posting', 'applications', 'panelists', 'locations'));
     }
 
     public function destroy($id)

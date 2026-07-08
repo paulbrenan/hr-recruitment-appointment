@@ -1,3 +1,221 @@
+<?php
+
+/**
+ * patch_pipeline_dashboard_v2.php
+ *
+ * Fixes the anchor mismatch from patch_pipeline_dashboard.php.
+ * Patches the ACTUAL current JobPostingController::show() and adds advance().
+ *
+ * HOW TO RUN:
+ *   php patch_pipeline_dashboard_v2.php    (from project root)
+ *   No migration needed.
+ *
+ * DELETE this script after running.
+ */
+
+define('ROOT', __DIR__);
+
+function backup(string $path): void {
+    if (!file_exists($path)) return;
+    $bak = $path . '.bak';
+    $i = 2;
+    while (file_exists($bak)) { $bak = $path . '.bak' . $i++; }
+    copy($path, $bak);
+    echo "  [bak] $bak\n";
+}
+
+function apply_patch(string $path, string $old, string $new, string $label): void {
+    if (!file_exists($path)) { echo "\n❌ File not found: $path\n"; exit(1); }
+    $content = file_get_contents($path);
+    $count = substr_count($content, $old);
+    if ($count === 0) {
+        echo "\n❌ PATCH ABORTED — content not found in $path\nLabel: $label\nSearched for:\n---\n$old\n---\n";
+        exit(1);
+    }
+    if ($count > 1) {
+        echo "\n❌ PATCH ABORTED — pattern found $count times (expected 1) in $path\nLabel: $label\n";
+        exit(1);
+    }
+    backup($path);
+    file_put_contents($path, str_replace($old, $new, $content));
+    echo "  [ok ] $label\n";
+}
+
+function write_file(string $path, string $content, string $label): void {
+    backup($path);
+    file_put_contents($path, $content);
+    echo "  [ok ] $label\n";
+}
+
+echo "\n=== patch_pipeline_dashboard_v2.php ===\n\n";
+
+$controllerPath = ROOT . '/app/Http/Controllers/JobPostingController.php';
+
+// ─── 1. Fix duplicate use statement ───────────────────────────────────────
+
+echo "[1] Fixing duplicate 'use App\Models\Application' statement...\n";
+
+apply_patch(
+    $controllerPath,
+    'use App\Models\Application;
+use App\Models\AssessmentCriterion;
+use App\Models\Application;
+use App\Models\InterviewSchedule;',
+    'use App\Models\Application;
+use App\Models\AssessmentCriterion;
+use App\Models\InterviewSchedule;',
+    'JobPostingController: remove duplicate use statement'
+);
+
+// ─── 2. Replace show() + add advance() + detachPanelist() ─────────────────
+
+echo "\n[2] Replacing show() and adding advance() + detachPanelist()...\n";
+
+apply_patch(
+    $controllerPath,
+    '    public function show($id)
+    {
+        $posting = JobPosting::findOrFail($id);
+
+        $applications = Application::with(\'candidate\')
+            ->where(\'job_posting_id\', $id)
+            ->latest(\'applied_at\')
+            ->get();
+
+        $panelists = $posting->panelists()->orderBy(\'name\')->get();
+        $locations = $posting->locations()->get();
+
+        return view(\'job-postings.show\', compact(\'posting\', \'applications\', \'panelists\', \'locations\'));
+    }',
+    '    public function show($id)
+    {
+        $posting   = JobPosting::with([\'locations\', \'panelists\', \'assessmentCriteria\'])->findOrFail($id);
+        $locations = $posting->locations;
+        $panelists = $posting->panelists;
+
+        $applications = Application::with([\'candidate\', \'assessments\'])
+            ->where(\'job_posting_id\', $id)
+            ->latest(\'applied_at\')
+            ->get();
+
+        // Step 2 — interview schedules for this posting\'s applications
+        $applicationIds = $applications->pluck(\'id\');
+        $schedules = InterviewSchedule::with([\'application.candidate\', \'panelists\'])
+            ->whereIn(\'application_id\', $applicationIds)
+            ->orderBy(\'scheduled_at\', \'desc\')
+            ->get();
+
+        // Step 3 — assessment criteria + ranking
+        $criteria        = $posting->assessmentCriteria()->orderBy(\'id\')->get();
+        $usedWeight      = $criteria->sum(\'weight_percentage\');
+        $remainingWeight = max(0, 100 - $usedWeight);
+
+        $rankedCandidates = $applications->map(function ($app) use ($criteria) {
+            $scores = [];
+            $total  = 0;
+            foreach ($criteria as $c) {
+                $assessment = $app->assessments->firstWhere(\'assessment_criteria_id\', $c->id);
+                $score = $assessment ? (float) $assessment->score : null;
+                $scores[$c->id] = $score;
+                if ($score !== null) $total += $score;
+            }
+            return (object) [
+                \'application_id\'    => $app->id,
+                \'candidate\'         => $app->candidate,
+                \'candidate_name\'    => $app->candidate?->full_name ?? \'Unknown\',
+                \'scores\'            => $scores,
+                \'total_score\'       => $total,
+                \'notification_sent\' => $app->status === \'ranking_sent\',
+            ];
+        })->sortByDesc(\'total_score\')->values()->map(function ($cand, $i) use ($applications) {
+            $cand->rank   = $i + 1;
+            $cand->passed = $cand->total_score >= 75;
+            $cand->total  = $applications->count();
+            return $cand;
+        });
+
+        // Derive current pipeline step from posting status
+        $stepMap     = [\'open\' => 1, \'interview_scheduled\' => 2, \'ranking\' => 3, \'closed\' => 3];
+        $currentStep = $stepMap[$posting->status] ?? 1;
+
+        return view(\'job-postings.show\', compact(
+            \'posting\', \'locations\', \'panelists\', \'applications\',
+            \'schedules\', \'criteria\', \'usedWeight\', \'remainingWeight\',
+            \'rankedCandidates\', \'currentStep\'
+        ));
+    }
+
+    /**
+     * POST /job-postings/{id}/advance
+     * Advances the posting to the next pipeline step.
+     */
+    public function advance(Request $request, $id)
+    {
+        $posting = JobPosting::findOrFail($id);
+
+        $transitions = [
+            \'open\'                => \'interview_scheduled\',
+            \'interview_scheduled\' => \'ranking\',
+            \'ranking\'             => \'closed\',
+        ];
+
+        $nextStatus = $transitions[$posting->status] ?? null;
+
+        if ($nextStatus) {
+            $oldStatus = $posting->status;
+            $posting->update([\'status\' => $nextStatus]);
+            $this->cascadeStatusToApplications($posting, $nextStatus);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([\'status\' => $posting->fresh()->status, \'ok\' => true]);
+        }
+
+        return redirect()->route(\'job-postings.show\', $posting->id)
+            ->with(\'success\', \'Posting advanced to next stage.\');
+    }
+
+    /**
+     * DELETE /job-postings/{posting}/panelists/{panelist}
+     * Removes a panelist from this posting\'s panel (pivot only, not global pool).
+     */
+    public function detachPanelist($postingId, $panelistId)
+    {
+        $posting = JobPosting::findOrFail($postingId);
+        $posting->panelists()->detach($panelistId);
+
+        return back()->with(\'success\', \'Panelist removed from this posting.\');
+    }',
+    'JobPostingController: show() pipeline data + advance() + detachPanelist()'
+);
+
+// ─── 3. routes/web.php — add advance + detachPanelist routes ──────────────
+
+echo "\n[3] Adding advance + detachPanelist routes...\n";
+
+$webPath = ROOT . '/routes/web.php';
+$webContent = file_get_contents($webPath);
+
+if (strpos($webContent, 'job-postings.advance') === false) {
+    apply_patch(
+        $webPath,
+        "Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');",
+        "Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
+Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
+Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');",
+        'web.php: advance + detachPanelist routes'
+    );
+} else {
+    echo "  [skip] advance route already exists\n";
+}
+
+// ─── 4. Write the show.blade.php ──────────────────────────────────────────
+
+echo "\n[4] Writing pipeline dashboard blade...\n";
+
+$showPath = ROOT . '/resources/views/job-postings/show.blade.php';
+
+write_file($showPath, <<<'BLADE'
 @extends('layouts.app')
 
 @section('title', $posting->title . ' — Pipeline')
@@ -16,10 +234,9 @@
         : null;
 
     $steps = [
-        1 => ['label' => 'Overview',                'icon' => 'bi-info-circle'],
-        2 => ['label' => 'Qualification Checking',  'icon' => 'bi-clipboard-check'],
-        3 => ['label' => 'Open Ranking & Scheduling','icon' => 'bi-calendar-event'],
-        4 => ['label' => 'Assessment & Results',     'icon' => 'bi-bar-chart-line'],
+        1 => ['label' => 'Overview & Qualification Checking', 'icon' => 'bi-clipboard-check'],
+        2 => ['label' => 'Open Ranking & Scheduling',         'icon' => 'bi-calendar-event'],
+        3 => ['label' => 'Assessment & Results',              'icon' => 'bi-bar-chart-line'],
     ];
 
     $statusColors = [
@@ -83,7 +300,7 @@
                             {{ $step['label'] }}
                         </div>
                     </div>
-                    @if ($num < 4)
+                    @if ($num < 3)
                     <div style="width:3px;height:14px;margin-left:calc(0.5rem + 10px);
                                 background:{{ $currentStep > $num ? '#198754' : '#dee2e6' }};"></div>
                     @endif
@@ -234,15 +451,12 @@
             </div>
             @endif
 
-        </div>
-
-        {{-- ══ STEP 2 — Qualification Checking ════════════════════════════ --}}
-        <div class="step-panel d-none" id="panel-2">
+            {{-- Applicants + qualification check --}}
             <div class="card">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="mb-0">
-                            Qualification checking
+                            Applicants
                             <span class="badge text-bg-light text-dark border ms-1">{{ $applications->count() }}</span>
                         </h6>
                     </div>
@@ -251,36 +465,42 @@
                     @php
                         $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
                         $qColor = $qColors[$app->status] ?? 'secondary';
-                        $appCheck = $app->qualification_check ?? [];
                     @endphp
-                    <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;">
-                        <div>
-                            <div class="fw-medium">{{ $app->candidate->full_name }}</div>
-                            <div class="text-muted small">
-                                Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
+                    <div class="border rounded p-3 mb-2" style="font-size:0.875rem;">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div>
+                                <div class="fw-medium">{{ $app->candidate->full_name }}</div>
+                                <div class="text-muted small">
+                                    Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
+                                </div>
                             </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span class="badge text-bg-{{ $qColor }}">
-                                {{ str_replace('_', ' ', ucfirst($app->status)) }}
-                            </span>
-                            @if (!in_array($app->status, ['hired', 'ranking_sent']))
-                            <button type="button" class="btn btn-sm btn-outline-secondary"
-                                    data-bs-toggle="modal" data-bs-target="#qualCheckModal"
-                                    data-application-id="{{ $app->id }}"
-                                    data-candidate-name="{{ addslashes($app->candidate->full_name) }}"
-                                    data-check="{{ json_encode($appCheck) }}">
-                                <i class="bi bi-clipboard-check me-1"></i> Check qualifications
-                            </button>
-                            @endif
-                            @if ($app->qualification_result)
-                            <form action="{{ route('applications.qualification-notice', $app->id) }}" method="POST" class="m-0">
-                                @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-primary">
-                                    {{ $app->qualification_notified_at ? 'Resend result' : 'Email result' }}
-                                </button>
-                            </form>
-                            @endif
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge text-bg-{{ $qColor }}">
+                                    {{ str_replace('_', ' ', ucfirst($app->status)) }}
+                                </span>
+                                @if (!in_array($app->status, ['hired', 'ranking_sent']))
+                                <form action="{{ route('applications.status', $app->id) }}" method="POST" class="m-0">
+                                    @csrf @method('PUT')
+                                    <input type="hidden" name="status" value="qualified">
+                                    <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-success py-0 px-2"
+                                            style="font-size:0.72rem;"
+                                            {{ $app->status === 'qualified' ? 'disabled' : '' }}>
+                                        ✓ Qualify
+                                    </button>
+                                </form>
+                                <form action="{{ route('applications.status', $app->id) }}" method="POST" class="m-0">
+                                    @csrf @method('PUT')
+                                    <input type="hidden" name="status" value="not_qualified">
+                                    <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"
+                                            style="font-size:0.72rem;"
+                                            {{ $app->status === 'not_qualified' ? 'disabled' : '' }}>
+                                        ✗ Disqualify
+                                    </button>
+                                </form>
+                                @endif
+                            </div>
                         </div>
                     </div>
                     @empty
@@ -290,8 +510,8 @@
             </div>
         </div>
 
-        {{-- ══ STEP 3 ══════════════════════════════════════════════════════ --}}
-        <div class="step-panel d-none" id="panel-3">
+        {{-- ══ STEP 2 ══════════════════════════════════════════════════════ --}}
+        <div class="step-panel d-none" id="panel-2">
             <div class="card mb-3">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -348,8 +568,8 @@
             </div>
         </div>
 
-        {{-- ══ STEP 4 ══════════════════════════════════════════════════════ --}}
-        <div class="step-panel d-none" id="panel-4">
+        {{-- ══ STEP 3 ══════════════════════════════════════════════════════ --}}
+        <div class="step-panel d-none" id="panel-3">
 
             {{-- Ranking --}}
             <div class="card mb-3">
@@ -548,60 +768,6 @@
     </div>
 </div>
 
-{{-- Qualification Check --}}
-<div class="modal fade" id="qualCheckModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" id="qualCheckForm" action="">
-                @csrf
-                <div class="modal-header">
-                    <h6 class="modal-title">Qualification check — <span id="qualCheckCandidateName"></span></h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
-                    @php
-                        $qualCriteriaFields = [
-                            'education'   => ['label' => 'Education',   'required' => $posting->qualification_education   ?? null],
-                            'experience'  => ['label' => 'Experience',  'required' => $posting->qualification_experience  ?? null],
-                            'training'    => ['label' => 'Training',    'required' => $posting->qualification_training    ?? null],
-                            'eligibility' => ['label' => 'Eligibility', 'required' => $posting->qualification_eligibility ?? null],
-                        ];
-                    @endphp
-                    @foreach ($qualCriteriaFields as $key => $meta)
-                    <div class="border-bottom py-2">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <label class="fw-medium mb-0">{{ $meta['label'] }}</label>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <input type="radio" class="btn-check qual-passed-input" name="{{ $key }}_passed" value="1"
-                                       id="qc_{{ $key }}_yes" data-criterion="{{ $key }}" autocomplete="off">
-                                <label class="btn btn-outline-success" for="qc_{{ $key }}_yes" style="font-size:.7rem;padding:.15rem .5rem;">Qualified</label>
-
-                                <input type="radio" class="btn-check qual-passed-input" name="{{ $key }}_passed" value="0"
-                                       id="qc_{{ $key }}_no" data-criterion="{{ $key }}" autocomplete="off">
-                                <label class="btn btn-outline-danger" for="qc_{{ $key }}_no" style="font-size:.7rem;padding:.15rem .5rem;">Not qualified</label>
-                            </div>
-                        </div>
-                        @if ($meta['required'])
-                        <div class="text-muted mb-1" style="font-size:.75rem;">Required: {{ $meta['required'] }}</div>
-                        @endif
-                        <input type="text" name="{{ $key }}_actual" class="form-control form-control-sm qual-actual-input"
-                               data-criterion="{{ $key }}"
-                               placeholder="Candidate's actual {{ strtolower($meta['label']) }}...">
-                    </div>
-                    @endforeach
-                    <textarea name="check_notes" id="qualCheckNotes" class="form-control form-control-sm mt-2" rows="2"
-                              placeholder="Notes about this qualification check..."></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Save qualification check</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 {{-- Edit Scores --}}
 <div class="modal fade" id="editScoresModal" tabindex="-1">
     <div class="modal-dialog">
@@ -648,7 +814,6 @@
 <script>
 // ── Step switching ──────────────────────────────────────────────────────────
 const currentStep = {{ $currentStep }};
-const activeStep  = {{ $activeStep }};
 
 function switchStep(n) {
     if (n > currentStep) return; // can't jump ahead
@@ -657,14 +822,14 @@ function switchStep(n) {
 }
 
 // Show the active step on load
-switchStep(activeStep);
+switchStep(currentStep);
 
 // ── Advance pipeline ────────────────────────────────────────────────────────
 function advanceStep() {
     const msgs = {
-        2: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
-        3: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
-        4: 'Close this posting? All remaining applicants will be rejected.',
+        1: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
+        2: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
+        3: 'Close this posting? All remaining applicants will be rejected.',
     };
     if (!confirm(msgs[currentStep] || 'Advance to next stage?')) return;
 
@@ -701,29 +866,6 @@ document.getElementById('editScoresModal')?.addEventListener('show.bs.modal', fu
     });
 });
 
-// ── Qualification check modal ───────────────────────────────────────────────
-document.getElementById('qualCheckModal')?.addEventListener('show.bs.modal', function (e) {
-    const btn = e.relatedTarget;
-    const appId = btn.dataset.applicationId;
-    document.getElementById('qualCheckForm').action = '/applications/' + appId + '/qualification-check';
-    document.getElementById('qualCheckCandidateName').textContent = btn.dataset.candidateName;
-
-    const check = JSON.parse(btn.dataset.check || '{}');
-    const criteria = check.criteria || {};
-
-    document.querySelectorAll('.qual-actual-input').forEach(input => {
-        const key = input.dataset.criterion;
-        input.value = criteria[key]?.actual ?? '';
-    });
-    document.querySelectorAll('.qual-passed-input').forEach(input => { input.checked = false; });
-    Object.keys(criteria).forEach(key => {
-        const passed = criteria[key]?.passed;
-        const targetId = passed === true ? 'qc_' + key + '_yes' : (passed === false ? 'qc_' + key + '_no' : null);
-        if (targetId) document.getElementById(targetId)?.setAttribute('checked', 'checked'), document.getElementById(targetId).checked = true;
-    });
-    document.getElementById('qualCheckNotes').value = check.notes ?? '';
-});
-
 // ── Panelist checklist for schedule modal ───────────────────────────────────
 document.getElementById('schedAppSelect')?.addEventListener('change', function () {
     const postingId = this.selectedOptions[0]?.dataset.jobPostingId;
@@ -750,3 +892,21 @@ document.getElementById('schedAppSelect')?.addEventListener('change', function (
 </script>
 @endpush
 @endsection
+BLADE, 'show.blade.php: pipeline dashboard');
+
+echo <<<TEXT
+
+✅ Done. No migration needed.
+
+WHAT CHANGED:
+  1. Duplicate 'use Application' statement removed from controller
+  2. show() now passes all pipeline data (schedules, criteria, ranking, currentStep)
+  3. advance() added — POST /job-postings/{id}/advance, cascades status to applications
+  4. detachPanelist() added — DELETE /job-postings/{posting}/panelists/{panelist}
+  5. Two new routes added to routes/web.php
+  6. show.blade.php replaced with full 3-step pipeline dashboard
+
+Hard refresh after running (Ctrl+Shift+R).
+DELETE this script after running.
+
+TEXT;

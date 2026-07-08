@@ -360,24 +360,14 @@ class JobPostingController extends Controller
             return $cand;
         });
 
-        // Derive current pipeline step from posting status.
-        // Overview (1) and Qualification Checking (2) both live under status
-        // "open" — they're two views of the same stage, not separate statuses.
-        // $currentStep is the LOCK BOUNDARY (highest step unlocked so far);
-        // $activeStep is which panel is shown by default on page load.
-        $stepMap = [
-            'open'                => 2,
-            'interview_scheduled' => 3,
-            'ranking'             => 4,
-            'closed'              => 4,
-        ];
+        // Derive current pipeline step from posting status
+        $stepMap     = ['open' => 1, 'interview_scheduled' => 2, 'ranking' => 3, 'closed' => 3];
         $currentStep = $stepMap[$posting->status] ?? 1;
-        $activeStep  = $posting->status === 'open' ? 1 : $currentStep;
 
         return view('job-postings.show', compact(
             'posting', 'locations', 'panelists', 'applications',
             'schedules', 'criteria', 'usedWeight', 'remainingWeight',
-            'rankedCandidates', 'currentStep', 'activeStep'
+            'rankedCandidates', 'currentStep'
         ));
     }
 

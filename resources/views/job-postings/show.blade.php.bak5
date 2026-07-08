@@ -234,15 +234,12 @@
             </div>
             @endif
 
-        </div>
-
-        {{-- ══ STEP 2 — Qualification Checking ════════════════════════════ --}}
-        <div class="step-panel d-none" id="panel-2">
+            {{-- Applicants + qualification check --}}
             <div class="card">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="mb-0">
-                            Qualification checking
+                            Applicants
                             <span class="badge text-bg-light text-dark border ms-1">{{ $applications->count() }}</span>
                         </h6>
                     </div>
@@ -251,36 +248,42 @@
                     @php
                         $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
                         $qColor = $qColors[$app->status] ?? 'secondary';
-                        $appCheck = $app->qualification_check ?? [];
                     @endphp
-                    <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;">
-                        <div>
-                            <div class="fw-medium">{{ $app->candidate->full_name }}</div>
-                            <div class="text-muted small">
-                                Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
+                    <div class="border rounded p-3 mb-2" style="font-size:0.875rem;">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div>
+                                <div class="fw-medium">{{ $app->candidate->full_name }}</div>
+                                <div class="text-muted small">
+                                    Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
+                                </div>
                             </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span class="badge text-bg-{{ $qColor }}">
-                                {{ str_replace('_', ' ', ucfirst($app->status)) }}
-                            </span>
-                            @if (!in_array($app->status, ['hired', 'ranking_sent']))
-                            <button type="button" class="btn btn-sm btn-outline-secondary"
-                                    data-bs-toggle="modal" data-bs-target="#qualCheckModal"
-                                    data-application-id="{{ $app->id }}"
-                                    data-candidate-name="{{ addslashes($app->candidate->full_name) }}"
-                                    data-check="{{ json_encode($appCheck) }}">
-                                <i class="bi bi-clipboard-check me-1"></i> Check qualifications
-                            </button>
-                            @endif
-                            @if ($app->qualification_result)
-                            <form action="{{ route('applications.qualification-notice', $app->id) }}" method="POST" class="m-0">
-                                @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-primary">
-                                    {{ $app->qualification_notified_at ? 'Resend result' : 'Email result' }}
-                                </button>
-                            </form>
-                            @endif
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge text-bg-{{ $qColor }}">
+                                    {{ str_replace('_', ' ', ucfirst($app->status)) }}
+                                </span>
+                                @if (!in_array($app->status, ['hired', 'ranking_sent']))
+                                <form action="{{ route('applications.updateStatus', $app->id) }}" method="POST" class="m-0">
+                                    @csrf @method('PUT')
+                                    <input type="hidden" name="status" value="qualified">
+                                    <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-success py-0 px-2"
+                                            style="font-size:0.72rem;"
+                                            {{ $app->status === 'qualified' ? 'disabled' : '' }}>
+                                        ✓ Qualify
+                                    </button>
+                                </form>
+                                <form action="{{ route('applications.updateStatus', $app->id) }}" method="POST" class="m-0">
+                                    @csrf @method('PUT')
+                                    <input type="hidden" name="status" value="not_qualified">
+                                    <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2"
+                                            style="font-size:0.72rem;"
+                                            {{ $app->status === 'not_qualified' ? 'disabled' : '' }}>
+                                        ✗ Disqualify
+                                    </button>
+                                </form>
+                                @endif
+                            </div>
                         </div>
                     </div>
                     @empty
@@ -290,8 +293,8 @@
             </div>
         </div>
 
-        {{-- ══ STEP 3 ══════════════════════════════════════════════════════ --}}
-        <div class="step-panel d-none" id="panel-3">
+        {{-- ══ STEP 2 ══════════════════════════════════════════════════════ --}}
+        <div class="step-panel d-none" id="panel-2">
             <div class="card mb-3">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -348,8 +351,8 @@
             </div>
         </div>
 
-        {{-- ══ STEP 4 ══════════════════════════════════════════════════════ --}}
-        <div class="step-panel d-none" id="panel-4">
+        {{-- ══ STEP 3 ══════════════════════════════════════════════════════ --}}
+        <div class="step-panel d-none" id="panel-3">
 
             {{-- Ranking --}}
             <div class="card mb-3">
@@ -548,60 +551,6 @@
     </div>
 </div>
 
-{{-- Qualification Check --}}
-<div class="modal fade" id="qualCheckModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" id="qualCheckForm" action="">
-                @csrf
-                <div class="modal-header">
-                    <h6 class="modal-title">Qualification check — <span id="qualCheckCandidateName"></span></h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
-                    @php
-                        $qualCriteriaFields = [
-                            'education'   => ['label' => 'Education',   'required' => $posting->qualification_education   ?? null],
-                            'experience'  => ['label' => 'Experience',  'required' => $posting->qualification_experience  ?? null],
-                            'training'    => ['label' => 'Training',    'required' => $posting->qualification_training    ?? null],
-                            'eligibility' => ['label' => 'Eligibility', 'required' => $posting->qualification_eligibility ?? null],
-                        ];
-                    @endphp
-                    @foreach ($qualCriteriaFields as $key => $meta)
-                    <div class="border-bottom py-2">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <label class="fw-medium mb-0">{{ $meta['label'] }}</label>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <input type="radio" class="btn-check qual-passed-input" name="{{ $key }}_passed" value="1"
-                                       id="qc_{{ $key }}_yes" data-criterion="{{ $key }}" autocomplete="off">
-                                <label class="btn btn-outline-success" for="qc_{{ $key }}_yes" style="font-size:.7rem;padding:.15rem .5rem;">Qualified</label>
-
-                                <input type="radio" class="btn-check qual-passed-input" name="{{ $key }}_passed" value="0"
-                                       id="qc_{{ $key }}_no" data-criterion="{{ $key }}" autocomplete="off">
-                                <label class="btn btn-outline-danger" for="qc_{{ $key }}_no" style="font-size:.7rem;padding:.15rem .5rem;">Not qualified</label>
-                            </div>
-                        </div>
-                        @if ($meta['required'])
-                        <div class="text-muted mb-1" style="font-size:.75rem;">Required: {{ $meta['required'] }}</div>
-                        @endif
-                        <input type="text" name="{{ $key }}_actual" class="form-control form-control-sm qual-actual-input"
-                               data-criterion="{{ $key }}"
-                               placeholder="Candidate's actual {{ strtolower($meta['label']) }}...">
-                    </div>
-                    @endforeach
-                    <textarea name="check_notes" id="qualCheckNotes" class="form-control form-control-sm mt-2" rows="2"
-                              placeholder="Notes about this qualification check..."></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Save qualification check</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 {{-- Edit Scores --}}
 <div class="modal fade" id="editScoresModal" tabindex="-1">
     <div class="modal-dialog">
@@ -648,7 +597,6 @@
 <script>
 // ── Step switching ──────────────────────────────────────────────────────────
 const currentStep = {{ $currentStep }};
-const activeStep  = {{ $activeStep }};
 
 function switchStep(n) {
     if (n > currentStep) return; // can't jump ahead
@@ -657,14 +605,14 @@ function switchStep(n) {
 }
 
 // Show the active step on load
-switchStep(activeStep);
+switchStep(currentStep);
 
 // ── Advance pipeline ────────────────────────────────────────────────────────
 function advanceStep() {
     const msgs = {
-        2: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
-        3: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
-        4: 'Close this posting? All remaining applicants will be rejected.',
+        1: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
+        2: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
+        3: 'Close this posting? All remaining applicants will be rejected.',
     };
     if (!confirm(msgs[currentStep] || 'Advance to next stage?')) return;
 
@@ -699,29 +647,6 @@ document.getElementById('editScoresModal')?.addEventListener('show.bs.modal', fu
         const v = scores[input.dataset.criterionId];
         input.value = (v === null || v === undefined) ? '' : v;
     });
-});
-
-// ── Qualification check modal ───────────────────────────────────────────────
-document.getElementById('qualCheckModal')?.addEventListener('show.bs.modal', function (e) {
-    const btn = e.relatedTarget;
-    const appId = btn.dataset.applicationId;
-    document.getElementById('qualCheckForm').action = '/applications/' + appId + '/qualification-check';
-    document.getElementById('qualCheckCandidateName').textContent = btn.dataset.candidateName;
-
-    const check = JSON.parse(btn.dataset.check || '{}');
-    const criteria = check.criteria || {};
-
-    document.querySelectorAll('.qual-actual-input').forEach(input => {
-        const key = input.dataset.criterion;
-        input.value = criteria[key]?.actual ?? '';
-    });
-    document.querySelectorAll('.qual-passed-input').forEach(input => { input.checked = false; });
-    Object.keys(criteria).forEach(key => {
-        const passed = criteria[key]?.passed;
-        const targetId = passed === true ? 'qc_' + key + '_yes' : (passed === false ? 'qc_' + key + '_no' : null);
-        if (targetId) document.getElementById(targetId)?.setAttribute('checked', 'checked'), document.getElementById(targetId).checked = true;
-    });
-    document.getElementById('qualCheckNotes').value = check.notes ?? '';
 });
 
 // ── Panelist checklist for schedule modal ───────────────────────────────────

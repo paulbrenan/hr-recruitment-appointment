@@ -173,10 +173,21 @@
                         <div class="fw-medium">SG-{{ $application->jobPosting->salary_grade }}</div>
                     </div>
                     @endif
-                    @if(!empty($application->jobPosting->place_of_assignment))
+                    @php
+                        // Prefer the specific place the candidate actually
+                        // picked (job_posting_location_id) over the
+                        // posting's legacy place_of_assignment column,
+                        // which is only kept in sync to the FIRST location
+                        // for postings created before per-location places
+                        // existed and is not applicant-specific.
+                        $placeOfAssignment = $application->jobPostingLocation->place_of_assignment
+                            ?? $application->jobPosting->place_of_assignment
+                            ?? null;
+                    @endphp
+                    @if(!empty($placeOfAssignment))
                     <div class="col-6">
                         <div class="text-muted mb-1">Place of Assignment</div>
-                        <div class="fw-medium">{{ $application->jobPosting->place_of_assignment }}</div>
+                        <div class="fw-medium">{{ $placeOfAssignment }}</div>
                     </div>
                     @endif
                     @if(!empty($application->jobPosting->employment_type))

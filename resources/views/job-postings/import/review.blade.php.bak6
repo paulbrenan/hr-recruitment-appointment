@@ -86,21 +86,13 @@
                                 <tr class="location-import-row">
                                     <td>
                                         <div class="position-relative location-import-wrapper">
-                                            @php
-                                                $isTbd = ($loc['school'] === null && !$loc['unrecoverable']);
-                                                $locValue = $isTbd ? 'To be determined' : ($loc['school'] ?? '');
-                                                $locClass = $loc['unrecoverable'] ? 'border-warning' : ($isTbd ? 'border-warning text-muted' : '');
-                                                $locPlaceholder = $loc['unrecoverable']
-                                                    ? 'Row ' . $loc['row_number'] . ' unreadable — type school name manually'
-                                                    : ($isTbd ? 'To be determined — update if school is now known' : 'Search or type a school...');
-                                            @endphp
                                             <input
                                                 type="text"
-                                                class="form-control form-control-sm location-import-input {{ $locClass }}"
+                                                class="form-control form-control-sm location-import-input {{ $loc['unrecoverable'] ? 'border-warning' : '' }}"
                                                 name="rows[{{ $i }}][location_place][]"
                                                 autocomplete="off"
-                                                placeholder="{{ $locPlaceholder }}"
-                                                value="{{ $locValue }}"
+                                                placeholder="{{ $loc['unrecoverable'] ? 'Row ' . $loc['row_number'] . ' unreadable — type school name manually' : 'Search or type a school...' }}"
+                                                value="{{ $loc['school'] ?? '' }}"
                                             >
                                             <div class="list-group position-absolute w-100 shadow-sm location-import-results"
                                                  style="z-index:1050;max-height:180px;overflow-y:auto;display:none;top:100%;"></div>

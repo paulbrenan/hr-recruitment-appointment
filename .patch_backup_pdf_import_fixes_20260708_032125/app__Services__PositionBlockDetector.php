@@ -157,14 +157,7 @@ class PositionBlockDetector
         // e.g. "Administrative Officer I – Supply Officer I" → "Administrative Officer I"
         // or "Administrative Aide IV – Clerk II" → "Administrative Aide IV".
         // We try the FULL raw title first (direct match), then the stripped form.
-        // NOTE: leading whitespace before the dash is OPTIONAL (\s* not \s+).
-        // Confirmed real OCR case: "ADMINISTRATIVE AIDE III- CLERK I" has no
-        // space before the dash (though there is one after it). Requiring
-        // \s+ on both sides silently failed to strip the suffix, which made
-        // the title fail canonical matching entirely and drop the whole
-        // position from the import with no error. Whitespace AFTER the dash
-        // stays mandatory so genuine no-space compound words aren't split.
-        $strippedSuffix = preg_replace('/\s*[\x{2013}\x{2014}\-]{1,2}\s+.+$/u', '', $rawTitle);
+        $strippedSuffix = preg_replace('/\s+[\x{2013}\x{2014}\-]{1,2}\s+.+$/u', '', $rawTitle);
         $strippedSuffix = trim($strippedSuffix);
 
         $normalizedRaw     = $this->normalizeForComparison($rawTitle);
@@ -223,11 +216,6 @@ class PositionBlockDetector
     private function normalizeForComparison(string $text): string
     {
         // Fix common OCR Roman-numeral misreads before comparing.
-        // "Hil" confirmed real case: "SECONDARY SCHOOL PRINCIPAL Hil (SG-21)"
-        // — tesseract misread "III" as "Hil", which caused this position to
-        // fail canonical matching (even via the prefix-strip path) and be
-        // silently dropped from the import entirely.
-        $text = preg_replace('/\bHil\b/', 'III', $text);
         $text = preg_replace('/\bIll\b/', 'III', $text);
         $text = preg_replace('/\bll\b/', 'II', $text);
         $text = preg_replace('/\bl\b/', 'I', $text);
@@ -247,16 +235,8 @@ class PositionBlockDetector
         $experience = $this->extractLabeledField($blockText, 'Experience');
         $eligibility = $this->extractLabeledField($blockText, 'Eligibility');
 
-        // "Position[s]?" — real OCR renders this both plural ("Number of
-        // Vacant Positions: 1") and singular ("Number of Vacant Position: 1")
-        // depending on the memo. extractLabeledField()'s stopLabels list
-        // already anticipated both forms (see the two entries above), but
-        // this regex only matched the plural, so singular-form blocks
-        // silently got vacancies = null. The COS-format parser below
-        // (parseCosBlock) already handled this correctly with Position[s]? —
-        // this was the one path that got missed.
         $vacancies = null;
-        if (preg_match('/Number of Vacant Positions?:?\s*(\d+)/i', $blockText, $m)) {
+        if (preg_match('/Number of Vacant Positions:?\s*(\d+)/i', $blockText, $m)) {
             $vacancies = (int) $m[1];
         }
 
@@ -286,14 +266,7 @@ class PositionBlockDetector
      */
     private function buildDisplayTitle(string $rawTitle, string $canonicalTitle): string
     {
-        // Same OCR misread fixups as normalizeForComparison() — this method
-        // builds the string that actually gets registered as a permanent
-        // canonical title, so it needs to be corrected too, not just used
-        // for matching. Without this, "Hil" (OCR misread of "III") slipped
-        // through matching fine but got registered verbatim as a new bogus
-        // canonical title ("Secondary School Principal Hil").
-        $fixed = preg_replace('/\bHil\b/', 'III', $rawTitle);
-        $fixed = preg_replace('/\bIll\b/', 'III', $fixed);
+        $fixed = preg_replace('/\bIll\b/', 'III', $rawTitle);
         $words = explode(' ', strtolower($fixed));
         $words = array_map(function ($w) {
             if ($w === 'iii') return 'III';
@@ -451,32 +424,6 @@ class PositionBlockDetector
             $lastIndex = count($pageTextsOnly) - 1;
             if ($relativeOffset >= 0 && $relativeOffset < strlen($pageTextsOnly[$lastIndex])) {
                 $pageTextsOnly[$lastIndex] = substr($pageTextsOnly[$lastIndex], 0, $relativeOffset);
-            }
-        }
-
-        // IMPORTANT (mirror of the trailing-page fix above, same root cause):
-        // a block's own table can also start partway through its FIRST
-        // relevant page, not just end partway through its last one.
-        // Confirmed real case: "B. PROJECT DEVELOPMENT OFFICER I (SG-11)"
-        // begins on the same physical page as the PREVIOUS block's trailing
-        // duty bullets ("...Perform other functions as may be assigned by
-        // the School Head." sits right above this block's own heading on
-        // that page). Without this, the previous block's leftover duty text
-        // is passed through unmodified as this block's "first page," and it
-        // isn't covered by any noise-phrase pattern (it's real position-
-        // specific content, not boilerplate) — so it corrupts the table
-        // parser's row detection, gluing unrelated duty text onto one of
-        // this block's early rows. Truncate the first page's text to start
-        // at this block's own heading offset. This must run AFTER the
-        // trailing-page truncation above (not before), so that when a block
-        // fits entirely on one page (startPage === endPage), the trailing
-        // cut is computed against the page's original, untruncated text —
-        // truncating the front first would shift offsets out from under it.
-        if (!empty($pageTextsOnly)) {
-            $startPageStart = $this->pageStartOffset($startPage, $pageBoundaries);
-            $startRelativeOffset = $blockStartOffset - $startPageStart;
-            if ($startRelativeOffset > 0 && $startRelativeOffset < strlen($pageTextsOnly[0])) {
-                $pageTextsOnly[0] = substr($pageTextsOnly[0], $startRelativeOffset);
             }
         }
 

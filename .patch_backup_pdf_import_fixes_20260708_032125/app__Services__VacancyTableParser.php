@@ -727,15 +727,6 @@ class VacancyTableParser
         $text = preg_replace('/\x{2014}+/u', ' ', $text);              // remaining em-dashes
         $text = preg_replace('/\x{2013}+/u', ' ', $text);              // remaining en-dashes
 
-        // Confirmed real OCR misread: "None" (the Adopted School column's
-        // usual value) occasionally comes through as "Nome". "None" is the
-        // structural anchor finalizeRow()/peelTrailingOrphanRows() search
-        // for to find each row's school/municipality boundary, so a missed
-        // "Nome" doesn't just corrupt one cell — it makes the whole row fall
-        // through to the adopted-school-variant branch and misreads "Nome"
-        // itself as part of the adopted-school name.
-        $text = preg_replace('/\bNome\b/', 'None', $text);
-
         // Collapse stray table-border characters and extra whitespace.
         $text = preg_replace('/[_|=]+/', ' ', $text);
         $text = preg_replace('/\s+/', ' ', $text);

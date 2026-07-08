@@ -7,6 +7,7 @@ use App\Models\Candidate;
 use App\Models\JobPosting;
 use App\Models\JobPostingLocation;
 use App\Mail\ApplicationSubmitted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
@@ -16,10 +17,19 @@ class CandidateAuthController extends Controller
 {
     public function showRegister()
     {
-        $openPostings = JobPosting::with('locations')
-            ->where('status', 'open')
+        // Eager-load each location's hired count (aliased as hired_count)
+        // in one query so JobPostingLocation::isFilled() doesn't have to
+        // hit the DB again per location.
+        $openPostings = JobPosting::where('status', 'open')
+            ->with(['locations' => function ($query) {
+                $query->withCount(['applications as hired_count' => function ($q) {
+                    $q->where('status', 'hired');
+                }])->orderBy('place_of_assignment');
+            }])
             ->orderBy('title')
-            ->get();
+            ->get()
+            ->filter->hasAnyOpenVacancy()
+            ->values();
 
         return view('portal.register', compact('openPostings'));
     }
@@ -31,7 +41,8 @@ class CandidateAuthController extends Controller
             'first_name'       => ['required', 'string', 'max:255'],
             'middle_name'      => ['nullable', 'string', 'max:255'],
             'last_name'        => ['required', 'string', 'max:255'],
-'job_posting_id'   => ['required', 'regex:/^\\d+:\\d+$/'],
+'job_posting_id'          => ['required', 'integer', 'exists:job_postings,id'],
+            'job_posting_location_id' => ['nullable', 'integer'],
             'address'          => ['required', 'string', 'max:500'],
             'age'              => ['required', 'integer', 'min:18', 'max:70'],
             'sex'              => ['required', 'in:Male,Female'],
@@ -47,7 +58,7 @@ class CandidateAuthController extends Controller
                 'required', 'email', 'max:255',
                 \Illuminate\Validation\Rule::unique('candidates', 'email')->where(function ($query) {
                     return $query->whereExists(function ($sub) {
-                        $sub->select(\DB::raw(1))
+                        $sub->select(DB::raw(1))
                             ->from('applications')
                             ->whereColumn('applications.candidate_id', 'candidates.id');
                     });
@@ -63,11 +74,8 @@ class CandidateAuthController extends Controller
         // Resolve the job posting BEFORE creating any account/records, so
         // an invalid or no-longer-open position stops registration cleanly
         // instead of silently creating a candidate with no application and
-        // telling them "submitted successfully" anyway. Resolved by ID
-        // (not title) so two postings sharing a title but differing in
-        // place of assignment can never be confused with one another.
-        [$postingIdRaw, $locationIdRaw] = array_pad(explode(':', $validated['job_posting_id'], 2), 2, '0');
-        $jobPosting = \App\Models\JobPosting::find((int) $postingIdRaw);
+        // telling them "submitted successfully" anyway.
+        $jobPosting = \App\Models\JobPosting::find((int) $validated['job_posting_id']);
 
         if (!$jobPosting || $jobPosting->status !== 'open') {
             return back()
@@ -75,18 +83,35 @@ class CandidateAuthController extends Controller
                 ->withErrors(['job_posting_id' => 'Sorry, this position is no longer available. Please choose another open position.']);
         }
 
-// Resolve and verify the chosen location actually belongs to this
+        // Resolve and verify the chosen location actually belongs to this
         // posting (never trust the submitted ID on its own -- a tampered
-        // value could reference an unrelated posting's location).
+        // value could reference an unrelated posting's location). If the
+        // posting HAS location rows, a place must be chosen; if it has
+        // none (legacy posting), the field is skipped client-side and no
+        // location is expected here.
         $jobPostingLocation = null;
-        $locationId = (int) $locationIdRaw;
-        if ($locationId > 0) {
-            $jobPostingLocation = $jobPosting->locations()->find($locationId);
+        $postingHasLocations = $jobPosting->locations()->exists();
+
+        if (!empty($validated['job_posting_location_id'])) {
+            $jobPostingLocation = $jobPosting->locations()->find((int) $validated['job_posting_location_id']);
             if (!$jobPostingLocation) {
                 return back()
                     ->withInput()
-                    ->withErrors(['job_posting_id' => 'Sorry, that place of assignment is no longer available. Please choose another option.']);
+                    ->withErrors(['job_posting_location_id' => 'Sorry, that place of assignment is no longer available. Please choose another option.']);
             }
+            if ($jobPostingLocation->isFilled()) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['job_posting_location_id' => 'Sorry, that place of assignment was just filled. Please choose another option.']);
+            }
+        } elseif ($postingHasLocations) {
+            return back()
+                ->withInput()
+                ->withErrors(['job_posting_location_id' => 'Please select a place of assignment.']);
+        } elseif (!$jobPosting->hasOpenLegacyVacancy()) {
+            return back()
+                ->withInput()
+                ->withErrors(['job_posting_id' => 'Sorry, this position was just filled. Please choose another open position.']);
         }
 
         // Clean up any orphaned candidate record for this email

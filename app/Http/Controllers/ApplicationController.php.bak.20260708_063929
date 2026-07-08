@@ -245,7 +245,7 @@ class ApplicationController extends Controller
 
         $application->update([
             'qualification_check' => $check,
-            'qualification_result' => $passed ? 'qualified' : 'not_qualified',
+            'qualification_result' => $passed ? 'qualified' : 'disqualified',
             'qualification_checked_at' => now(),
             'status' => $passed ? 'qualified' : 'not_qualified',
         ]);

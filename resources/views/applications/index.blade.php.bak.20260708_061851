@@ -28,7 +28,7 @@
                     still exist in the database enum (legacy records may
                     carry them), they're just not offered as filter choices.
                 --}}
-                @foreach (['submitted', 'screening', 'qualified', 'not_qualified', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'] as $statusOption)
+                @foreach (['submitted', 'screening', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'] as $statusOption)
                     <option value="{{ $statusOption }}" {{ request('status') === $statusOption ? 'selected' : '' }}>
                         {{ str_replace('_', ' ', ucfirst($statusOption)) }}
                     </option>
@@ -78,8 +78,6 @@
                             $statusColors = [
                                 'submitted' => 'secondary',
                                 'screening' => 'info',
-                                'qualified' => 'success',
-                                'not_qualified' => 'danger',
                                 'shortlisted' => 'primary',
                                 'interview_scheduled' => 'primary',
                                 'assessed' => 'warning',

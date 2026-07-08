@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\InterviewSchedule;
 use App\Models\JobPosting;
 use App\Notifications\QualificationResultNotification;
 use Illuminate\Http\Request;
@@ -127,7 +128,12 @@ class ApplicationController extends Controller
     {
         $application = Application::with(['candidate', 'jobPosting'])->findOrFail($id);
 
-        return view('applications.show', compact('application'));
+        // Real interview schedules from the database
+        $schedules = InterviewSchedule::where('application_id', $id)
+            ->orderBy('scheduled_at')
+            ->get();
+
+        return view('applications.show', compact('application', 'schedules'));
     }
 
     public function updateStatus(Request $request, $id)
@@ -139,7 +145,7 @@ class ApplicationController extends Controller
             // "assessed" are hidden from the UI dropdown, so existing
             // records that still carry those statuses can be saved without
             // validation errors (e.g. saving notes without touching status).
-            'status' => ['required', 'in:submitted,screening,shortlisted,interview_scheduled,assessed,ranked,qualified,not_qualified,offer_sent,offer_accepted,offer_declined,hired,rejected'],
+            'status' => ['required', 'in:submitted,screening,shortlisted,interview_scheduled,assessed,ranked,offer_sent,offer_accepted,offer_declined,hired,rejected'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -245,9 +251,8 @@ class ApplicationController extends Controller
 
         $application->update([
             'qualification_check' => $check,
-            'qualification_result' => $passed ? 'qualified' : 'not_qualified',
+            'qualification_result' => $passed ? 'qualified' : 'disqualified',
             'qualification_checked_at' => now(),
-            'status' => $passed ? 'qualified' : 'not_qualified',
         ]);
 
         return redirect()

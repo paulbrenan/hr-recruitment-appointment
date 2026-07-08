@@ -37,6 +37,7 @@
         </form>
         <a href="{{ route('applications.export', request()->only(['status', 'job_posting'])) }}"
            id="export-excel-btn"
+           data-no-loader
            class="btn btn-sm btn-outline-primary"
            title="{{ request('job_posting') ? 'Includes this posting\'s scoring columns — ready to fill in and re-import on Assessment & ranking' : 'Select a job posting above to include scoring columns for that posting' }}">
             <i class="bi bi-file-earmark-excel"></i> Export to Excel
@@ -127,6 +128,15 @@
     if (exportBtn) {
         exportBtn.addEventListener('click', function (e) {
             e.preventDefault();
+            e.stopPropagation();
+
+            // Safety net: force the page-loader overlay closed in case
+            // anything still triggers it for this click.
+            var loaderOverlay = document.getElementById('deped-page-loader');
+            if (loaderOverlay) {
+                loaderOverlay.classList.remove('is-active');
+            }
+
             var url = exportBtn.getAttribute('href');
             var originalHtml = exportBtn.innerHTML;
             exportBtn.classList.add('disabled');

@@ -662,9 +662,9 @@ switchStep(activeStep);
 // ── Advance pipeline ────────────────────────────────────────────────────────
 function advanceStep() {
     const msgs = {
-        2: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
-        3: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
-        4: 'Close this posting? All remaining applicants will be rejected.',
+        1: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
+        2: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
+        3: 'Close this posting? All remaining applicants will be rejected.',
     };
     if (!confirm(msgs[currentStep] || 'Advance to next stage?')) return;
 
@@ -699,29 +699,6 @@ document.getElementById('editScoresModal')?.addEventListener('show.bs.modal', fu
         const v = scores[input.dataset.criterionId];
         input.value = (v === null || v === undefined) ? '' : v;
     });
-});
-
-// ── Qualification check modal ───────────────────────────────────────────────
-document.getElementById('qualCheckModal')?.addEventListener('show.bs.modal', function (e) {
-    const btn = e.relatedTarget;
-    const appId = btn.dataset.applicationId;
-    document.getElementById('qualCheckForm').action = '/applications/' + appId + '/qualification-check';
-    document.getElementById('qualCheckCandidateName').textContent = btn.dataset.candidateName;
-
-    const check = JSON.parse(btn.dataset.check || '{}');
-    const criteria = check.criteria || {};
-
-    document.querySelectorAll('.qual-actual-input').forEach(input => {
-        const key = input.dataset.criterion;
-        input.value = criteria[key]?.actual ?? '';
-    });
-    document.querySelectorAll('.qual-passed-input').forEach(input => { input.checked = false; });
-    Object.keys(criteria).forEach(key => {
-        const passed = criteria[key]?.passed;
-        const targetId = passed === true ? 'qc_' + key + '_yes' : (passed === false ? 'qc_' + key + '_no' : null);
-        if (targetId) document.getElementById(targetId)?.setAttribute('checked', 'checked'), document.getElementById(targetId).checked = true;
-    });
-    document.getElementById('qualCheckNotes').value = check.notes ?? '';
 });
 
 // ── Panelist checklist for schedule modal ───────────────────────────────────

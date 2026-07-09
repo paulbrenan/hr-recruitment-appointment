@@ -101,21 +101,6 @@ class JobPostingController extends Controller
     {
         $validated = $request->validate($this->rules());
 
-        // Don't create a duplicate posting for a title that already
-        // exists -- merge the submitted place(s) of assignment into the
-        // existing posting's locations instead (same place again adds to
-        // its vacancy count, a new place becomes a new location row; same
-        // convention the PDF import pipeline uses).
-        $existing = JobPosting::where('title', $validated['title'])->first();
-
-        if ($existing) {
-            $this->mergeLocationsInto($existing, $request);
-
-            return redirect()
-                ->route('job-postings.show', $existing->id)
-                ->with('success', 'A posting for "' . $existing->title . '" already exists -- the place(s) of assignment you entered were added to it instead of creating a duplicate.');
-        }
-
         $posting = JobPosting::create($validated);
 
         $this->syncLocations($posting, $request);
@@ -124,50 +109,6 @@ class JobPostingController extends Controller
         return redirect()
             ->route('job-postings.index')
             ->with('success', 'Job posting created successfully.');
-    }
-
-    /**
-     * Merge location_place[]/location_vacancies[] from a create-form
-     * submission into an ALREADY-EXISTING posting, without touching its
-     * current locations (unlike syncLocations(), which wholesale replaces
-     * them -- that's correct for editing a posting's own form, but wrong
-     * here since we're adding to a different, pre-existing posting).
-     * Same place submitted again increments that location's vacancy count
-     * rather than creating a second row for it.
-     */
-    private function mergeLocationsInto(JobPosting $posting, \Illuminate\Http\Request $request): void
-    {
-        $places    = $request->input('location_place', []);
-        $vacancies = $request->input('location_vacancies', []);
-
-        $existingLocations = $posting->locations()->get()->keyBy('place_of_assignment');
-
-        foreach ($places as $i => $place) {
-            $place = trim($place);
-            if ($place === '') continue;
-
-            $addVacancies = max(1, (int) ($vacancies[$i] ?? 1));
-
-            $existingLocation = $existingLocations->get($place);
-            if ($existingLocation) {
-                $existingLocation->increment('vacancies', $addVacancies);
-            } else {
-                $newLocation = $posting->locations()->create([
-                    'place_of_assignment' => $place,
-                    'vacancies'           => $addVacancies,
-                ]);
-                $existingLocations->put($place, $newLocation);
-            }
-        }
-
-        // Keep the legacy place_of_assignment/vacancies columns in sync,
-        // same convention syncLocations() uses.
-        $posting->refresh();
-        $allLocations = $posting->locations()->get();
-        $posting->updateQuietly([
-            'place_of_assignment' => $allLocations->first()?->place_of_assignment,
-            'vacancies'           => $allLocations->sum('vacancies') ?: 1,
-        ]);
     }
 
     public function edit($id)
@@ -211,6 +152,7 @@ class JobPostingController extends Controller
      *
      * Mapping:
      *   open                → submitted
+     *   screening           → screening
      *   interview_scheduled → interview_scheduled
      *   ranking             → ranked
      *   closed              → rejected  (for all non-hired applicants)

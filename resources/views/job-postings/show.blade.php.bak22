@@ -96,32 +96,14 @@
                 </div>
 
                 {{-- Advance button --}}
-                @if ($posting->status === 'open')
-                    {{-- Overview (1) and Qualification Checking (2) share
-                         status "open" -- only Qualification Checking can
-                         trigger the real status advance. switchStep() below
-                         toggles which of these two slots is visible to match
-                         whichever panel is actually on screen, so this stays
-                         correct even when navigating client-side via the
-                         step tracker (no page reload happens there). --}}
-                    <div class="mt-3 advance-slot" data-for-step="1">
-                        <button type="button" class="btn btn-sm w-100 btn-outline-secondary" onclick="switchStep(2)">
-                            <i class="bi bi-arrow-right me-1"></i> Next: Qualification Checking
-                        </button>
-                    </div>
-                    <div class="mt-3 advance-slot d-none" data-for-step="2">
-                        <button id="advanceBtn" class="btn btn-sm w-100"
-                                style="background-color:var(--hr-primary);color:#fff;"
-                                onclick="advanceStep()">
-                            <i class="bi bi-arrow-right me-1"></i> Move to Scheduling
-                        </button>
-                    </div>
-                @elseif ($posting->status !== 'closed')
+                @if ($posting->status !== 'closed')
                 <div class="mt-3">
                     <button id="advanceBtn" class="btn btn-sm w-100"
                             style="background-color:var(--hr-primary);color:#fff;"
                             onclick="advanceStep()">
-                        @if ($posting->status === 'interview_scheduled')
+                        @if ($posting->status === 'open')
+                            <i class="bi bi-arrow-right me-1"></i> Move to Scheduling
+                        @elseif ($posting->status === 'interview_scheduled')
                             <i class="bi bi-arrow-right me-1"></i> Move to Assessment
                         @elseif ($posting->status === 'ranking')
                             <i class="bi bi-check-lg me-1"></i> Close Posting
@@ -327,133 +309,65 @@
         <div class="step-panel d-none" id="panel-2">
             <div class="card">
                 <div class="card-body p-4">
-                    @php
-                        $allChecked = $applications->count() > 0
-                            && $applications->every(fn($a) => !empty($a->qualification_result));
-                    @endphp
-                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="mb-0">
                             Qualification checking
                             <span class="badge text-bg-light text-dark border ms-1">{{ $applications->count() }}</span>
                         </h6>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            @if ($locations->count() > 1)
-                            <select id="qualLocationFilter" class="form-select form-select-sm" style="max-width:280px;">
-                                <option value="">All places of assignment</option>
-                                @foreach ($locations as $loc)
-                                <option value="{{ $loc->id }}">{{ $loc->place_of_assignment }} ({{ $applications->where('job_posting_location_id', $loc->id)->count() }})</option>
-                                @endforeach
-                            </select>
-                            @endif
-                            @if ($allChecked)
-                            <a href="{{ route('job-postings.export-qualifications', $posting->id) }}"
-                               class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-file-earmark-excel me-1"></i> Export qualifications
-                            </a>
-                            @else
-                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled
-                                    title="Check all applicants before exporting">
-                                <i class="bi bi-file-earmark-excel me-1"></i> Export qualifications
-                            </button>
-                            @endif
-                        </div>
                     </div>
 
-                    @if ($applications->isEmpty())
-                    <p class="text-muted small mb-0 text-center py-3">No applications yet for this posting.</p>
-                    @else
+                    @forelse ($applications as $app)
                     @php
-                        // Group by the PERSISTED qualification_result, not by
-                        // status -- status keeps advancing (interview_scheduled,
-                        // ranked, hired, etc.) once an applicant qualifies, but
-                        // qualification_result stays 'qualified' until HR re-runs
-                        // the check, so this is what keeps the grouping stable.
-                        // Applicants who haven't been checked yet have a null
-                        // qualification_result and land in "Pending".
-                        $qualGroups = [
-                            'qualified'     => $applications->where('qualification_result', 'qualified')->values(),
-                            'not_qualified' => $applications->where('qualification_result', 'not_qualified')->values(),
-                            'pending'       => $applications->whereNull('qualification_result')->values(),
-                        ];
-                        $qualGroupMeta = [
-                            'qualified'     => ['label' => 'Qualified', 'color' => 'success'],
-                            'not_qualified' => ['label' => 'Disqualified', 'color' => 'danger'],
-                            'pending'       => ['label' => 'Pending qualification check', 'color' => 'secondary'],
+                        $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
+                        $qColor = $qColors[$app->status] ?? 'secondary';
+                        $appCheck = $app->qualification_check ?? [];
+                        // Candidate's self-reported qualifications — used only
+                        // as the modal's starting point when no qualification
+                        // check has been saved yet for that criterion; a saved
+                        // "actual" value always takes precedence (see the
+                        // qualCheckModal JS below). Same fields/precedence as
+                        // the standalone /applications/{id} page.
+                        $appSelfReported = [
+                            'education'   => $app->candidate->education ?? null,
+                            'experience'  => $app->candidate->years_experience ?? null,
+                            'training'    => $app->candidate->training_hours ?? null,
+                            'eligibility' => $app->candidate->eligibility ?? null,
                         ];
                     @endphp
-                    @foreach ($qualGroups as $groupKey => $groupApps)
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                            <h6 class="text-uppercase small fw-bold text-{{ $qualGroupMeta[$groupKey]['color'] }} mb-0" style="letter-spacing:.03em;">
-                                {{ $qualGroupMeta[$groupKey]['label'] }}
-                                <span class="badge text-bg-light text-dark border ms-1">{{ $groupApps->count() }}</span>
-                            </h6>
-                            @if ($groupKey !== 'pending' && $groupApps->isNotEmpty())
-                            <form action="{{ route('applications.qualification-notices.send-all', $posting->id) }}" method="POST" class="m-0"
-                                  onsubmit="return confirm('Email the {{ $qualGroupMeta[$groupKey]['label'] }} result to all {{ $groupApps->count() }} applicant(s) in this group?');">
+                    <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;">
+                        <div>
+                            <div class="fw-medium">{{ $app->candidate->full_name }}</div>
+                            <div class="text-muted small">
+                                Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge text-bg-{{ $qColor }}">
+                                {{ str_replace('_', ' ', ucfirst($app->status)) }}
+                            </span>
+                            @if (!in_array($app->status, ['hired', 'ranking_sent']))
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    data-bs-toggle="modal" data-bs-target="#qualCheckModal"
+                                    data-application-id="{{ $app->id }}"
+                                    data-candidate-name="{{ addslashes($app->candidate->full_name) }}"
+                                    data-check="{{ json_encode($appCheck) }}"
+                                    data-self-reported="{{ json_encode($appSelfReported) }}">
+                                <i class="bi bi-clipboard-check me-1"></i> Check qualifications
+                            </button>
+                            @endif
+                            @if ($app->qualification_result)
+                            <form action="{{ route('applications.qualification-notice', $app->id) }}" method="POST" class="m-0">
                                 @csrf
-                                <input type="hidden" name="result" value="{{ $groupKey }}">
-                                <button type="submit" class="btn btn-sm btn-outline-{{ $qualGroupMeta[$groupKey]['color'] }}">
-                                    <i class="bi bi-envelope-check me-1"></i> Send all {{ strtolower($qualGroupMeta[$groupKey]['label']) }} mail
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                    {{ $app->qualification_notified_at ? 'Resend result' : 'Email result' }}
                                 </button>
                             </form>
                             @endif
                         </div>
-                        @forelse ($groupApps as $app)
-                        @php
-                            $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
-                            $qColor = $qColors[$app->status] ?? 'secondary';
-                            $appCheck = $app->qualification_check ?? [];
-                            // Candidate's self-reported qualifications — used only
-                            // as the modal's starting point when no qualification
-                            // check has been saved yet for that criterion; a saved
-                            // "actual" value always takes precedence (see the
-                            // qualCheckModal JS below). Same fields/precedence as
-                            // the standalone /applications/{id} page.
-                            $appSelfReported = [
-                                'education'   => $app->candidate->education ?? null,
-                                'experience'  => $app->candidate->years_experience ?? null,
-                                'training'    => $app->candidate->training_hours ?? null,
-                                'eligibility' => $app->candidate->eligibility ?? null,
-                            ];
-                        @endphp
-                        <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;">
-                            <div>
-                                <div class="fw-medium">{{ $app->candidate->full_name }}</div>
-                                <div class="text-muted small">
-                                    Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
-                                </div>
-                            </div>
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="badge text-bg-{{ $qColor }}">
-                                    {{ str_replace('_', ' ', ucfirst($app->status)) }}
-                                </span>
-                                @if (!in_array($app->status, ['hired', 'ranking_sent']))
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        data-bs-toggle="modal" data-bs-target="#qualCheckModal"
-                                        data-application-id="{{ $app->id }}"
-                                        data-candidate-name="{{ addslashes($app->candidate->full_name) }}"
-                                        data-check="{{ json_encode($appCheck) }}"
-                                        data-self-reported="{{ json_encode($appSelfReported) }}">
-                                    <i class="bi bi-clipboard-check me-1"></i> Check qualifications
-                                </button>
-                                @endif
-                                @if ($app->qualification_result)
-                                <form action="{{ route('applications.qualification-notice', $app->id) }}" method="POST" class="m-0">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline-primary">
-                                        {{ $app->qualification_notified_at ? 'Resend result' : 'Email result' }}
-                                    </button>
-                                </form>
-                                @endif
-                            </div>
-                        </div>
-                        @empty
-                        <p class="text-muted small mb-0 py-2">None in this group.</p>
-                        @endforelse
                     </div>
-                    @endforeach
-                    @endif
+                    @empty
+                    <p class="text-muted small mb-0 text-center py-3">No applications yet for this posting.</p>
+                    @endforelse
                 </div>
             </div>
         </div>
@@ -464,12 +378,10 @@
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="mb-0">Interview / exam schedules</h6>
-                        @if ($currentStep < 4)
                         <button class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;"
                                 data-bs-toggle="modal" data-bs-target="#newScheduleModal">
                             <i class="bi bi-plus-lg me-1"></i> New schedule
                         </button>
-                        @endif
                     </div>
 
                     @if ($schedules->isEmpty())
@@ -503,13 +415,11 @@
                                 </td>
                                 <td><span class="badge text-bg-{{ $sc[$s->status] ?? 'secondary' }}">{{ str_replace('_',' ',ucfirst($s->status)) }}</span></td>
                                 <td class="text-end">
-                                    @if ($currentStep < 4)
                                     <form action="{{ route('interviews.destroy', $s->id) }}" method="POST" class="d-inline"
                                           onsubmit="return confirm('Delete this schedule?')">
                                         @csrf @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                                     </form>
-                                    @endif
                                 </td>
                             </tr>
                             @endforeach
@@ -568,7 +478,6 @@
                                     @endif
                                 </td>
                                 <td>
-                                    @if ($posting->status !== 'closed')
                                     <button type="button" class="btn btn-sm btn-outline-secondary"
                                             data-bs-toggle="modal" data-bs-target="#editScoresModal"
                                             data-application-id="{{ $cand->application_id }}"
@@ -576,7 +485,6 @@
                                             data-scores="{{ json_encode($cand->scores) }}">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    @endif
                                 </td>
                             </tr>
                             @endforeach
@@ -604,24 +512,18 @@
                                     <div class="fw-medium">{{ $c->name }}</div>
                                     <div class="text-muted">{{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}% weight</div>
                                 </div>
-                                @if ($posting->status !== 'closed')
                                 <form method="POST" action="{{ route('assessments.criteria.destroy', $c->id) }}"
                                       onsubmit="return confirm('Remove this criterion?')">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
                                 </form>
-                                @endif
                             </div>
                         </div>
                         @empty
                         <div class="col-12"><p class="text-muted small mb-0">No criteria defined yet.</p></div>
                         @endforelse
                     </div>
-                    @if ($posting->status === 'closed')
-                    <button class="btn btn-sm btn-outline-secondary" disabled title="This posting is closed.">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @elseif ($remainingWeight > 0)
+                    @if ($remainingWeight > 0)
                     <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCriterionModal">
                         <i class="bi bi-plus-lg me-1"></i> Add criterion
                     </button>
@@ -639,38 +541,28 @@
 
 {{-- ── Modals ────────────────────────────────────────────────────────────── --}}
 
-{{-- New Schedule (per-job: schedules ALL qualified applicants at once) --}}
+{{-- New Schedule --}}
 <div class="modal fade" id="newScheduleModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="{{ route('interviews.store-for-posting') }}" method="POST">
+            <form action="{{ route('interviews.store') }}" method="POST">
                 @csrf
-                <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
                 <div class="modal-header">
                     <h6 class="modal-title">Schedule interview / exam</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info small py-2 mb-3">
-                        <i class="bi bi-info-circle me-1"></i>
-                        This will schedule <strong>all qualified applicants</strong> on this posting at once.
-                        {{ $applications->whereIn('status', ['qualified','interview_scheduled','ranked'])->count() }} applicant(s) will be scheduled.
-                    </div>
-
-                    @if ($locations->count() > 1)
                     <div class="mb-2">
-                        <label class="form-label small">Place of assignment <span class="text-muted">(optional — filter applicants by location)</span></label>
-                        <select name="job_posting_location_id" id="schedLocationSelect" class="form-select form-select-sm">
-                            <option value="">All locations</option>
-                            @foreach ($locations as $loc)
-                            <option value="{{ $loc->id }}">
-                                {{ $loc->place_of_assignment }} ({{ $applications->where('job_posting_location_id', $loc->id)->count() }} applicants)
-                            </option>
+                        <label class="form-label small">Candidate</label>
+                        <select name="application_id" id="schedAppSelect" class="form-select form-select-sm" required>
+                            <option value="" disabled selected>Select candidate</option>
+                            @foreach ($applications->whereIn('status', ['qualified','interview_scheduled','ranked']) as $app)
+                                <option value="{{ $app->id }}" data-job-posting-id="{{ $posting->id }}">
+                                    {{ $app->candidate->full_name }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
-                    @endif
-
                     <div class="mb-2">
                         <label class="form-label small">Type</label>
                         <select name="type" class="form-select form-select-sm">
@@ -684,36 +576,19 @@
                         <input type="datetime-local" name="scheduled_at" class="form-control form-control-sm" required>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small">Venue</label>
-                        <input type="text" name="location" class="form-control form-control-sm" placeholder="e.g. SDO Conference Room">
+                        <label class="form-label small">Location</label>
+                        <input type="text" name="location" class="form-control form-control-sm">
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small">Panel members</label>
+                        <label class="form-label small">Vacancy for Screening / Interview</label>
                         <div id="schedPanelistBox" class="border rounded p-2" style="min-height:48px;background:#f8f9fa;">
-                            @if ($panelists->isNotEmpty())
-                                @foreach ($panelists as $p)
-                                <div class="form-check mb-1">
-                                    <input class="form-check-input" type="checkbox" name="panelist_ids[]"
-                                           value="{{ $p->id }}" id="sp{{ $p->id }}">
-                                    <label class="form-check-label small" for="sp{{ $p->id }}">
-                                        {{ $p->name }}
-                                        <span class="badge ms-1 {{ $p->pivot->is_available ? 'text-bg-success' : 'text-bg-secondary' }}" style="font-size:.65rem;">
-                                            {{ $p->pivot->is_available ? 'Available' : 'Unavailable' }}
-                                        </span>
-                                    </label>
-                                </div>
-                                @endforeach
-                            @else
-                                <span class="text-muted small">No panelists assigned to this posting.</span>
-                            @endif
+                            <span class="text-muted small">Select a candidate above to load panelists.</span>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">
-                        <i class="bi bi-calendar-check me-1"></i> Schedule &amp; send invitations
-                    </button>
+                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Send invitation</button>
                 </div>
             </form>
         </div>
@@ -861,13 +736,6 @@ function switchStep(n) {
     if (n > currentStep) return; // can't jump ahead
     document.querySelectorAll('.step-panel').forEach(p => p.classList.add('d-none'));
     document.getElementById('panel-' + n)?.classList.remove('d-none');
-    // Keep the sidebar's Overview-vs-Qualification-Checking button slot in
-    // sync with whichever panel is actually visible (see the two
-    // .advance-slot divs in the sidebar above -- only relevant while
-    // status is "open", harmless no-op otherwise since none exist).
-    document.querySelectorAll('.advance-slot').forEach(el => {
-        el.classList.toggle('d-none', el.dataset.forStep !== String(n));
-    });
 }
 
 // Show the active step on load
@@ -939,20 +807,6 @@ document.getElementById('qualCheckModal')?.addEventListener('show.bs.modal', fun
         if (targetId) document.getElementById(targetId)?.setAttribute('checked', 'checked'), document.getElementById(targetId).checked = true;
     });
     document.getElementById('qualCheckNotes').value = check.notes ?? '';
-});
-
-// ── Qualification checking: filter by place of assignment ──────────────────
-document.getElementById('qualLocationFilter')?.addEventListener('change', function () {
-    const val = this.value;
-    document.querySelectorAll('#panel-2 [data-location-id]').forEach(row => {
-        if (!val) {
-            row.style.display = ''; // show all when no filter
-        } else {
-            // Rows with no location (null) match all filters — don't hide them
-            const rowLoc = row.dataset.locationId;
-            row.style.display = (!rowLoc || rowLoc === 'null' || rowLoc === val) ? '' : 'none';
-        }
-    });
 });
 
 // ── Panelist checklist for schedule modal ───────────────────────────────────

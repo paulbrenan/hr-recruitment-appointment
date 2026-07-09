@@ -211,6 +211,7 @@ class JobPostingController extends Controller
      *
      * Mapping:
      *   open                → submitted
+     *   screening           → screening
      *   interview_scheduled → interview_scheduled
      *   ranking             → ranked
      *   closed              → rejected  (for all non-hired applicants)

@@ -139,7 +139,7 @@ class ApplicationController extends Controller
             // "assessed" are hidden from the UI dropdown, so existing
             // records that still carry those statuses can be saved without
             // validation errors (e.g. saving notes without touching status).
-            'status' => ['required', 'in:submitted,screening,shortlisted,interview_scheduled,assessed,ranked,qualified,not_qualified,offer_sent,offer_accepted,offer_declined,hired,rejected'],
+            'status' => ['required', 'in:submitted,shortlisted,interview_scheduled,assessed,ranked,qualified,not_qualified,offer_sent,offer_accepted,offer_declined,hired,rejected'],
             'notes' => ['nullable', 'string'],
         ]);
 

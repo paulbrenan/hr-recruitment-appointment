@@ -281,12 +281,45 @@
 
       {{-- 12. Education --}}
       <div class="mb-4">
-        <label class="form-label"><span class="q-num">12.</span> Highest Educational Attainment (write in full) <span class="required-star">*</span></label>
-        <p class="hint">e.g. Bachelor of Science in Secondary Education major in English; Master of Education major in Administration and Supervision</p>
-        <input type="text" name="education"
-          class="form-control @error('education') is-invalid @enderror"
-          placeholder="Write in full" value="{{ old('education') }}" required>
-        @error('education')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        <label class="form-label d-block"><span class="q-num">12.</span> Highest Educational Attainment <span class="required-star">*</span></label>
+        @error('education')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
+
+        {{-- 12a. Educational Level (radio) --}}
+        <p class="hint" style="margin-top:0;">Educational Level</p>
+        @php
+          $eduLevels = ['Elementary','Secondary','Vocational / Trade Course','College','Graduate Studies'];
+          // old('education') was saved as "Level - Course - Year"; split it back out for repopulation
+          $oldEduParts = old('education') ? array_map('trim', explode(' - ', old('education'), 3)) : [];
+          $oldEduLevel = $oldEduParts[0] ?? null;
+          $oldEduCourse = $oldEduParts[1] ?? null;
+          $oldEduYear = $oldEduParts[2] ?? null;
+        @endphp
+        <div class="mb-3">
+          @foreach($eduLevels as $lvl)
+          <label class="radio-option edu-level-option {{ $oldEduLevel===$lvl?'selected':'' }}" style="max-width:320px;">
+            <input type="radio" name="edu_level" value="{{ $lvl }}" {{ $oldEduLevel===$lvl?'checked':'' }} required>
+            {{ $lvl }}
+          </label>
+          @endforeach
+        </div>
+
+        {{-- 12b. Course / Degree (textbox) --}}
+        <div class="mb-3" id="eduCourseWrap">
+          <label class="form-label">Course / Degree (write in full)</label>
+          <p class="hint">e.g. Bachelor of Science in Secondary Education major in English; Master of Education major in Administration and Supervision</p>
+          <input type="text" id="eduCourseInput"
+            class="form-control"
+            placeholder="Write in full" value="{{ $oldEduCourse }}">
+        </div>
+
+        {{-- 12c. Year Level (radio, options depend on 12a) --}}
+        <div class="mb-1" id="eduYearWrap">
+          <label class="form-label d-block">Year Level</label>
+          <div id="eduYearOptions"></div>
+        </div>
+
+        {{-- Hidden combined field actually submitted to the server --}}
+        <input type="hidden" name="education" id="eduCombinedInput" value="{{ old('education') }}">
       </div>
 
       {{-- 13. Training Hours --}}
@@ -430,6 +463,93 @@ document.querySelectorAll('.radio-option input[type=radio]').forEach(r => {
           populatePlaces($positionSelect.val(), oldLocationId);
       }
   });
+</script>
+
+<script>
+// ── Question 12: Highest Educational Attainment ────────────────────────
+// Level (radio) -> Course/Degree (textbox) -> Year Level (radio, options
+// depend on Level). All three combine into the single hidden #education
+// field ("Level - Course - Year") which is what actually gets POSTed and
+// saved to the existing candidates.education text column -- no DB changes
+// needed.
+(function () {
+  const yearOptionsByLevel = {
+    'Elementary':               ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Graduate'],
+    'Secondary':                ['Grade 7','Grade 8','Grade 9','Grade 10','Grade 11','Grade 12','Graduate'],
+    'Vocational / Trade Course':['1st Year','2nd Year','Graduate'],
+    'College':                  ['1st Year','2nd Year','3rd Year','4th Year','5th Year','Graduate'],
+    'Graduate Studies':         ['With Units','Candidate','Graduate'],
+  };
+
+  const $levelRadios  = $('input[name="edu_level"]');
+  const $courseWrap   = $('#eduCourseWrap');
+  const $courseInput  = $('#eduCourseInput');
+  const $yearWrap      = $('#eduYearWrap');
+  const $yearOptionsEl = $('#eduYearOptions');
+  const $combined      = $('#eduCombinedInput');
+
+  const oldYear = @json($oldEduYear);
+
+  function renderYearOptions(level, preselect) {
+      const opts = yearOptionsByLevel[level] || [];
+      $yearOptionsEl.empty();
+      opts.forEach(function (opt) {
+          const checked = opt === preselect;
+          const $label = $('<label class="radio-option edu-year-option" style="max-width:220px;display:inline-flex;margin-right:8px;"></label>');
+          if (checked) $label.addClass('selected');
+          const $input = $('<input type="radio" name="edu_year">').val(opt).prop('checked', checked);
+          $input.on('change', function () {
+              $yearOptionsEl.find('.edu-year-option').removeClass('selected');
+              $label.addClass('selected');
+              syncCombined();
+          });
+          $label.append($input).append(' ' + opt);
+          $yearOptionsEl.append($label);
+      });
+  }
+
+  function currentLevel() {
+      return $levelRadios.filter(':checked').val() || '';
+  }
+
+  function currentYear() {
+      return $yearOptionsEl.find('input[name="edu_year"]:checked').val() || '';
+  }
+
+  function syncCombined() {
+      const level  = currentLevel();
+      const course = $.trim($courseInput.val());
+      const year   = currentYear();
+      const parts = [level, course, year].filter(function (p) { return p; });
+      $combined.val(parts.join(' - '));
+  }
+
+  $levelRadios.on('change', function () {
+      $('.edu-level-option').removeClass('selected');
+      $(this).closest('.edu-level-option').addClass('selected');
+      renderYearOptions(this.value, null);
+      syncCombined();
+  });
+
+  $courseInput.on('input', syncCombined);
+
+  // Initial render (handles validation-error repopulation via old())
+  const initialLevel = currentLevel();
+  if (initialLevel) {
+      renderYearOptions(initialLevel, oldYear);
+  }
+  syncCombined();
+
+  // Belt-and-suspenders: recompute right before the form actually submits
+  $('#recruitForm').on('submit', function () {
+      syncCombined();
+      if (!$combined.val()) {
+          // Shouldn't happen since level+year are required radios, but
+          // guard anyway so we never silently submit an empty education.
+          $combined.val($.trim($courseInput.val()));
+      }
+  });
+})();
 </script>
 </body>
 </html>

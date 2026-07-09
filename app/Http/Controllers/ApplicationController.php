@@ -251,7 +251,7 @@ class ApplicationController extends Controller
         ]);
 
         return redirect()
-            ->route('applications.show', $application->id)
+            ->route('job-postings.show', ['id' => $application->job_posting_id, 'step' => 2])
             ->with('success', 'Qualification check saved. Result: ' . ($passed ? 'Qualified' : 'Disqualified') . '.');
     }
 

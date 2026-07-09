@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\PdfImportBatch;
 use App\Services\PositionBlockDetector;
 use App\Services\PositionBlockExpander;
+use App\Services\RequirementsExtractor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -57,6 +58,13 @@ class ProcessPdfImportJob implements ShouldQueue
             $expander = new PositionBlockExpander();
             $candidates = $expander->expand($blocks);
 
+            // Extract mandatory + additional requirements from this same
+            // memo's cover-page text. Previously this was never called, so
+            // $batch->requirements stayed null and confirm() silently fell
+            // back to empty mandatory/additional requirements for every
+            // imported posting.
+            $requirements = (new RequirementsExtractor())->extract($pageTexts);
+
             // Copy the source memo PDF to permanent public storage now,
             // while it still exists on disk. cleanupTmp() below (in the
             // finally block) deletes $pdfPath and everything else in
@@ -70,6 +78,7 @@ class ProcessPdfImportJob implements ShouldQueue
 
             $batch->update([
                 'candidates' => self::sanitizeUtf8($candidates),
+                'requirements' => self::sanitizeUtf8($requirements),
                 'status' => 'ready',
                 'memo_pdf_path' => $memoPdfPath,
             ]);

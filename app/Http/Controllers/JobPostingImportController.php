@@ -190,19 +190,17 @@ class JobPostingImportController extends Controller
         $selectedIndexes = array_flip($validated['selected'] ?? []);
         $editedRows = $validated['rows'];
 
-        // Real requirements extracted from THIS document's cover memo
-        // (Fix 2) — applied to every posting created from this import.
-        // No more silent fallback to the old hardcoded standard A-J
-        // default: if extraction found nothing for this particular PDF,
-        // these fields are simply left null, same as any manually
-        // created posting where HR hasn't filled them in yet.
-        $extractedRequirements = $batch->requirements ?? ['mandatory' => [], 'additional' => ''];
-        $mandatoryText = !empty($extractedRequirements['mandatory'])
-            ? implode("\n", $extractedRequirements['mandatory'])
-            : null;
-        $additionalText = !empty($extractedRequirements['additional'])
-            ? $extractedRequirements['additional']
-            : null;
+        // Mandatory/additional requirements are NOT copied onto each
+        // created posting here anymore. RequirementsExtractor always
+        // returns the same static DepEd-standard text regardless of which
+        // PDF was uploaded, so duplicating that block into every single
+        // imported JobPosting row's mandatory_requirements/
+        // additional_requirements columns just bloats storage for no
+        // benefit. These columns stay null on import (same as a manual
+        // posting HR hasn't filled them in for yet) — JobPosting::
+        // mandatoryRequirementsList()/additionalRequirementsList() fall
+        // back to the same static defaults at display time instead, from
+        // one source of truth.
 
         $created = 0;
         $skipped = 0;
@@ -284,8 +282,6 @@ class JobPostingImportController extends Controller
                 // first entered location -- same convention as
                 // syncLocations() uses on the manual job posting form.
                 'place_of_assignment' => $firstPlace,
-                'mandatory_requirements' => $mandatoryText,
-                'additional_requirements' => $additionalText,
                 'memo_pdf_path' => $memoPdfPath,
                 'vacancies' => $totalVacancies,
                 'employment_type' => 'Regular',

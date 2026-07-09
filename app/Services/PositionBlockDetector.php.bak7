@@ -661,21 +661,10 @@ class PositionBlockDetector
         }
 
         // Duties — "Terms of Reference:" in COS memos.
-        // CONFIRMED REAL BUG: the stop-lookahead only recognized a numbered
-        // list item ("\n  1. ...") as the end of the duties section.
-        // Bullet-style duty lines never hit that stop condition, so the
-        // capture ran all the way to the end of the block/document,
-        // swallowing the entire "Interested and qualified applicants..."
-        // intro, the full Mandatory Requirements A-J list, footer contact
-        // info, and the start of Additional Requirements into
-        // duties_responsibilities. Added the recurring boilerplate section
-        // markers shared across every DepEd Cavite memo as stop points.
         $duties = null;
-        if (preg_match(
-            '/Terms of Reference:?\s*(.*?)(?=\n\s*\d+\.\s|Interested and qualified applicants|Mandatory Requirements|Additional Requirements|Checklist of Requirements|\z)/is',
-            $blockText, $m
-        )) {
-            $duties = $this->cleanDutiesText($m[1]);
+        if (preg_match('/Terms of Reference:?\s*(.*?)(?=\n\s*\d+\.\s|\z)/is', $blockText, $m)) {
+            $raw = trim(preg_replace('/\s+/', ' ', $m[1]));
+            $duties = $raw !== '' ? $raw : null;
         }
 
         return [

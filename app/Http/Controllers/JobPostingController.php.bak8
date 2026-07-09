@@ -372,16 +372,7 @@ class JobPostingController extends Controller
             'closed'              => 4,
         ];
         $currentStep = $stepMap[$posting->status] ?? 1;
-
-        // Allow returning to a specific panel after an action elsewhere
-        // (e.g. saving a qualification check redirects back here with
-        // ?step=2 so HR lands back on Qualification Checking instead of
-        // Overview). Clamped to $currentStep so a crafted URL can't skip
-        // ahead of what the posting's status actually unlocks.
-        $requestedStep = (int) $request->query('step', 0);
-        $activeStep = $requestedStep > 0
-            ? min($requestedStep, $currentStep)
-            : ($posting->status === 'open' ? 1 : $currentStep);
+        $activeStep  = $posting->status === 'open' ? 1 : $currentStep;
 
         return view('job-postings.show', compact(
             'posting', 'locations', 'panelists', 'applications',

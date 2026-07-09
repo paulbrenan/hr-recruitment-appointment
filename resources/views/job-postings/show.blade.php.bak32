@@ -327,36 +327,19 @@
         <div class="step-panel d-none" id="panel-2">
             <div class="card">
                 <div class="card-body p-4">
-                    @php
-                        $allChecked = $applications->count() > 0
-                            && $applications->every(fn($a) => !empty($a->qualification_result));
-                    @endphp
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h6 class="mb-0">
                             Qualification checking
                             <span class="badge text-bg-light text-dark border ms-1">{{ $applications->count() }}</span>
                         </h6>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            @if ($locations->count() > 1)
-                            <select id="qualLocationFilter" class="form-select form-select-sm" style="max-width:280px;">
-                                <option value="">All places of assignment</option>
-                                @foreach ($locations as $loc)
-                                <option value="{{ $loc->id }}">{{ $loc->place_of_assignment }} ({{ $applications->where('job_posting_location_id', $loc->id)->count() }})</option>
-                                @endforeach
-                            </select>
-                            @endif
-                            @if ($allChecked)
-                            <a href="{{ route('job-postings.export-qualifications', $posting->id) }}"
-                               class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-file-earmark-excel me-1"></i> Export qualifications
-                            </a>
-                            @else
-                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled
-                                    title="Check all applicants before exporting">
-                                <i class="bi bi-file-earmark-excel me-1"></i> Export qualifications
-                            </button>
-                            @endif
-                        </div>
+                        @if ($locations->count() > 1)
+                        <select id="qualLocationFilter" class="form-select form-select-sm" style="max-width:280px;">
+                            <option value="">All places of assignment</option>
+                            @foreach ($locations as $loc)
+                            <option value="{{ $loc->id }}">{{ $loc->place_of_assignment }} ({{ $applications->where('job_posting_location_id', $loc->id)->count() }})</option>
+                            @endforeach
+                        </select>
+                        @endif
                     </div>
 
                     @forelse ($applications as $app)
@@ -604,38 +587,28 @@
 
 {{-- ── Modals ────────────────────────────────────────────────────────────── --}}
 
-{{-- New Schedule (per-job: schedules ALL qualified applicants at once) --}}
+{{-- New Schedule --}}
 <div class="modal fade" id="newScheduleModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="{{ route('interviews.store-for-posting') }}" method="POST">
+            <form action="{{ route('interviews.store') }}" method="POST">
                 @csrf
-                <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
                 <div class="modal-header">
                     <h6 class="modal-title">Schedule interview / exam</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info small py-2 mb-3">
-                        <i class="bi bi-info-circle me-1"></i>
-                        This will schedule <strong>all qualified applicants</strong> on this posting at once.
-                        {{ $applications->whereIn('status', ['qualified','interview_scheduled','ranked'])->count() }} applicant(s) will be scheduled.
-                    </div>
-
-                    @if ($locations->count() > 1)
                     <div class="mb-2">
-                        <label class="form-label small">Place of assignment <span class="text-muted">(optional — filter applicants by location)</span></label>
-                        <select name="job_posting_location_id" id="schedLocationSelect" class="form-select form-select-sm">
-                            <option value="">All locations</option>
-                            @foreach ($locations as $loc)
-                            <option value="{{ $loc->id }}">
-                                {{ $loc->place_of_assignment }} ({{ $applications->where('job_posting_location_id', $loc->id)->count() }} applicants)
-                            </option>
+                        <label class="form-label small">Candidate</label>
+                        <select name="application_id" id="schedAppSelect" class="form-select form-select-sm" required>
+                            <option value="" disabled selected>Select candidate</option>
+                            @foreach ($applications->whereIn('status', ['qualified','interview_scheduled','ranked']) as $app)
+                                <option value="{{ $app->id }}" data-job-posting-id="{{ $posting->id }}">
+                                    {{ $app->candidate->full_name }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
-                    @endif
-
                     <div class="mb-2">
                         <label class="form-label small">Type</label>
                         <select name="type" class="form-select form-select-sm">
@@ -649,36 +622,19 @@
                         <input type="datetime-local" name="scheduled_at" class="form-control form-control-sm" required>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small">Venue</label>
-                        <input type="text" name="location" class="form-control form-control-sm" placeholder="e.g. SDO Conference Room">
+                        <label class="form-label small">Location</label>
+                        <input type="text" name="location" class="form-control form-control-sm">
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small">Panel members</label>
+                        <label class="form-label small">Vacancy for Screening / Interview</label>
                         <div id="schedPanelistBox" class="border rounded p-2" style="min-height:48px;background:#f8f9fa;">
-                            @if ($panelists->isNotEmpty())
-                                @foreach ($panelists as $p)
-                                <div class="form-check mb-1">
-                                    <input class="form-check-input" type="checkbox" name="panelist_ids[]"
-                                           value="{{ $p->id }}" id="sp{{ $p->id }}">
-                                    <label class="form-check-label small" for="sp{{ $p->id }}">
-                                        {{ $p->name }}
-                                        <span class="badge ms-1 {{ $p->pivot->is_available ? 'text-bg-success' : 'text-bg-secondary' }}" style="font-size:.65rem;">
-                                            {{ $p->pivot->is_available ? 'Available' : 'Unavailable' }}
-                                        </span>
-                                    </label>
-                                </div>
-                                @endforeach
-                            @else
-                                <span class="text-muted small">No panelists assigned to this posting.</span>
-                            @endif
+                            <span class="text-muted small">Select a candidate above to load panelists.</span>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">
-                        <i class="bi bi-calendar-check me-1"></i> Schedule &amp; send invitations
-                    </button>
+                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Send invitation</button>
                 </div>
             </form>
         </div>

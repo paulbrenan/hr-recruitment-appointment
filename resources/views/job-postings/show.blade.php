@@ -417,7 +417,7 @@
                                 'eligibility' => $app->candidate->eligibility ?? null,
                             ];
                         @endphp
-                        <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;">
+                        <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;" data-location-id="{{ $app->job_posting_location_id }}">
                             <div>
                                 <div class="fw-medium">{{ $app->candidate->full_name }}</div>
                                 <div class="text-muted small">
@@ -437,14 +437,6 @@
                                         data-self-reported="{{ json_encode($appSelfReported) }}">
                                     <i class="bi bi-clipboard-check me-1"></i> Check qualifications
                                 </button>
-                                @endif
-                                @if ($app->qualification_result)
-                                <form action="{{ route('applications.qualification-notice', $app->id) }}" method="POST" class="m-0">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline-primary">
-                                        {{ $app->qualification_notified_at ? 'Resend result' : 'Email result' }}
-                                    </button>
-                                </form>
                                 @endif
                             </div>
                         </div>

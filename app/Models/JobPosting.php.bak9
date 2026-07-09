@@ -50,27 +50,12 @@ class JobPosting extends Model
      */
     public function mandatoryRequirementsList(): array
     {
-        if ($this->mandatory_requirements) {
-            return $this->splitRequirementLines($this->mandatory_requirements);
-        }
-
-        // RequirementsExtractor always returns the same static
-        // DepEd-standard text regardless of source document -- used as
-        // the display fallback for every posting (imported or manual)
-        // that hasn't had this column filled in, instead of duplicating
-        // the same static text into every row at creation time.
-        return (new \App\Services\RequirementsExtractor())->extract([])['mandatory'];
+        return $this->splitRequirementLines($this->mandatory_requirements);
     }
 
     public function additionalRequirementsList(): array
     {
-        if ($this->additional_requirements) {
-            return $this->splitRequirementLines($this->additional_requirements);
-        }
-
-        return $this->splitRequirementLines(
-            (new \App\Services\RequirementsExtractor())->extract([])['additional']
-        );
+        return $this->splitRequirementLines($this->additional_requirements);
     }
 
     /**

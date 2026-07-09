@@ -490,6 +490,62 @@ class JobPostingController extends Controller
         return back()->with('success', 'Panelist removed from this posting.');
     }
 
+    /**
+     * Export qualification check results for all applicants on this posting
+     * to an Excel file. Only available once all applicants have been checked.
+     */
+    public function exportQualifications($id)
+    {
+        $posting = JobPosting::with('locations')->findOrFail($id);
+
+        $applications = Application::with('candidate')
+            ->where('job_posting_id', $id)
+            ->get();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Qualification Check');
+
+        // Headers
+        $headers = ['Candidate Name', 'Email', 'Place of Assignment', 'Education', 'Training', 'Experience', 'Eligibility', 'Overall Result', 'Notes'];
+        foreach ($headers as $i => $h) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue($col . '1', $h);
+        }
+        $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+
+        $row = 2;
+        foreach ($applications as $app) {
+            $check    = $app->qualification_check ?? [];
+            $criteria = $check['criteria'] ?? [];
+            $location = $posting->locations->firstWhere('id', $app->job_posting_location_id);
+
+            $sheet->setCellValue('A' . $row, $app->candidate?->full_name ?? '—');
+            $sheet->setCellValue('B' . $row, $app->candidate?->email ?? '—');
+            $sheet->setCellValue('C' . $row, $location?->place_of_assignment ?? '—');
+            $sheet->setCellValue('D' . $row, ($criteria['education']['passed'] ?? null) === true ? 'Qualified' : (($criteria['education']['passed'] ?? null) === false ? 'Not Qualified' : '—'));
+            $sheet->setCellValue('E' . $row, ($criteria['training']['passed'] ?? null) === true ? 'Qualified' : (($criteria['training']['passed'] ?? null) === false ? 'Not Qualified' : '—'));
+            $sheet->setCellValue('F' . $row, ($criteria['experience']['passed'] ?? null) === true ? 'Qualified' : (($criteria['experience']['passed'] ?? null) === false ? 'Not Qualified' : '—'));
+            $sheet->setCellValue('G' . $row, ($criteria['eligibility']['passed'] ?? null) === true ? 'Qualified' : (($criteria['eligibility']['passed'] ?? null) === false ? 'Not Qualified' : '—'));
+            $sheet->setCellValue('H' . $row, ucfirst(str_replace('_', ' ', $app->qualification_result ?? '—')));
+            $sheet->setCellValue('I' . $row, $check['notes'] ?? '');
+            $row++;
+        }
+
+        foreach (range(1, 9) as $c) {
+            $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
+        }
+
+        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $filename = 'qualification-check-' . $id . '-' . now()->format('Ymd') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
     public function destroy($id)
     {
         $posting = JobPosting::findOrFail($id);

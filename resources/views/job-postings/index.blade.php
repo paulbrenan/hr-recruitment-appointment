@@ -31,12 +31,6 @@
     </div>
     <div class="col-md-2">
         <div class="card p-3">
-            <div class="text-muted small">Screening</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'screening')->count() }}</div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="card p-3">
             <div class="text-muted small">Interview</div>
             <div class="fs-4 fw-semibold">{{ $postings->where('status', 'interview_scheduled')->count() }}</div>
         </div>
@@ -134,14 +128,12 @@
                         @php
                             $statusColors = [
                                 'open'                => 'success',
-                                'screening'           => 'info',
                                 'interview_scheduled' => 'primary',
                                 'ranking'             => 'warning',
                                 'closed'              => 'dark',
                             ];
                             $statusLabels = [
                                 'open'                => 'Open',
-                                'screening'           => 'Screening',
                                 'interview_scheduled' => 'Interview',
                                 'ranking'             => 'Ranking',
                                 'closed'              => 'Closed',

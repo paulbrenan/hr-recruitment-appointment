@@ -23,12 +23,12 @@
             <select name="status" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
                 <option value="" {{ request('status') === null || request('status') === '' ? 'selected' : '' }}>All statuses</option>
                 {{--
-                    "shortlisted" and "assessed" are intentionally left out of
-                    this list per the current workflow simplification. They
-                    still exist in the database enum (legacy records may
+                    "shortlisted", "assessed", and "screening" are intentionally
+                    left out of this list per the current workflow simplification.
+                    They still exist in the database enum (legacy records may
                     carry them), they're just not offered as filter choices.
                 --}}
-                @foreach (['submitted', 'screening', 'qualified', 'not_qualified', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'] as $statusOption)
+                @foreach (['submitted', 'qualified', 'not_qualified', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'] as $statusOption)
                     <option value="{{ $statusOption }}" {{ request('status') === $statusOption ? 'selected' : '' }}>
                         {{ str_replace('_', ' ', ucfirst($statusOption)) }}
                     </option>

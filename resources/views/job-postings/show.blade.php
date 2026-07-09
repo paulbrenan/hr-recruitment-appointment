@@ -488,6 +488,34 @@
         {{-- ══ STEP 4 ══════════════════════════════════════════════════════ --}}
         <div class="step-panel d-none" id="panel-4">
 
+            {{-- Assessment toolbar --}}
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                @if ($rankedCandidates->isNotEmpty())
+                <form method="POST" action="{{ route('assessments.send-all') }}" class="m-0">
+                    @csrf
+                    <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-primary"
+                            onclick="return confirm('Send ranking notifications to all {{ $rankedCandidates->count() }} applicant(s)?')">
+                        <i class="bi bi-envelope me-1"></i> Send all notifications
+                    </button>
+                </form>
+                @endif
+                @if ($criteria->isNotEmpty())
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importScoresModal">
+                    <i class="bi bi-upload me-1"></i> Import scores from Excel
+                </button>
+                <a href="{{ route('assessments.template') }}?job_posting_id={{ $posting->id }}"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-download me-1"></i> Download template
+                </a>
+                @endif
+                @if ($rankedCandidates->isNotEmpty())
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#carDocumentModal">
+                    <i class="bi bi-file-earmark-text me-1"></i> View / Print CAR
+                </button>
+                @endif
+            </div>
+
             {{-- Ranking --}}
             <div class="card mb-3">
                 <div class="card-body p-4">
@@ -816,6 +844,103 @@
     </div>
 </div>
 
+{{-- Import Scores --}}
+<div class="modal fade" id="importScoresModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('assessments.import') }}" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                <div class="modal-header">
+                    <h6 class="modal-title">Import scores from Excel</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">Upload the filled-in Excel template. Application codes and criterion names must match exactly.</p>
+                    <input type="file" name="import_file" class="form-control form-control-sm" accept=".xlsx,.xls" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- CAR Document --}}
+<div class="modal fade" id="carDocumentModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-file-earmark-text me-2"></i>Comparative Assessment Result</h6>
+                <div class="d-flex align-items-center gap-2 ms-auto me-2">
+                    <div class="form-check form-check-inline mb-0" style="font-size:0.8rem;">
+                        <input type="checkbox" class="form-check-input" id="carPublicToggle">
+                        <label for="carPublicToggle" class="form-check-label">Public view (conceal names)</label>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+                        <i class="bi bi-printer me-1"></i> Print
+                    </button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="carDocumentPrintArea">
+                    <div class="text-center fw-bold mb-1">Comparative Assessment Result (CAR)</div>
+                    <div class="text-center text-muted small mb-3">{{ $posting->title }}</div>
+                    <div class="row mb-2" style="font-size:0.8rem;">
+                        <div class="col-6">Position: <strong>{{ $posting->title }}</strong></div>
+                        <div class="col-6">Date: <strong>{{ now()->format('M d, Y') }}</strong></div>
+                        <div class="col-6">SG: <strong>{{ $posting->salary_grade ?? '—' }}</strong></div>
+                        <div class="col-6">Office: <strong>DepEd Division of Cavite Province</strong></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered" style="font-size:0.78rem;" id="carDocTable">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th class="car-confidential">Name</th>
+                                    <th>App. Code</th>
+                                    @foreach ($criteria as $c)
+                                    <th>{{ $c->name }} ({{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}%)</th>
+                                    @endforeach
+                                    <th>Total</th>
+                                    <th>Passed</th>
+                                    <th class="car-doc-fillable">Background Investigation</th>
+                                    <th class="car-doc-fillable">Appointment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($rankedCandidates as $i => $cand)
+                                <tr>
+                                    <td class="text-center fw-bold">#{{ $i + 1 }}</td>
+                                    <td class="car-confidential">{{ $cand->candidate_name }}</td>
+                                    <td>{{ $cand->application_code ?? '—' }}</td>
+                                    @foreach ($criteria as $c)
+                                    <td class="text-center">{{ $cand->scores[$c->id] ?? '—' }}</td>
+                                    @endforeach
+                                    <td class="text-center fw-bold">{{ $cand->total_score }}</td>
+                                    <td class="text-center">
+                                        @if ($cand->passed ?? false)
+                                            <span class="badge text-bg-success">Passed</span>
+                                        @else
+                                            <span class="badge text-bg-secondary">—</span>
+                                        @endif
+                                    </td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
 // ── Step switching ──────────────────────────────────────────────────────────
@@ -866,6 +991,25 @@ function advanceStep() {
         btn.innerHTML = 'Advance';
         alert('Failed to advance. Please try again.');
     });
+}
+
+// ── CAR public toggle ───────────────────────────────────────────────────────
+document.getElementById('carPublicToggle')?.addEventListener('change', function () {
+    document.getElementById('carDocTable')?.classList.toggle('public-mode', this.checked);
+});
+
+// ── Print CAR ───────────────────────────────────────────────────────────────
+// Scoped print CSS added inline so it works without a separate stylesheet
+if (!document.getElementById('carPrintStyle')) {
+    const s = document.createElement('style');
+    s.id = 'carPrintStyle';
+    s.textContent = `@media print {
+        body * { visibility: hidden; }
+        #carDocumentPrintArea, #carDocumentPrintArea * { visibility: visible; }
+        #carDocumentPrintArea { position: absolute; top: 0; left: 0; width: 100%; }
+        .car-confidential.public-mode { display: none !important; }
+    }`;
+    document.head.appendChild(s);
 }
 
 // ── Edit scores modal ───────────────────────────────────────────────────────
@@ -920,28 +1064,10 @@ document.getElementById('qualLocationFilter')?.addEventListener('change', functi
     });
 });
 
-// ── Panelist checklist for schedule modal ───────────────────────────────────
-document.getElementById('schedAppSelect')?.addEventListener('change', function () {
-    const postingId = this.selectedOptions[0]?.dataset.jobPostingId;
-    if (!postingId) return;
-    const box = document.getElementById('schedPanelistBox');
-    box.innerHTML = '<span class="text-muted small">Loading...</span>';
-    fetch('/interviews/panelists-for-posting/' + postingId)
-        .then(r => r.json())
-        .then(list => {
-            if (!list.length) { box.innerHTML = '<span class="text-muted small">No panelists assigned to this vacancy.</span>'; return; }
-            box.innerHTML = list.map(p =>
-                `<div class="form-check mb-1">
-                    <input class="form-check-input" type="checkbox" name="panelist_ids[]" value="${p.id}" id="pc${p.id}">
-                    <label class="form-check-label small" for="pc${p.id}">${p.name}
-                        <span class="badge ms-1 ${p.is_available ? 'text-bg-success' : 'text-bg-secondary'}" style="font-size:0.65rem;">
-                            ${p.is_available ? 'Available' : 'Unavailable'}
-                        </span>
-                    </label>
-                </div>`
-            ).join('');
-        })
-        .catch(() => { box.innerHTML = '<span class="text-danger small">Failed to load panelists.</span>'; });
+// ── Schedule modal: update applicant count when location filter changes ────
+document.getElementById('schedLocationSelect')?.addEventListener('change', function () {
+    // Nothing needed — the server handles filtering on submit.
+    // Could show a live count here in future.
 });
 </script>
 @endpush

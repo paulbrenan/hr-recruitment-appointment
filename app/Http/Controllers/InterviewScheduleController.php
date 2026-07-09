@@ -141,6 +141,70 @@ class InterviewScheduleController extends Controller
         return response()->json($panelists);
     }
 
+    /**
+     * Create one InterviewSchedule per qualified applicant on a given posting.
+     * Called from the pipeline dashboard's Step 3 'New schedule' modal.
+     * If a job_posting_location_id is provided, only applicants assigned to
+     * that location are scheduled; otherwise all qualified applicants on the
+     * posting are scheduled.
+     */
+    public function storeForPosting(Request $request)
+    {
+        $validated = $request->validate([
+            'job_posting_id'          => ['required', 'exists:job_postings,id'],
+            'job_posting_location_id' => ['nullable', 'exists:job_posting_locations,id'],
+            'type'                    => ['required', 'in:open_ranking,interview,exam'],
+            'scheduled_at'            => ['required', 'date'],
+            'location'                => ['nullable', 'string', 'max:255'],
+            'panelist_ids'            => ['nullable', 'array'],
+            'panelist_ids.*'          => ['exists:panelists,id'],
+        ]);
+
+        $panelistIds = array_map('intval', $request->input('panelist_ids', []));
+
+        $query = Application::where('job_posting_id', $validated['job_posting_id'])
+            ->whereIn('status', ['qualified', 'interview_scheduled', 'ranked']);
+
+        if (!empty($validated['job_posting_location_id'])) {
+            $query->where('job_posting_location_id', $validated['job_posting_location_id']);
+        }
+
+        $applications = $query->with(['candidate', 'jobPosting'])->get();
+
+        if ($applications->isEmpty()) {
+            return redirect()->back()->with('error', 'No qualified applicants found for this posting/location.');
+        }
+
+        $created = 0;
+        foreach ($applications as $application) {
+            $schedule = InterviewSchedule::create([
+                'application_id' => $application->id,
+                'type'           => $validated['type'],
+                'scheduled_at'   => $validated['scheduled_at'],
+                'location'       => $validated['location'] ?? null,
+                'status'         => 'scheduled',
+            ]);
+
+            if (!empty($panelistIds)) {
+                $schedule->panelists()->sync($panelistIds);
+            }
+
+            // Send invitation to candidate
+            try {
+                $application->candidate->notify(new \App\Notifications\ScheduleInvitationNotification($schedule));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send schedule invitation: ' . $e->getMessage());
+            }
+
+            $created++;
+        }
+
+        // Redirect back to the job posting pipeline (Step 3)
+        return redirect()
+            ->route('job-postings.show', $validated['job_posting_id'])
+            ->with('success', "Scheduled {$created} applicant(s) and sent invitations.");
+    }
+
     public function destroy($id)
     {
         $schedule = InterviewSchedule::findOrFail($id);

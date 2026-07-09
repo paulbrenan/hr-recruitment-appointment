@@ -202,7 +202,6 @@
                         @php
                             $pipelineStages = [
                                 'open'                => 'Open',
-                                'screening'           => 'Screening',
                                 'interview_scheduled' => 'Interview Scheduled',
                                 'ranking'             => 'Ranking',
                                 'closed'              => 'Closed',

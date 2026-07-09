@@ -83,6 +83,7 @@ Route::get('/job-postings/{id}', [JobPostingController::class, 'show'])->name('j
 Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-postings.store');
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
+Route::get('/job-postings/{id}/export-qualifications', [JobPostingController::class, 'exportQualifications'])->name('job-postings.export-qualifications');
 Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
 Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');
 
@@ -102,12 +103,15 @@ Route::post('/applications/{id}/qualification-notice', [ApplicationController::c
 // Scheduling
 Route::get('/interviews', [InterviewScheduleController::class, 'index'])->name('interviews.index');
 Route::post('/interviews', [InterviewScheduleController::class, 'store'])->name('interviews.store');
+Route::post('/interviews/for-posting', [InterviewScheduleController::class, 'storeForPosting'])->name('interviews.store-for-posting');
 Route::put('/interviews/{id}', [InterviewScheduleController::class, 'update'])->name('interviews.update');
 Route::delete('/interviews/{id}', [InterviewScheduleController::class, 'destroy'])->name('interviews.destroy');
 Route::get('/interviews/panelists-for-posting/{jobPostingId}', [InterviewScheduleController::class, 'panelistsForPosting'])->name('interviews.panelists-for-posting');
 
 // Assessment & ranking
 Route::get('/assessments', [AssessmentController::class, 'index'])->name('assessments.index');
+Route::get('/assessments/template', [AssessmentController::class, 'downloadImportTemplate'])->name('assessments.template');
+Route::post('/assessments/import', [AssessmentController::class, 'importScores'])->name('assessments.import');
 Route::post('/assessments/send/{application}', [AssessmentController::class, 'sendOne'])->name('assessments.send-one');
 Route::post('/assessments/criteria', [AssessmentController::class, 'storeCriterion'])->name('assessments.criteria.store');
 Route::delete('/assessments/criteria/{id}', [AssessmentController::class, 'destroyCriterion'])->name('assessments.criteria.destroy');

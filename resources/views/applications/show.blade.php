@@ -30,12 +30,12 @@
     ];
     $color = $statusColors[$application->status] ?? 'secondary';
 
-    // "shortlisted" and "assessed" are hidden from the dropdown per the
-    // current workflow simplification, but if a record already carries one
-    // of those statuses (from before), we still include it here so the
-    // select shows the true current value instead of silently defaulting
-    // to the first option.
-    $statusOptions = ['submitted', 'screening', 'qualified', 'not_qualified', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'];
+    // "shortlisted", "assessed", and "screening" are hidden from the
+    // dropdown per the current workflow simplification, but if a record
+    // already carries one of those statuses (from before), we still
+    // include it here so the select shows the true current value instead
+    // of silently defaulting to the first option.
+    $statusOptions = ['submitted', 'qualified', 'not_qualified', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'];
     if (!in_array($application->status, $statusOptions, true)) {
         $statusOptions[] = $application->status;
     }

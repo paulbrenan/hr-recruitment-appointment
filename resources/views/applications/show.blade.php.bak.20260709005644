@@ -210,7 +210,7 @@
                     @if(!empty($application->jobPosting->salary_grade))
                     <div class="col-6">
                         <div class="text-muted mb-1">Salary Grade</div>
-                        <div class="fw-medium">{{ Str::startsWith($application->jobPosting->salary_grade, 'SG-') ? $application->jobPosting->salary_grade : 'SG-' . $application->jobPosting->salary_grade }}</div>
+                        <div class="fw-medium">SG-{{ $application->jobPosting->salary_grade }}</div>
                     </div>
                     @endif
                     @php

@@ -98,7 +98,6 @@ Route::get('/applications/{id}', [ApplicationController::class, 'show'])->name('
 Route::put('/applications/{id}/status', [ApplicationController::class, 'updateStatus'])->name('applications.updateStatus');
 Route::post('/applications/{id}/qualification-check', [ApplicationController::class, 'saveQualificationCheck'])->name('applications.qualification-check');
 Route::post('/applications/{id}/qualification-notice', [ApplicationController::class, 'sendQualificationNotice'])->name('applications.qualification-notice');
-Route::post('/job-postings/{id}/qualification-notices/send-all', [ApplicationController::class, 'sendAllQualificationNotices'])->name('applications.qualification-notices.send-all');
 
 // Scheduling
 Route::get('/interviews', [InterviewScheduleController::class, 'index'])->name('interviews.index');

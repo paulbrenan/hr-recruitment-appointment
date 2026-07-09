@@ -279,4 +279,44 @@ class ApplicationController extends Controller
             ->route('applications.show', $application->id)
             ->with('success', 'Qualification result notice emailed to the candidate, with the official notice PDF attached.');
     }
+
+    /**
+     * Bulk version of sendQualificationNotice(): emails every applicant in
+     * one job posting who currently has the given qualification_result
+     * ('qualified' or 'not_qualified') their result notice + PDF, in one
+     * click from the group header button. Applicants without a saved
+     * qualification_check are skipped (nothing to notify them of yet).
+     * Re-sending is allowed -- this always sends, even to applicants who
+     * were already notified once, same as the per-applicant "Resend result"
+     * button.
+     */
+    public function sendAllQualificationNotices(Request $request, $jobPostingId)
+    {
+        $validated = $request->validate([
+            'result' => ['required', 'in:qualified,not_qualified'],
+        ]);
+
+        $applications = Application::with(['candidate', 'jobPosting'])
+            ->where('job_posting_id', $jobPostingId)
+            ->where('qualification_result', $validated['result'])
+            ->whereNotNull('qualification_check')
+            ->get();
+
+        $sent = 0;
+        foreach ($applications as $application) {
+            try {
+                $application->candidate->notify(new QualificationResultNotification($application));
+                $application->update(['qualification_notified_at' => now()]);
+                $sent++;
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Bulk qualification notice failed for application ' . $application->id . ': ' . $e->getMessage());
+            }
+        }
+
+        $label = $validated['result'] === 'qualified' ? 'qualified' : 'disqualified';
+
+        return redirect()
+            ->route('job-postings.show', ['id' => $jobPostingId, 'step' => 2])
+            ->with('success', "Emailed qualification result to {$sent} {$label} applicant(s).");
+    }
 }

@@ -359,66 +359,101 @@
                         </div>
                     </div>
 
-                    @forelse ($applications as $app)
+                    @if ($applications->isEmpty())
+                    <p class="text-muted small mb-0 text-center py-3">No applications yet for this posting.</p>
+                    @else
                     @php
-                        $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
-                        $qColor = $qColors[$app->status] ?? 'secondary';
-                        $appCheck = $app->qualification_check ?? [];
-                        // Candidate's self-reported qualifications — used only
-                        // as the modal's starting point when no qualification
-                        // check has been saved yet for that criterion; a saved
-                        // "actual" value always takes precedence (see the
-                        // qualCheckModal JS below). Same fields/precedence as
-                        // the standalone /applications/{id} page.
-                        $appSelfReported = [
-                            'education'   => $app->candidate->education ?? null,
-                            'experience'  => $app->candidate->years_experience ?? null,
-                            'training'    => $app->candidate->training_hours ?? null,
-                            'eligibility' => $app->candidate->eligibility ?? null,
+                        // Group by the PERSISTED qualification_result, not by
+                        // status -- status keeps advancing (interview_scheduled,
+                        // ranked, hired, etc.) once an applicant qualifies, but
+                        // qualification_result stays 'qualified' until HR re-runs
+                        // the check, so this is what keeps the grouping stable.
+                        // Applicants who haven't been checked yet have a null
+                        // qualification_result and land in "Pending".
+                        $qualGroups = [
+                            'qualified'     => $applications->where('qualification_result', 'qualified')->values(),
+                            'not_qualified' => $applications->where('qualification_result', 'not_qualified')->values(),
+                            'pending'       => $applications->whereNull('qualification_result')->values(),
                         ];
-                        // Looked up from the already-loaded $locations collection
-                        // rather than assuming a specific relationship name exists
-                        // on Application.
-                        $appLocation = $locations->firstWhere('id', $app->job_posting_location_id);
+                        $qualGroupMeta = [
+                            'qualified'     => ['label' => 'Qualified', 'color' => 'success'],
+                            'not_qualified' => ['label' => 'Disqualified', 'color' => 'danger'],
+                            'pending'       => ['label' => 'Pending qualification check', 'color' => 'secondary'],
+                        ];
                     @endphp
-                    <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2"
-                         style="font-size:0.875rem;" data-location-id="{{ $app->job_posting_location_id }}">
-                        <div>
-                            <div class="fw-medium">{{ $app->candidate->full_name }}</div>
-                            <div class="text-muted small">
-                                Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
-                                @if ($appLocation)
-                                    &middot; {{ $appLocation->place_of_assignment }}
-                                @endif
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span class="badge text-bg-{{ $qColor }}">
-                                {{ str_replace('_', ' ', ucfirst($app->status)) }}
-                            </span>
-                            @if (!in_array($app->status, ['hired', 'ranking_sent']) && $currentStep < 3)
-                            <button type="button" class="btn btn-sm btn-outline-secondary"
-                                    data-bs-toggle="modal" data-bs-target="#qualCheckModal"
-                                    data-application-id="{{ $app->id }}"
-                                    data-candidate-name="{{ addslashes($app->candidate->full_name) }}"
-                                    data-check="{{ json_encode($appCheck) }}"
-                                    data-self-reported="{{ json_encode($appSelfReported) }}">
-                                <i class="bi bi-clipboard-check me-1"></i> Check qualifications
-                            </button>
-                            @endif
-                            @if ($app->qualification_result)
-                            <form action="{{ route('applications.qualification-notice', $app->id) }}" method="POST" class="m-0">
+                    @foreach ($qualGroups as $groupKey => $groupApps)
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <h6 class="text-uppercase small fw-bold text-{{ $qualGroupMeta[$groupKey]['color'] }} mb-0" style="letter-spacing:.03em;">
+                                {{ $qualGroupMeta[$groupKey]['label'] }}
+                                <span class="badge text-bg-light text-dark border ms-1">{{ $groupApps->count() }}</span>
+                            </h6>
+                            @if ($groupKey !== 'pending' && $groupApps->isNotEmpty())
+                            <form action="{{ route('applications.qualification-notices.send-all', $posting->id) }}" method="POST" class="m-0"
+                                  onsubmit="return confirm('Email the {{ $qualGroupMeta[$groupKey]['label'] }} result to all {{ $groupApps->count() }} applicant(s) in this group?');">
                                 @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-primary">
-                                    {{ $app->qualification_notified_at ? 'Resend result' : 'Email result' }}
+                                <input type="hidden" name="result" value="{{ $groupKey }}">
+                                <button type="submit" class="btn btn-sm btn-outline-{{ $qualGroupMeta[$groupKey]['color'] }}">
+                                    <i class="bi bi-envelope-check me-1"></i> Send all {{ strtolower($qualGroupMeta[$groupKey]['label']) }} mail
                                 </button>
                             </form>
                             @endif
                         </div>
+                        @forelse ($groupApps as $app)
+                        @php
+                            $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
+                            $qColor = $qColors[$app->status] ?? 'secondary';
+                            $appCheck = $app->qualification_check ?? [];
+                            // Candidate's self-reported qualifications — used only
+                            // as the modal's starting point when no qualification
+                            // check has been saved yet for that criterion; a saved
+                            // "actual" value always takes precedence (see the
+                            // qualCheckModal JS below). Same fields/precedence as
+                            // the standalone /applications/{id} page.
+                            $appSelfReported = [
+                                'education'   => $app->candidate->education ?? null,
+                                'experience'  => $app->candidate->years_experience ?? null,
+                                'training'    => $app->candidate->training_hours ?? null,
+                                'eligibility' => $app->candidate->eligibility ?? null,
+                            ];
+                        @endphp
+                        <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;">
+                            <div>
+                                <div class="fw-medium">{{ $app->candidate->full_name }}</div>
+                                <div class="text-muted small">
+                                    Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge text-bg-{{ $qColor }}">
+                                    {{ str_replace('_', ' ', ucfirst($app->status)) }}
+                                </span>
+                                @if (!in_array($app->status, ['hired', 'ranking_sent']))
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        data-bs-toggle="modal" data-bs-target="#qualCheckModal"
+                                        data-application-id="{{ $app->id }}"
+                                        data-candidate-name="{{ addslashes($app->candidate->full_name) }}"
+                                        data-check="{{ json_encode($appCheck) }}"
+                                        data-self-reported="{{ json_encode($appSelfReported) }}">
+                                    <i class="bi bi-clipboard-check me-1"></i> Check qualifications
+                                </button>
+                                @endif
+                                @if ($app->qualification_result)
+                                <form action="{{ route('applications.qualification-notice', $app->id) }}" method="POST" class="m-0">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        {{ $app->qualification_notified_at ? 'Resend result' : 'Email result' }}
+                                    </button>
+                                </form>
+                                @endif
+                            </div>
+                        </div>
+                        @empty
+                        <p class="text-muted small mb-0 py-2">None in this group.</p>
+                        @endforelse
                     </div>
-                    @empty
-                    <p class="text-muted small mb-0 text-center py-3">No applications yet for this posting.</p>
-                    @endforelse
+                    @endforeach
+                    @endif
                 </div>
             </div>
         </div>

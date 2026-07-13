@@ -70,26 +70,35 @@
                         $isActive = $activeStep === $num;
                         $isLocked = $currentStep < $num;
                     @endphp
-                    <div class="d-flex align-items-start gap-2 py-2 px-2 rounded
+                    <div class="step-row d-flex align-items-start gap-2 py-2 px-2 rounded
                             {{ $isActive ? 'bg-primary bg-opacity-10' : '' }}"
+                         id="step-row-{{ $num }}"
+                         data-step="{{ $num }}"
                          style="cursor:{{ $isLocked ? 'default' : 'pointer' }};
-                                border-left:3px solid {{ $isActive ? 'var(--hr-primary,#0d6efd)' : ($isDone ? '#198754' : '#dee2e6') }};"
+                                border-left:3px solid {{ $isActive ? 'var(--hr-primary,#0d6efd)' : ($isDone ? '#198754' : '#dee2e6') }};
+                                transform:{{ $isActive ? 'translateX(6px)' : 'translateX(0)' }};
+                                transition:transform .15s ease, background-color .15s ease;"
                          onclick="{{ $isLocked ? '' : 'switchStep(' . $num . ')' }}">
-                        <div class="flex-shrink-0 d-flex align-items-center justify-content-center mt-1"
+                        <div class="step-circle flex-shrink-0 d-flex align-items-center justify-content-center mt-1"
+                             id="step-circle-{{ $num }}"
                              style="width:20px;height:20px;border-radius:50%;
                                     background:{{ $isDone ? '#198754' : ($isActive ? 'var(--hr-primary,#0d6efd)' : '#dee2e6') }};">
+                            <span id="step-circle-inner-{{ $num }}">
                             @if ($isDone)
                                 <i class="bi bi-check text-white" style="font-size:0.7rem;"></i>
                             @else
                                 <span style="font-size:0.6rem;font-weight:600;color:{{ $isActive ? '#fff' : '#6c757d' }};">{{ $num }}</span>
                             @endif
+                            </span>
                         </div>
-                        <div class="small fw-medium {{ $isActive ? 'text-primary' : ($isDone ? 'text-success' : 'text-muted') }}">
+                        <div class="small fw-medium" id="step-label-{{ $num }}"
+                             style="color:{{ $isActive ? 'var(--hr-primary,#0d6efd)' : ($isDone ? '#198754' : '#6c757d') }};">
                             {{ $step['label'] }}
                         </div>
                     </div>
                     @if ($num < 4)
-                    <div style="width:3px;height:14px;margin-left:calc(0.5rem + 10px);
+                    <div class="step-connector" id="step-connector-{{ $num }}"
+                         style="width:3px;height:14px;margin-left:calc(0.5rem + 10px);
                                 background:{{ $activeStep > $num ? '#198754' : '#dee2e6' }};"></div>
                     @endif
                     @endforeach
@@ -974,6 +983,47 @@
 const currentStep = {{ $currentStep }};
 const activeStep  = {{ $activeStep }};
 
+function updateStepTracker(n) {
+    // Re-render the sidebar tracker to match whichever step is now active.
+    // Previously this DOM was only ever rendered once server-side from
+    // $activeStep at page load, so clicking between steps (e.g. Overview
+    // <-> Qualification Checking, which share status "open") changed the
+    // panel but left the tracker frozen -- Qualification Checking never
+    // appeared highlighted/green/active.
+    document.querySelectorAll('.step-row').forEach(row => {
+        const step     = parseInt(row.dataset.step, 10);
+        const isActive = step === n;
+        const isDone   = n > step;
+
+        row.classList.toggle('bg-primary', isActive);
+        row.classList.toggle('bg-opacity-10', isActive);
+        row.style.borderLeft = '3px solid ' + (isActive ? 'var(--hr-primary,#0d6efd)' : (isDone ? '#198754' : '#dee2e6'));
+        row.style.transform  = isActive ? 'translateX(6px)' : 'translateX(0)';
+
+        const circle = document.getElementById('step-circle-' + step);
+        if (circle) {
+            circle.style.background = isDone ? '#198754' : (isActive ? 'var(--hr-primary,#0d6efd)' : '#dee2e6');
+        }
+
+        const inner = document.getElementById('step-circle-inner-' + step);
+        if (inner) {
+            inner.innerHTML = isDone
+                ? '<i class="bi bi-check text-white" style="font-size:0.7rem;"></i>'
+                : '<span style="font-size:0.6rem;font-weight:600;color:' + (isActive ? '#fff' : '#6c757d') + ';">' + step + '</span>';
+        }
+
+        const label = document.getElementById('step-label-' + step);
+        if (label) {
+            label.style.color = isActive ? 'var(--hr-primary,#0d6efd)' : (isDone ? '#198754' : '#6c757d');
+        }
+    });
+
+    document.querySelectorAll('.step-connector').forEach(conn => {
+        const step = parseInt(conn.id.replace('step-connector-', ''), 10);
+        conn.style.background = n > step ? '#198754' : '#dee2e6';
+    });
+}
+
 function switchStep(n) {
     if (n > currentStep) return; // can't jump ahead
     document.querySelectorAll('.step-panel').forEach(p => p.classList.add('d-none'));
@@ -985,6 +1035,7 @@ function switchStep(n) {
     document.querySelectorAll('.advance-slot').forEach(el => {
         el.classList.toggle('d-none', el.dataset.forStep !== String(n));
     });
+    updateStepTracker(n);
 }
 
 // Show the active step on load

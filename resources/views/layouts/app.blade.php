@@ -178,12 +178,10 @@
                 <a href="{{ route('applications.index') }}" class="nav-link {{ request()->routeIs('applications.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Applications">
                     <i class="bi bi-person-lines-fill"></i> <span class="nav-label">Applications</span>
                 </a>
-                <a href="{{ route('interviews.index') }}" class="nav-link {{ request()->routeIs('interviews.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Scheduling">
-                    <i class="bi bi-calendar-event"></i> <span class="nav-label">Scheduling</span>
-                </a>
-                <a href="{{ route('assessments.index') }}" class="nav-link {{ request()->routeIs('assessments.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Assessment & ranking">
-                    <i class="bi bi-clipboard-check"></i> <span class="nav-label">Assessment &amp; ranking</span>
-                </a>
+                {{-- "Scheduling" (interviews.*) and "Assessment & ranking"
+                     (assessments.*) removed from the sidebar per request.
+                     Routes/controllers/views are untouched -- only these
+                     nav links are hidden. --}}
                 <a href="{{ route('offers.index') }}" class="nav-link {{ request()->routeIs('offers.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Offer management">
                     <i class="bi bi-envelope-paper"></i> <span class="nav-label">Offer management</span>
                 </a>

@@ -99,6 +99,16 @@
             'label' => $posting->title,
         ])
         ->values();
+
+    // Hoisted above the @if below: the <script> block near the bottom of
+    // this page reads $oldEduYear via @json() unconditionally, but the
+    // form (and the @php block that used to be the only place these were
+    // set) only renders in the @else branch. Compute them here too so
+    // they're always defined, even on the "No Openings Right Now" branch.
+    $oldEduParts  = old('education') ? array_map('trim', explode(' - ', old('education'), 3)) : [];
+    $oldEduLevel  = $oldEduParts[0] ?? null;
+    $oldEduCourse = $oldEduParts[1] ?? null;
+    $oldEduYear   = $oldEduParts[2] ?? null;
   @endphp
 
   @if ($openPostingOptions->isEmpty())

@@ -102,7 +102,8 @@ Route::post('/applications/{id}/qualification-notice', [ApplicationController::c
 Route::post('/job-postings/{id}/qualification-notices/send-all', [ApplicationController::class, 'sendAllQualificationNotices'])->name('applications.qualification-notices.send-all');
 
 // Scheduling
-Route::get('/interviews', [InterviewScheduleController::class, 'index'])->name('interviews.index');
+// GET /interviews (interviews.index) removed -- replaced by the
+// job-postings pipeline's "Open Ranking & Scheduling" step.
 Route::post('/interviews', [InterviewScheduleController::class, 'store'])->name('interviews.store');
 Route::post('/interviews/for-posting', [InterviewScheduleController::class, 'storeForPosting'])->name('interviews.store-for-posting');
 Route::put('/interviews/{id}', [InterviewScheduleController::class, 'update'])->name('interviews.update');
@@ -110,7 +111,8 @@ Route::delete('/interviews/{id}', [InterviewScheduleController::class, 'destroy'
 Route::get('/interviews/panelists-for-posting/{jobPostingId}', [InterviewScheduleController::class, 'panelistsForPosting'])->name('interviews.panelists-for-posting');
 
 // Assessment & ranking
-Route::get('/assessments', [AssessmentController::class, 'index'])->name('assessments.index');
+// GET /assessments (assessments.index) removed -- replaced by the
+// job-postings pipeline's "Assessment & Results" step.
 Route::get('/assessments/template', [AssessmentController::class, 'downloadImportTemplate'])->name('assessments.template');
 Route::post('/assessments/import', [AssessmentController::class, 'importScores'])->name('assessments.import');
 Route::post('/assessments/send/{application}', [AssessmentController::class, 'sendOne'])->name('assessments.send-one');

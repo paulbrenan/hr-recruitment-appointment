@@ -18,6 +18,7 @@ class JobPosting extends Model
         'qualification_eligibility',
         'mandatory_requirements',
         'additional_requirements',
+        'memo_pdf_path',
         'place_of_assignment',
         'employment_type',
         'salary_grade',
@@ -49,12 +50,40 @@ class JobPosting extends Model
      */
     public function mandatoryRequirementsList(): array
     {
-        return $this->splitRequirementLines($this->mandatory_requirements);
+        if ($this->mandatory_requirements) {
+            return $this->splitRequirementLines($this->mandatory_requirements);
+        }
+
+        // RequirementsExtractor always returns the same static
+        // DepEd-standard text regardless of source document -- used as
+        // the display fallback for every posting (imported or manual)
+        // that hasn't had this column filled in, instead of duplicating
+        // the same static text into every row at creation time.
+        return (new \App\Services\RequirementsExtractor())->extract([])['mandatory'];
     }
 
     public function additionalRequirementsList(): array
     {
-        return $this->splitRequirementLines($this->additional_requirements);
+        if ($this->additional_requirements) {
+            return $this->splitRequirementLines($this->additional_requirements);
+        }
+
+        return $this->splitRequirementLines(
+            (new \App\Services\RequirementsExtractor())->extract([])['additional']
+        );
+    }
+
+    /**
+     * Public URL to the original memo PDF this posting was imported from
+     * (if any), so applicants can view the exact source document listing
+     * what's required. Null for postings created manually or imported
+     * before this feature existed.
+     */
+    public function memoPdfUrl(): ?string
+    {
+        return $this->memo_pdf_path
+            ? asset('storage/' . $this->memo_pdf_path)
+            : null;
     }
 
     private function splitRequirementLines(?string $text): array
@@ -64,5 +93,57 @@ class JobPosting extends Model
         }
 
         return array_values(array_filter(array_map('trim', explode("\n", $text)), fn ($line) => $line !== ''));
+    }
+    public function locations(): HasMany
+    {
+        return $this->hasMany(JobPostingLocation::class);
+    }
+
+    /**
+     * Locations under this posting that still have at least one open
+     * (unhired) slot. Empty for legacy postings with no location rows --
+     * use hasOpenLegacyVacancy() for those instead.
+     */
+    public function openLocations()
+    {
+        return $this->locations->reject(fn ($loc) => $loc->isFilled())->values();
+    }
+
+    /**
+     * For legacy postings (created before job_posting_locations existed,
+     * so they have no location rows): checks the single `vacancies`
+     * column on the posting itself against hired applications that have
+     * no specific location attached.
+     */
+    public function hasOpenLegacyVacancy(): bool
+    {
+        if ($this->locations->isNotEmpty()) {
+            return false; // not legacy -- handled per-location instead
+        }
+
+        $hired = $this->applications()->where('status', 'hired')->count();
+
+        return $hired < max(1, (int) $this->vacancies);
+    }
+
+    /**
+     * True if this posting still has room anywhere -- a place of
+     * assignment with an open slot, or (for legacy postings) the single
+     * vacancies column not yet fully hired. Used to decide whether the
+     * position should still show up on the public register page and
+     * whether the posting should auto-close after a hire.
+     */
+    public function hasAnyOpenVacancy(): bool
+    {
+        return $this->locations->isNotEmpty()
+            ? $this->openLocations()->isNotEmpty()
+            : $this->hasOpenLegacyVacancy();
+    }
+
+    public function panelists()
+    {
+        return $this->belongsToMany(Panelist::class, 'job_posting_panelist')
+                    ->withPivot('is_available')
+                    ->withTimestamps();
     }
 }

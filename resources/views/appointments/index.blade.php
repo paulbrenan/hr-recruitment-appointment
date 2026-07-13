@@ -28,9 +28,9 @@
     </button>
 </div>
 
-<div class="card">
+<div class="card fade-card">
     <div class="table-responsive">
-        <table class="table align-middle mb-0">
+        <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
                     <th>Candidate</th>
@@ -39,20 +39,29 @@
                     <th>Appointment status</th>
                     <th>Appointment date</th>
                     <th>Onboarding date</th>
+                    <th>Letter sent</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach ($appointments as $a)
+                @forelse ($appointments as $a)
                 <tr>
                     <td class="fw-medium">{{ $a->application->candidate->full_name }}</td>
                     <td>{{ $a->position_title }}</td>
                     <td>{{ $a->item_number ?? '—' }}</td>
                     <td>
-                        <span class="badge text-bg-light text-dark border">{{ str_replace('_', ' ', ucfirst($a->appointment_status)) }}</span>
+                        <span class="badge status-badge status-appt-{{ $a->appointment_status }}">{{ str_replace('_', ' ', ucfirst($a->appointment_status)) }}</span>
                     </td>
                     <td>{{ $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : '—' }}</td>
                     <td>{{ $a->onboarding_date ? \Carbon\Carbon::parse($a->onboarding_date)->format('M d, Y') : '—' }}</td>
+                    <td>
+                        @if ($a->letter_sent_at)
+                            <span class="badge text-bg-success">Sent</span>
+                            <div class="text-muted" style="font-size: 0.72rem;">{{ \Carbon\Carbon::parse($a->letter_sent_at)->format('M d, Y g:i A') }}</div>
+                        @else
+                            <span class="badge text-bg-secondary">Not sent</span>
+                        @endif
+                    </td>
                     <td class="text-end">
                         <button
                             type="button"
@@ -90,15 +99,19 @@
                         </form>
                     </td>
                 </tr>
-                @endforeach
+                @empty
+                <tr>
+                    <td colspan="8" class="text-center text-muted small py-4">No appointments yet. Click "New appointment" to create one.</td>
+                </tr>
+                @endforelse
             </tbody>
         </table>
     </div>
 </div>
 
-<div class="card mt-3">
+<div class="card mt-3 fade-card">
     <div class="card-body p-4">
-        <h6 class="mb-2">Newly-hired summary (for onboarding/induction)</h6>
+        <h6 class="mb-2"><i class="bi bi-people-fill me-1" style="color: var(--hr-primary);"></i> Newly-hired summary (for onboarding/induction)</h6>
         <p class="small text-muted mb-3">Generated list of employees ready for induction this period</p>
         <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#summaryModal">
             <i class="bi bi-download me-1"></i> Generate summary list
@@ -308,6 +321,25 @@
 
 @push('styles')
 <style>
+    .fade-card { animation: appt-fade-in 0.35s ease both; }
+    @keyframes appt-fade-in {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .table-hover tbody tr:hover { background-color: #f5f8fc; }
+
+    .btn[style*="--hr-primary"] { transition: filter 0.15s ease, transform 0.1s ease; }
+    .btn[style*="--hr-primary"]:hover { filter: brightness(1.15); }
+    .btn[style*="--hr-primary"]:active { transform: scale(0.97); }
+
+    .status-badge { font-weight: 600; font-size: 0.72rem; padding: 0.35em 0.65em; border: 1px solid transparent; }
+    .status-appt-permanent   { background: rgba(0, 48, 135, 0.12); color: #003087; border-color: rgba(0, 48, 135, 0.22); }
+    .status-appt-temporary   { background: rgba(255, 193, 7, 0.18); color: #8a6500; border-color: rgba(255, 193, 7, 0.3); }
+    .status-appt-provisional { background: rgba(13, 202, 240, 0.12); color: #0aa2c0; border-color: rgba(13, 202, 240, 0.25); }
+    .status-appt-casual      { background: rgba(108, 117, 125, 0.12); color: #495057; border-color: rgba(108, 117, 125, 0.22); }
+    .status-appt-job_order   { background: rgba(206, 17, 38, 0.1); color: #ce1126; border-color: rgba(206, 17, 38, 0.2); }
+
     @media print {
         body * {
             visibility: hidden;

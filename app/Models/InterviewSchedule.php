@@ -13,16 +13,24 @@ class InterviewSchedule extends Model
         'scheduled_at',
         'location',
         'interviewer_name',
+        'interviewer_email',
         'status',
         'remarks',
+        'reminder_sent_at',
     ];
 
     protected $casts = [
         'scheduled_at' => 'datetime',
+        'reminder_sent_at' => 'datetime',
     ];
 
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
+    }
+    public function panelists()
+    {
+        return $this->belongsToMany(\App\Models\Panelist::class, 'interview_schedule_panelist')
+                    ->withTimestamps();
     }
 }

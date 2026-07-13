@@ -23,6 +23,18 @@
   .hint { font-size:.78rem; color:#666; margin-top:3px; }
   .login-link { text-align:center; margin-top:18px; font-size:.85rem; }
   .is-invalid-custom { border-color:#dc3545 !important; }
+  .no-openings-card { text-align:center; padding:48px 32px; }
+  .no-openings-card i { font-size:2.6rem; color:var(--teal-mid); margin-bottom:14px; display:block; }
+  .no-openings-card h5 { font-weight:600; margin-bottom:8px; }
+  .no-openings-card p { color:#666; font-size:.92rem; margin-bottom:0; }
+
+  /* Place of assignment — dependent field */
+  #placeFieldWrap.place-field-in { animation: place-field-in .25s ease both; }
+  @keyframes place-field-in {
+    from { opacity:0; transform:translateY(-6px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  #placeVacancyHint { color:var(--teal-mid,#2b7a78); font-weight:500; }
 </style>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 <style>
@@ -47,7 +59,7 @@
 <div class="form-card">
   {{-- Header --}}
   <div class="deped-header">
-    <img src="{{ asset('images/deped-logo.png') }}" alt="DepEd Logo" class="deped-logo">
+    <img src="/sdo-logo.png" alt="DepEd Logo" class="deped-logo">
     <div class="deped-header-text">
       <h1>Department of Education – Division of Cavite Province<br>Online Recruitment Form</h1>
       <p class="sub">Answer the following information truthfully and with honesty.</p>
@@ -75,11 +87,34 @@
   </div>
   @endif
 
+  @php
+    // Position dropdown: ONE entry per open job posting (title only --
+    // place of assignment is picked separately in the dependent Place
+    // field below, once a position is chosen). Uses $openPostings passed
+    // in from the controller so we don't re-query the same data twice.
+    $openPostingOptions = $openPostings
+        ->sortBy('title')
+        ->map(fn ($posting) => [
+            'value' => $posting->id,
+            'label' => $posting->title,
+        ])
+        ->values();
+  @endphp
+
+  @if ($openPostingOptions->isEmpty())
+    <div class="form-body">
+      <div class="no-openings-card">
+        <i class="bi bi-info-circle"></i>
+        <h5>No Openings Right Now</h5>
+        <p>There are currently no open positions available. Please check back later — new postings are added regularly.</p>
+      </div>
+    </div>
+  @else
   <div class="form-body">
     <form action="{{ route('portal.register.attempt') }}" method="POST" id="recruitForm">
       @csrf
 
-      {{-- ── PERSONAL INFORMATION ──────────────────────────────── --}}
+      {{-- ── PERSONAL INFORMATION ─────────────────────────────────── --}}
       <div class="section-title">Personal Information</div>
       <p style="font-size:.8rem;color:#888;margin:-10px 0 16px;">* Required</p>
 
@@ -107,51 +142,50 @@
       {{-- 2. Position --}}
       <div class="mb-4">
         <label class="form-label"><span class="q-num">2.</span> Position Applying For <span class="required-star">*</span></label>
-        @error('position_applied')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
-        @php
-        $positions = [
-            'Contract of Service (COS)',
-            'Accountant I','Accountant III',
-            'Administrative Aide I','Administrative Aide III','Administrative Aide IV','Administrative Aide VI',
-            'Administrative Assistant I','Administrative Assistant II',
-            'Administrative Assistant II (Disbursing Officer)','Administrative Assistant II (Verifier)',
-            'Administrative Assistant III','Administrative Assistant III (Senior Bookkeeper)',
-            'Administrative Officer I','Administrative Officer II','Administrative Officer IV','Administrative Officer V',
-            'Assistant School Principal II','Attorney III',
-            'Chief Education Program Supervisor',
-            'Dental Aide','Dentist II','Driver',
-            'Education Program Specialist','Education Program Supervisor','Engineer III',
-            'Farmworker I',
-            'Guidance Coordinator I','Guidance Coordinator II','Guidance Coordinator III',
-            'Guidance Counselor I','Guidance Counselor II','Guidance Counselor III',
-            'Handicraft Worker',
-            'Head Teacher I','Head Teacher II','Head Teacher III','Head Teacher IV','Head Teacher V','Head Teacher VI',
-            'Information Technology Officer I','Legal Assistant I',
-            'Medical Officer III','Nurse II','Planning Officer III',
-            'Project Development Officer I','Project Development Officer II',
-            'Public Schools District Supervisor','Registrar I',
-            'School Librarian I','School Librarian II',
-            'School Principal I','School Principal II','School Principal III',
-            'Security Guard I','Security Guard II',
-            'Senior Education Program Specialist',
-            'Teacher I','Teacher II','Teacher III',
-            'Master Teacher I','Master Teacher II',
-            'Special Science Teacher I',
-            'Special Education Teacher I','Special Education Teacher II','Special Education Teacher III',
-            'Watchman I',
-          ];
-      @endphp
-        <select name="position_applied"
-            class="form-select @error('position_applied') is-invalid @enderror"
+        @error('job_posting_id')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
+        <select name="job_posting_id"
+            id="jobPostingSelect"
+            class="form-select @error('job_posting_id') is-invalid @enderror"
               required>
-            <option value="" disabled {{ old('position_applied') ? '' : 'selected' }}>— Select a position —</option>
-                @foreach($positions as $pos)
-              <option value="{{ $pos }}" {{ old('position_applied') === $pos ? 'selected' : '' }}>
-                {{ $pos }}
+            <option value="" disabled {{ old('job_posting_id') ? '' : 'selected' }}>— Select a position —</option>
+                @foreach($openPostingOptions as $option)
+              <option value="{{ $option['value'] }}" {{ (string) old('job_posting_id') === (string) $option['value'] ? 'selected' : '' }}>
+                {{ $option['label'] }}
               </option>
             @endforeach
         </select>
       </div>
+
+      {{-- 2b. Place of assignment — populated based on the position picked above --}}
+      <div class="mb-4 d-none" id="placeFieldWrap">
+        <label class="form-label">Place of Assignment <span class="required-star">*</span></label>
+        @error('job_posting_location_id')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
+        <select name="job_posting_location_id" id="placeSelect" class="form-select @error('job_posting_location_id') is-invalid @enderror">
+          <option value="">— Select a place —</option>
+        </select>
+        <p class="hint" id="placeVacancyHint"></p>
+      </div>
+
+      @php
+        // Every open posting's OPEN locations only (already-filled places
+        // are excluded server-side by hasAnyOpenVacancy()/openLocations()),
+        // keyed by posting id, with the REMAINING vacancy count -- so the
+        // Place dropdown can populate instantly client-side without a page
+        // reload or AJAX round-trip.
+        $postingLocationsMap = $openPostings->mapWithKeys(function ($posting) {
+            return [$posting->id => $posting->openLocations()->map(function ($loc) {
+                return [
+                    'id' => $loc->id,
+                    'place' => $loc->place_of_assignment,
+                    'vacancies' => $loc->remainingVacancies(),
+                ];
+            })->values()];
+        });
+      @endphp
+      <script>
+        window.__postingLocations = @json($postingLocationsMap);
+        window.__oldJobPostingLocationId = @json(old('job_posting_location_id'));
+      </script>
 
       {{-- 3. Address --}}
       <div class="mb-4">
@@ -242,17 +276,50 @@
         @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
       </div>
 
-      {{-- ── QUALIFICATIONS ────────────────────────────────────── --}}
+      {{-- ── QUALIFICATIONS ───────────────────────────────────────── --}}
       <div class="section-title">Qualifications</div>
 
       {{-- 12. Education --}}
       <div class="mb-4">
-        <label class="form-label"><span class="q-num">12.</span> Highest Educational Attainment (write in full) <span class="required-star">*</span></label>
-        <p class="hint">e.g. Bachelor of Science in Secondary Education major in English; Master of Education major in Administration and Supervision</p>
-        <input type="text" name="education"
-          class="form-control @error('education') is-invalid @enderror"
-          placeholder="Write in full" value="{{ old('education') }}" required>
-        @error('education')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        <label class="form-label d-block"><span class="q-num">12.</span> Highest Educational Attainment <span class="required-star">*</span></label>
+        @error('education')<div class="text-danger small mb-2">{{ $message }}</div>@enderror
+
+        {{-- 12a. Educational Level (radio) --}}
+        <p class="hint" style="margin-top:0;">Educational Level</p>
+        @php
+          $eduLevels = ['Elementary','Secondary','Vocational / Trade Course','College','Graduate Studies'];
+          // old('education') was saved as "Level - Course - Year"; split it back out for repopulation
+          $oldEduParts = old('education') ? array_map('trim', explode(' - ', old('education'), 3)) : [];
+          $oldEduLevel = $oldEduParts[0] ?? null;
+          $oldEduCourse = $oldEduParts[1] ?? null;
+          $oldEduYear = $oldEduParts[2] ?? null;
+        @endphp
+        <div class="mb-3">
+          @foreach($eduLevels as $lvl)
+          <label class="radio-option edu-level-option {{ $oldEduLevel===$lvl?'selected':'' }}" style="max-width:320px;">
+            <input type="radio" name="edu_level" value="{{ $lvl }}" {{ $oldEduLevel===$lvl?'checked':'' }} required>
+            {{ $lvl }}
+          </label>
+          @endforeach
+        </div>
+
+        {{-- 12b. Course / Degree (textbox) --}}
+        <div class="mb-3" id="eduCourseWrap">
+          <label class="form-label">Course / Degree (write in full)</label>
+          <p class="hint">e.g. Bachelor of Science in Secondary Education major in English; Master of Education major in Administration and Supervision</p>
+          <input type="text" id="eduCourseInput"
+            class="form-control"
+            placeholder="Write in full" value="{{ $oldEduCourse }}">
+        </div>
+
+        {{-- 12c. Year Level (radio, options depend on 12a) --}}
+        <div class="mb-1" id="eduYearWrap">
+          <label class="form-label d-block">Year Level</label>
+          <div id="eduYearOptions"></div>
+        </div>
+
+        {{-- Hidden combined field actually submitted to the server --}}
+        <input type="hidden" name="education" id="eduCombinedInput" value="{{ old('education') }}">
       </div>
 
       {{-- 13. Training Hours --}}
@@ -312,9 +379,10 @@
     </form>
 
   </div>
+  @endif
 
   <div class="form-footer">
-    Never give out your password. &bull; DepEd Division of Cavite Province
+    DepEd Division of Cavite Province
   </div>
 </div>
 
@@ -334,11 +402,154 @@ document.querySelectorAll('.radio-option input[type=radio]').forEach(r => {
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
   $(document).ready(function() {
-      $('select[name="position_applied"]').select2({
+      $('select[name="job_posting_id"]').select2({
           placeholder: '— Select a position —',
           allowClear: true,
       });
+      $('#placeSelect').select2({
+          placeholder: '— Select a place —',
+          allowClear: true,
+      });
+
+      const postingLocations = window.__postingLocations || {};
+      const oldLocationId = window.__oldJobPostingLocationId;
+      const $positionSelect = $('#jobPostingSelect');
+      const $placeWrap = $('#placeFieldWrap');
+      const $placeSelect = $('#placeSelect');
+      const $placeHint = $('#placeVacancyHint');
+
+      function populatePlaces(postingId, preselectId) {
+          const locations = postingLocations[postingId] || [];
+
+          $placeSelect.empty().append('<option value="">— Select a place —</option>');
+
+          if (locations.length === 0) {
+              // This posting has no separate location rows (legacy single
+              // place_of_assignment only) -- nothing to choose, hide the field
+              // entirely and let job_posting_location_id submit as empty.
+              $placeWrap.addClass('d-none');
+              $placeSelect.prop('required', false);
+              $placeHint.text('');
+              $placeSelect.trigger('change.select2');
+              return;
+          }
+
+          locations.forEach(function (loc) {
+              const label = loc.place + ' (' + loc.vacancies + ' vacanc' + (loc.vacancies === 1 ? 'y' : 'ies') + ')';
+              const opt = new Option(label, loc.id, false, String(loc.id) === String(preselectId));
+              $placeSelect.append(opt);
+          });
+
+          $placeSelect.prop('required', true);
+          $placeWrap.removeClass('d-none').addClass('place-field-in');
+          $placeSelect.trigger('change.select2');
+          updateVacancyHint();
+      }
+
+      function updateVacancyHint() {
+          const selected = postingLocations[$positionSelect.val()] || [];
+          const match = selected.find(function (loc) { return String(loc.id) === String($placeSelect.val()); });
+          $placeHint.text(match ? match.vacancies + ' vacanc' + (match.vacancies === 1 ? 'y' : 'ies') + ' available at this location.' : '');
+      }
+
+      $positionSelect.on('change', function () {
+          populatePlaces(this.value, null);
+      });
+      $placeSelect.on('change', updateVacancyHint);
+
+      // Repopulate on load if a position (and possibly place) was already
+      // selected -- e.g. validation error bounced the user back here.
+      if ($positionSelect.val()) {
+          populatePlaces($positionSelect.val(), oldLocationId);
+      }
   });
+</script>
+
+<script>
+// ── Question 12: Highest Educational Attainment ────────────────────────
+// Level (radio) -> Course/Degree (textbox) -> Year Level (radio, options
+// depend on Level). All three combine into the single hidden #education
+// field ("Level - Course - Year") which is what actually gets POSTed and
+// saved to the existing candidates.education text column -- no DB changes
+// needed.
+(function () {
+  const yearOptionsByLevel = {
+    'Elementary':               ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Graduate'],
+    'Secondary':                ['Grade 7','Grade 8','Grade 9','Grade 10','Grade 11','Grade 12','Graduate'],
+    'Vocational / Trade Course':['1st Year','2nd Year','Graduate'],
+    'College':                  ['1st Year','2nd Year','3rd Year','4th Year','5th Year','Graduate'],
+    'Graduate Studies':         ['With Units','Candidate','Graduate'],
+  };
+
+  const $levelRadios  = $('input[name="edu_level"]');
+  const $courseWrap   = $('#eduCourseWrap');
+  const $courseInput  = $('#eduCourseInput');
+  const $yearWrap      = $('#eduYearWrap');
+  const $yearOptionsEl = $('#eduYearOptions');
+  const $combined      = $('#eduCombinedInput');
+
+  const oldYear = @json($oldEduYear);
+
+  function renderYearOptions(level, preselect) {
+      const opts = yearOptionsByLevel[level] || [];
+      $yearOptionsEl.empty();
+      opts.forEach(function (opt) {
+          const checked = opt === preselect;
+          const $label = $('<label class="radio-option edu-year-option" style="max-width:220px;display:inline-flex;margin-right:8px;"></label>');
+          if (checked) $label.addClass('selected');
+          const $input = $('<input type="radio" name="edu_year">').val(opt).prop('checked', checked);
+          $input.on('change', function () {
+              $yearOptionsEl.find('.edu-year-option').removeClass('selected');
+              $label.addClass('selected');
+              syncCombined();
+          });
+          $label.append($input).append(' ' + opt);
+          $yearOptionsEl.append($label);
+      });
+  }
+
+  function currentLevel() {
+      return $levelRadios.filter(':checked').val() || '';
+  }
+
+  function currentYear() {
+      return $yearOptionsEl.find('input[name="edu_year"]:checked').val() || '';
+  }
+
+  function syncCombined() {
+      const level  = currentLevel();
+      const course = $.trim($courseInput.val());
+      const year   = currentYear();
+      const parts = [level, course, year].filter(function (p) { return p; });
+      $combined.val(parts.join(' - '));
+  }
+
+  $levelRadios.on('change', function () {
+      $('.edu-level-option').removeClass('selected');
+      $(this).closest('.edu-level-option').addClass('selected');
+      renderYearOptions(this.value, null);
+      syncCombined();
+  });
+
+  $courseInput.on('input', syncCombined);
+
+  // Initial render (handles validation-error repopulation via old())
+  const initialLevel = currentLevel();
+  if (initialLevel) {
+      renderYearOptions(initialLevel, oldYear);
+  }
+  syncCombined();
+
+  // Belt-and-suspenders: recompute right before the form actually submits
+  $('#recruitForm').on('submit', function () {
+      syncCombined();
+      if (!$combined.val()) {
+          // Shouldn't happen since level+year are required radios, but
+          // guard anyway so we never silently submit an empty education.
+          $combined.val($.trim($courseInput.val()));
+      }
+  });
+})();
 </script>
 </body>
 </html>

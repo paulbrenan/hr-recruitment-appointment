@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Application;
 use App\Models\Candidate;
+use App\Models\JobPosting;
+use App\Models\JobPostingLocation;
 use App\Mail\ApplicationSubmitted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
@@ -14,7 +17,21 @@ class CandidateAuthController extends Controller
 {
     public function showRegister()
     {
-        return view('portal.register');
+        // Eager-load each location's hired count (aliased as hired_count)
+        // in one query so JobPostingLocation::isFilled() doesn't have to
+        // hit the DB again per location.
+        $openPostings = JobPosting::where('status', 'open')
+            ->with(['locations' => function ($query) {
+                $query->withCount(['applications as hired_count' => function ($q) {
+                    $q->where('status', 'hired');
+                }])->orderBy('place_of_assignment');
+            }])
+            ->orderBy('title')
+            ->get()
+            ->filter->hasAnyOpenVacancy()
+            ->values();
+
+        return view('portal.register', compact('openPostings'));
     }
 
     public function register(Request $request)
@@ -24,7 +41,8 @@ class CandidateAuthController extends Controller
             'first_name'       => ['required', 'string', 'max:255'],
             'middle_name'      => ['nullable', 'string', 'max:255'],
             'last_name'        => ['required', 'string', 'max:255'],
-            'position_applied' => ['required', 'string', 'max:255'],
+'job_posting_id'          => ['required', 'integer', 'exists:job_postings,id'],
+            'job_posting_location_id' => ['nullable', 'integer'],
             'address'          => ['required', 'string', 'max:500'],
             'age'              => ['required', 'integer', 'min:18', 'max:70'],
             'sex'              => ['required', 'in:Male,Female'],
@@ -33,7 +51,19 @@ class CandidateAuthController extends Controller
             'disability'       => ['required', 'string', 'max:255'],
             'ethnic_group'     => ['required', 'string', 'max:100'],
             'phone'            => ['required', 'string', 'max:50'],
-            'email'            => ['required', 'email', 'max:255', 'unique:candidates,email'],
+            // Only block the email if this candidate already has a submitted
+            // application. A candidate record without an application means a
+            // previous registration attempt failed partway through — allow retry.
+            'email'            => [
+                'required', 'email', 'max:255',
+                \Illuminate\Validation\Rule::unique('candidates', 'email')->where(function ($query) {
+                    return $query->whereExists(function ($sub) {
+                        $sub->select(DB::raw(1))
+                            ->from('applications')
+                            ->whereColumn('applications.candidate_id', 'candidates.id');
+                    });
+                }),
+            ],
             // Qualifications
             'education'        => ['required', 'string', 'max:500'],
             'training_hours'   => ['required', 'string', 'max:100'],
@@ -41,10 +71,60 @@ class CandidateAuthController extends Controller
             'eligibility'      => ['required', 'string', 'max:255'],
         ]);
 
+        // Resolve the job posting BEFORE creating any account/records, so
+        // an invalid or no-longer-open position stops registration cleanly
+        // instead of silently creating a candidate with no application and
+        // telling them "submitted successfully" anyway.
+        $jobPosting = \App\Models\JobPosting::find((int) $validated['job_posting_id']);
+
+        if (!$jobPosting || $jobPosting->status !== 'open') {
+            return back()
+                ->withInput()
+                ->withErrors(['job_posting_id' => 'Sorry, this position is no longer available. Please choose another open position.']);
+        }
+
+        // Resolve and verify the chosen location actually belongs to this
+        // posting (never trust the submitted ID on its own -- a tampered
+        // value could reference an unrelated posting's location). If the
+        // posting HAS location rows, a place must be chosen; if it has
+        // none (legacy posting), the field is skipped client-side and no
+        // location is expected here.
+        $jobPostingLocation = null;
+        $postingHasLocations = $jobPosting->locations()->exists();
+
+        if (!empty($validated['job_posting_location_id'])) {
+            $jobPostingLocation = $jobPosting->locations()->find((int) $validated['job_posting_location_id']);
+            if (!$jobPostingLocation) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['job_posting_location_id' => 'Sorry, that place of assignment is no longer available. Please choose another option.']);
+            }
+            if ($jobPostingLocation->isFilled()) {
+                return back()
+                    ->withInput()
+                    ->withErrors(['job_posting_location_id' => 'Sorry, that place of assignment was just filled. Please choose another option.']);
+            }
+        } elseif ($postingHasLocations) {
+            return back()
+                ->withInput()
+                ->withErrors(['job_posting_location_id' => 'Please select a place of assignment.']);
+        } elseif (!$jobPosting->hasOpenLegacyVacancy()) {
+            return back()
+                ->withInput()
+                ->withErrors(['job_posting_id' => 'Sorry, this position was just filled. Please choose another open position.']);
+        }
+
+        // Clean up any orphaned candidate record for this email
+        // (a previous registration that failed before creating the application).
+        Candidate::where('email', $validated['email'])
+            ->whereDoesntHave('applications')
+            ->delete();
+
         $candidate = Candidate::create([
             'first_name'       => $validated['first_name'],
             'middle_name'      => $validated['middle_name'] ?? null,
             'last_name'        => $validated['last_name'],
+            'position_applied' => $jobPosting->title . ($jobPostingLocation ? ' - ' . $jobPostingLocation->place_of_assignment : ($jobPosting->place_of_assignment ? ' - ' . $jobPosting->place_of_assignment : '')),
             'email'            => $validated['email'],
             'phone'            => $validated['phone'],
             'address'          => $validated['address'],
@@ -63,28 +143,21 @@ class CandidateAuthController extends Controller
         // Generate transaction number
         $txn = Application::generateTransactionNumber();
 
-        // Find a matching open job posting by title
-        $jobPosting = \App\Models\JobPosting::where('status', 'open')
-            ->where('title', $validated['position_applied'])
-            ->first();
-
         // Auto-create the application record so it appears in HR's list
-        // Only create if a matching open job posting exists
-        if ($jobPosting) {
-            Application::create([
-                'transaction_number' => $txn,
-                'candidate_id'       => $candidate->id,
-                'job_posting_id'     => $jobPosting->id,
-                'status'             => 'submitted',
-                'applied_at'         => now()->toDateString(),
-                'notes'              => 'Submitted via Online Recruitment Form.',
-            ]);
-        }
+        Application::create([
+            'transaction_number' => $txn,
+            'candidate_id'       => $candidate->id,
+            'job_posting_id'     => $jobPosting->id,
+'job_posting_location_id' => $jobPostingLocation->id ?? null,
+            'status'             => 'submitted',
+            'applied_at'         => now()->toDateString(),
+            'notes'              => 'Submitted via Online Recruitment Form.',
+        ]);
 
         // Send confirmation email (non-blocking — catches any mail failure)
         try {
             Mail::to($candidate->email)
-                ->send(new ApplicationSubmitted($candidate, $txn, $validated['position_applied']));
+                ->send(new ApplicationSubmitted($candidate, $txn, $jobPosting->title, $jobPosting));
         } catch (\Throwable $e) {
             Log::error('Recruitment confirmation email failed: ' . $e->getMessage());
         }
@@ -92,7 +165,8 @@ class CandidateAuthController extends Controller
         return view('portal.submitted', [
             'candidate'         => $candidate,
             'transactionNumber' => $txn,
-            'position'          => $validated['position_applied'],
+            'position'          => $jobPosting->title,
+            'jobPosting'        => $jobPosting,
         ]);
     }
 

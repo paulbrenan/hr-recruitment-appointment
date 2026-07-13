@@ -1,89 +1,217 @@
 <?php
-
 namespace App\Http\Controllers;
-
 use App\Models\Application;
 use App\Models\InterviewSchedule;
+use App\Models\JobPosting;
+use App\Models\Panelist;
+use App\Notifications\ScheduleInvitationNotification;
+use App\Notifications\InterviewerInvitationNotification;
+use App\Notifications\RankingResultWithScheduleNotification;
+use App\Services\RankingService;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Facades\Notification;
 class InterviewScheduleController extends Controller
 {
-    /**
-     * Validation rules for creating a schedule. Status is intentionally
-     * excluded here — it always defaults to 'scheduled' on creation,
-     * matching the existing "New schedule" modal which has no status
-     * field.
-     */
+    public function __construct(private RankingService $rankingService)
+    {
+    }
+
     private function createRules(): array
     {
         return [
-            'application_id' => ['required', 'exists:applications,id'],
-            'type' => ['required', 'in:open_ranking,interview,exam'],
-            'scheduled_at' => ['required', 'date'],
-            'location' => ['nullable', 'string', 'max:255'],
-            'interviewer_name' => ['nullable', 'string', 'max:255'],
+            'application_id'  => ['required', 'exists:applications,id'],
+            'type'            => ['required', 'in:open_ranking,interview,exam'],
+            'scheduled_at'    => ['required', 'date'],
+            'location'        => ['nullable', 'string', 'max:255'],
+            // Legacy single-interviewer fields — kept nullable so old data survives
+            'interviewer_name'  => ['nullable', 'string', 'max:255'],
+            'interviewer_email' => ['nullable', 'email', 'max:255'],
+            'panelist_ids'    => ['nullable', 'array'],
+            'panelist_ids.*'  => ['exists:panelists,id'],
         ];
     }
-
-    /**
-     * Validation rules for updating a schedule. Includes status and
-     * remarks, which are only editable after creation.
-     */
     private function updateRules(): array
     {
         return [
-            'application_id' => ['required', 'exists:applications,id'],
-            'type' => ['required', 'in:open_ranking,interview,exam'],
-            'scheduled_at' => ['required', 'date'],
-            'location' => ['nullable', 'string', 'max:255'],
-            'interviewer_name' => ['nullable', 'string', 'max:255'],
-            'status' => ['required', 'in:scheduled,completed,cancelled,no_show'],
-            'remarks' => ['nullable', 'string'],
+            'application_id'    => ['required', 'exists:applications,id'],
+            'type'              => ['required', 'in:open_ranking,interview,exam'],
+            'scheduled_at'      => ['required', 'date'],
+            'location'          => ['nullable', 'string', 'max:255'],
+            'interviewer_name'  => ['nullable', 'string', 'max:255'],
+            'interviewer_email' => ['nullable', 'email', 'max:255'],
+            'panelist_ids'      => ['nullable', 'array'],
+            'panelist_ids.*'    => ['exists:panelists,id'],
+            'status'            => ['required', 'in:scheduled,completed,cancelled,no_show'],
+            'remarks'           => ['nullable', 'string'],
         ];
     }
-
     public function index()
     {
-        $schedules = InterviewSchedule::with(['application.candidate', 'application.jobPosting'])
-            ->latest('scheduled_at')
+        // Farthest future date at the top, nearest dates below it,
+        // descending all the way down to the oldest past schedule.
+        $schedules = InterviewSchedule::with(['application.candidate', 'application.jobPosting', 'panelists'])
+            ->orderBy('scheduled_at', 'desc')
             ->get();
-
-        // For the "New schedule" / "Edit schedule" modal's Application dropdown.
-        $applications = Application::with(['candidate', 'jobPosting'])->get();
-
-        return view('interviews.index', compact('schedules', 'applications'));
+        $applications    = Application::with(['candidate', 'jobPosting'])->get();
+        $allPanelists    = Panelist::orderBy('name')->get();
+        return view('interviews.index', compact('schedules', 'applications', 'allPanelists'));
     }
-
     public function store(Request $request)
     {
         $validated = $request->validate($this->createRules());
         $validated['status'] = 'scheduled';
+        // Remove pivot fields from validated before create (not real columns)
+        $panelistIds = array_map('intval', $request->input('panelist_ids', []));
+        unset($validated['panelist_ids']);
+        $schedule = InterviewSchedule::create($validated);
+        if (!empty($panelistIds)) {
+            $schedule->panelists()->sync($panelistIds);
+        }
 
-        InterviewSchedule::create($validated);
+        $schedule->load(['application.candidate', 'application.jobPosting']);
+        $application = $schedule->application;
+
+        $combinedSent = false;
+
+        if ($application->status !== 'ranking_sent') {
+            $rankings = $this->rankingService->computeRankings($application->jobPosting);
+            $ranked = $rankings->firstWhere('application_id', $application->id);
+
+            if ($ranked && $ranked['passed']) {
+                try {
+                    $application->candidate->notify(
+                        new RankingResultWithScheduleNotification($ranked, $application->jobPosting, $schedule)
+                    );
+                    $application->update(['status' => 'ranking_sent']);
+                    $combinedSent = true;
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to send combined ranking+schedule invitation: ' . $e->getMessage());
+                }
+            }
+        }
+
+        if (! $combinedSent) {
+            try {
+                $application->candidate->notify(new ScheduleInvitationNotification($schedule));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send candidate schedule invitation: ' . $e->getMessage());
+            }
+        }
+
+        if ($schedule->interviewer_email) {
+            try {
+                Notification::route('mail', $schedule->interviewer_email)
+                    ->notify(new InterviewerInvitationNotification($schedule));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send interviewer schedule invitation: ' . $e->getMessage());
+            }
+        }
 
         return redirect()
             ->route('interviews.index')
-            ->with('success', 'Schedule created successfully.');
+            ->with('success', 'Schedule created successfully. Invitation email sent.');
     }
-
     public function update(Request $request, $id)
     {
         $schedule = InterviewSchedule::findOrFail($id);
-
         $validated = $request->validate($this->updateRules());
-
+        $panelistIds = array_map('intval', $request->input('panelist_ids', []));
+        unset($validated['panelist_ids']);
         $schedule->update($validated);
-
+        $schedule->panelists()->sync($panelistIds);
         return redirect()
             ->route('interviews.index')
             ->with('success', 'Schedule updated successfully.');
+    }
+    /**
+     * GET /interviews/panelists-for-posting/{jobPostingId}
+     * Returns JSON list of panelists assigned to a job posting with availability flag.
+     * Used by the scheduling modal to populate the checklist when an application is selected.
+     */
+    public function panelistsForPosting($jobPostingId)
+    {
+        $posting = JobPosting::findOrFail($jobPostingId);
+        $panelists = $posting->panelists()->orderBy('name')->get()->map(function ($p) {
+            return [
+                'id'           => $p->id,
+                'name'         => $p->name,
+                'is_available' => (bool) $p->pivot->is_available,
+            ];
+        });
+        return response()->json($panelists);
+    }
+
+    /**
+     * Create one InterviewSchedule per qualified applicant on a given posting.
+     * Called from the pipeline dashboard's Step 3 'New schedule' modal.
+     * If a job_posting_location_id is provided, only applicants assigned to
+     * that location are scheduled; otherwise all qualified applicants on the
+     * posting are scheduled.
+     */
+    public function storeForPosting(Request $request)
+    {
+        $validated = $request->validate([
+            'job_posting_id'          => ['required', 'exists:job_postings,id'],
+            'job_posting_location_id' => ['nullable', 'exists:job_posting_locations,id'],
+            'type'                    => ['required', 'array', 'min:1'],
+            'type.*'                  => ['in:open_ranking,interview,exam'],
+            'scheduled_at'            => ['required', 'date'],
+            'location'                => ['nullable', 'string', 'max:255'],
+            'panelist_ids'            => ['nullable', 'array'],
+            'panelist_ids.*'          => ['exists:panelists,id'],
+        ]);
+
+        $panelistIds = array_map('intval', $request->input('panelist_ids', []));
+
+        $query = Application::where('job_posting_id', $validated['job_posting_id'])
+            ->whereIn('status', ['qualified', 'interview_scheduled', 'ranked']);
+
+        if (!empty($validated['job_posting_location_id'])) {
+            $query->where('job_posting_location_id', $validated['job_posting_location_id']);
+        }
+
+        $applications = $query->with(['candidate', 'jobPosting'])->get();
+
+        if ($applications->isEmpty()) {
+            return redirect()->back()->with('error', 'No qualified applicants found for this posting/location.');
+        }
+
+        $created = 0;
+        foreach ($applications as $application) {
+            foreach ($validated['type'] as $type) {
+                $schedule = InterviewSchedule::create([
+                    'application_id' => $application->id,
+                    'type'           => $type,
+                    'scheduled_at'   => $validated['scheduled_at'],
+                    'location'       => $validated['location'] ?? null,
+                    'status'         => 'scheduled',
+                ]);
+
+                if (!empty($panelistIds)) {
+                    $schedule->panelists()->sync($panelistIds);
+                }
+
+                // Send invitation to candidate (one per selected type)
+                try {
+                    $application->candidate->notify(new \App\Notifications\ScheduleInvitationNotification($schedule));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to send schedule invitation: ' . $e->getMessage());
+                }
+
+                $created++;
+            }
+        }
+
+        // Redirect back to the job posting pipeline (Step 3)
+        return redirect()
+            ->route('job-postings.show', $validated['job_posting_id'])
+            ->with('success', "Scheduled {$created} applicant(s) and sent invitations.");
     }
 
     public function destroy($id)
     {
         $schedule = InterviewSchedule::findOrFail($id);
         $schedule->delete();
-
         return redirect()
             ->route('interviews.index')
             ->with('success', 'Schedule deleted successfully.');

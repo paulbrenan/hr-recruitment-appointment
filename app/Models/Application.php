@@ -13,21 +13,29 @@ class Application extends Model
         'transaction_number',
         'candidate_id',
         'job_posting_id',
+        'job_posting_location_id',
         'status',
         'applied_at',
         'notes',
-        'ranking_notified_at' => 'datetime',
+        'ranking_notified_at',
+        'qualification_check',
+        'qualification_result',
+        'qualification_checked_at',
+        'qualification_notified_at',
     ];
 
     protected $casts = [
         'applied_at' => 'date',
-        'ranking_notified_at'   => 'datetime',
+        'ranking_notified_at' => 'datetime',
+        'qualification_check' => 'array',
+        'qualification_checked_at' => 'datetime',
+        'qualification_notified_at' => 'datetime',
     ];
 
     public function talentPool()
-{
-    return $this->hasOne(\App\Models\TalentPool::class);
-}
+    {
+        return $this->hasOne(\App\Models\TalentPool::class);
+    }
 
     public function candidate(): BelongsTo
     {
@@ -37,6 +45,11 @@ class Application extends Model
     public function jobPosting(): BelongsTo
     {
         return $this->belongsTo(JobPosting::class);
+    }
+
+    public function jobPostingLocation(): BelongsTo
+    {
+        return $this->belongsTo(JobPostingLocation::class);
     }
 
     public function documents(): HasMany

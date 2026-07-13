@@ -5,11 +5,14 @@ namespace App\Jobs;
 use App\Models\PdfImportBatch;
 use App\Services\PositionBlockDetector;
 use App\Services\PositionBlockExpander;
+use App\Services\RequirementsExtractor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProcessPdfImportJob implements ShouldQueue
 {
@@ -55,9 +58,29 @@ class ProcessPdfImportJob implements ShouldQueue
             $expander = new PositionBlockExpander();
             $candidates = $expander->expand($blocks);
 
+            // Extract mandatory + additional requirements from this same
+            // memo's cover-page text. Previously this was never called, so
+            // $batch->requirements stayed null and confirm() silently fell
+            // back to empty mandatory/additional requirements for every
+            // imported posting.
+            $requirements = (new RequirementsExtractor())->extract($pageTexts);
+
+            // Copy the source memo PDF to permanent public storage now,
+            // while it still exists on disk. cleanupTmp() below (in the
+            // finally block) deletes $pdfPath and everything else in
+            // $tmpDir unconditionally, so this can't be deferred to
+            // confirm() -- by the time the user confirms the import,
+            // this tmp file is long gone.
+            $memoPdfPath = 'memos/' . $batch->id . '-' . Str::slug(
+                pathinfo($batch->original_filename ?? 'memo', PATHINFO_FILENAME)
+            ) . '.pdf';
+            Storage::disk('public')->put($memoPdfPath, file_get_contents($pdfPath));
+
             $batch->update([
-                'candidates' => $candidates,
+                'candidates' => self::sanitizeUtf8($candidates),
+                'requirements' => self::sanitizeUtf8($requirements),
                 'status' => 'ready',
+                'memo_pdf_path' => $memoPdfPath,
             ]);
         } catch (\Throwable $e) {
             $batch->update([
@@ -152,6 +175,31 @@ class ProcessPdfImportJob implements ShouldQueue
 
         ksort($pageTexts);
         return array_values($pageTexts);
+    }
+
+    /**
+     * Recursively sanitize all string values in an array to valid UTF-8.
+     * Tesseract can output invalid byte sequences for characters like ñ, é
+     * which cause JSON encoding to fail when Laravel tries to store the array.
+     */
+    private static function sanitizeUtf8(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            // Convert to UTF-8, replacing invalid sequences with '?'
+            $converted = @mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+            if ($converted === false || !mb_check_encoding($converted, 'UTF-8')) {
+                // Strip any remaining invalid bytes as last resort
+                $converted = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $value);
+                $converted = mb_convert_encoding($converted ?? '', 'UTF-8', 'ISO-8859-1');
+            }
+            return $converted;
+        }
+
+        if (is_array($value)) {
+            return array_map([self::class, 'sanitizeUtf8'], $value);
+        }
+
+        return $value;
     }
 
     private function cleanupTmp(string $dir): void

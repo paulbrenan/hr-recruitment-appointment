@@ -4,14 +4,20 @@
 @section('page-title', 'Application details')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('css/application-show-polish.css') }}">
 @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
+@endif
+@if (session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
 @endif
 
 @php
     $statusColors = [
         'submitted'           => 'secondary',
         'screening'           => 'info',
+        'qualified'           => 'success',
+        'not_qualified'       => 'danger',
         'shortlisted'         => 'primary',
         'interview_scheduled' => 'primary',
         'assessed'            => 'primary',
@@ -23,6 +29,31 @@
         'rejected'            => 'danger',
     ];
     $color = $statusColors[$application->status] ?? 'secondary';
+
+    // "shortlisted", "assessed", and "screening" are hidden from the
+    // dropdown per the current workflow simplification, but if a record
+    // already carries one of those statuses (from before), we still
+    // include it here so the select shows the true current value instead
+    // of silently defaulting to the first option.
+    $statusOptions = ['submitted', 'qualified', 'not_qualified', 'interview_scheduled', 'ranked', 'offer_sent', 'offer_accepted', 'offer_declined', 'hired', 'rejected'];
+    if (!in_array($application->status, $statusOptions, true)) {
+        $statusOptions[] = $application->status;
+    }
+
+    $check = $application->qualification_check ?? [];
+    $jobPosting = $application->jobPosting;
+
+    // Candidate's self-reported qualifications, used only as a starting
+    // point for HR's editable "actual" fields below when no qualification
+    // check has been saved yet. Once a check exists, the saved actual
+    // value always takes precedence and this fallback is never shown.
+    $selfReported = [
+        'education' => $application->candidate->education ?? null,
+        'experience' => $application->candidate->years_experience ?? null,
+        'training' => $application->candidate->training_hours ?? null,
+        'eligibility' => $application->candidate->eligibility ?? null,
+    ];
+    $candidate = $application->candidate;
 @endphp
 
 <div class="row g-3">
@@ -57,16 +88,6 @@
                     </form>
                 @endif
                 @endif
-
-                <hr class="my-2">
-                <form action="{{ route('applications.destroy', $application->id) }}" method="POST"
-                      onsubmit="return confirm('Delete this application? This will also delete any linked documents, interview schedules, assessments, job offers, and appointments. This cannot be undone.')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">
-                        <i class="bi bi-trash me-1"></i> Delete application
-                    </button>
-                </form>
             </div>
         </div>
 
@@ -89,7 +110,7 @@
                     @csrf
                     @method('PUT')
                     <select name="status" class="form-select form-select-sm">
-                        @foreach (['submitted','screening','shortlisted','interview_scheduled','assessed','ranked','offer_sent','offer_accepted','offer_declined','hired','rejected'] as $s)
+                        @foreach ($statusOptions as $s)
                             <option value="{{ $s }}" {{ old('status', $application->status) === $s ? 'selected' : '' }}>
                                 {{ str_replace('_', ' ', ucfirst($s)) }}
                             </option>
@@ -105,94 +126,12 @@
             </div>
         </div>
 
-        {{-- Interview / exam schedule --}}
-        <div class="card">
-            <div class="card-header bg-white py-2">
-                <span class="fw-medium small">Interview / Exam Schedule</span>
-            </div>
-            <div class="card-body p-3">
-                @forelse ($schedules as $s)
-                <div class="d-flex justify-content-between align-items-start border-bottom py-2">
-                    <div>
-                        <div class="fw-medium small">{{ str_replace('_', ' ', ucfirst($s->type)) }}</div>
-                        <div class="text-muted" style="font-size:.75rem;">
-                            {{ \Carbon\Carbon::parse($s->scheduled_at)->format('M d, Y h:i A') }}
-                            @if($s->location) <br>{{ $s->location }} @endif
-                        </div>
-                    </div>
-                    <span class="badge text-bg-secondary ms-2">{{ ucfirst($s->status) }}</span>
-                </div>
-                @empty
-                <p class="text-muted small mb-2">No schedule set yet.</p>
-                @endforelse
-                <button class="btn btn-sm btn-outline-secondary w-100 mt-2">
-                    <i class="bi bi-plus-lg me-1"></i> Schedule
-                </button>
-            </div>
-        </div>
+
 
     </div>
 
     {{-- ── RIGHT column ─────────────────────────────────────────────────── --}}
     <div class="col-md-8 d-flex flex-column gap-3">
-
-        {{-- Application details --}}
-        <div class="card">
-            <div class="card-header bg-white py-2">
-                <span class="fw-medium small">Application Details</span>
-            </div>
-            <div class="card-body p-3">
-                <div class="row g-2 small">
-                    @if($application->transaction_number)
-                    <div class="col-6">
-                        <div class="text-muted mb-1">Transaction No.</div>
-                        <div class="fw-medium font-monospace">{{ $application->transaction_number }}</div>
-                    </div>
-                    @endif
-                    <div class="col-6">
-                        <div class="text-muted mb-1">Date Applied</div>
-                        <div class="fw-medium">
-                            {{ $application->applied_at ? \Carbon\Carbon::parse($application->applied_at)->format('M d, Y') : '—' }}
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-muted mb-1">Position</div>
-                        <div class="fw-medium">{{ $application->jobPosting->title ?? '—' }}</div>
-                    </div>
-                    @if(!empty($application->jobPosting->salary_grade))
-                    <div class="col-6">
-                        <div class="text-muted mb-1">Salary Grade</div>
-                        <div class="fw-medium">SG-{{ $application->jobPosting->salary_grade }}</div>
-                    </div>
-                    @endif
-                    @if(!empty($application->jobPosting->place_of_assignment))
-                    <div class="col-6">
-                        <div class="text-muted mb-1">Place of Assignment</div>
-                        <div class="fw-medium">{{ $application->jobPosting->place_of_assignment }}</div>
-                    </div>
-                    @endif
-                    @if(!empty($application->jobPosting->employment_type))
-                    <div class="col-6">
-                        <div class="text-muted mb-1">Employment Type</div>
-                        <div class="fw-medium">{{ $application->jobPosting->employment_type }}</div>
-                    </div>
-                    @endif
-                    <div class="col-6">
-                        <div class="text-muted mb-1">Current Status</div>
-                        <span class="badge text-bg-{{ $color }}">
-                            {{ str_replace('_', ' ', ucfirst($application->status)) }}
-                        </span>
-                    </div>
-                    @if($application->notes)
-                    <div class="col-12">
-                        <div class="text-muted mb-1">Notes</div>
-                        <div class="fw-medium">{{ $application->notes }}</div>
-                    </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
         {{-- Personal information --}}
         <div class="card">
             <div class="card-header bg-white py-2">
@@ -244,33 +183,232 @@
             </div>
         </div>
 
-        {{-- Qualifications --}}
+
+        {{-- Application details --}}
         <div class="card">
             <div class="card-header bg-white py-2">
-                <span class="fw-medium small">Qualifications</span>
+                <span class="fw-medium small">Application Details</span>
             </div>
             <div class="card-body p-3">
                 <div class="row g-2 small">
+                    @if($application->transaction_number)
+                    <div class="col-6">
+                        <div class="text-muted mb-1">Transaction No.</div>
+                        <div class="fw-medium font-monospace">{{ $application->transaction_number }}</div>
+                    </div>
+                    @endif
+                    <div class="col-6">
+                        <div class="text-muted mb-1">Date Applied</div>
+                        <div class="fw-medium">
+                            {{ $application->applied_at ? \Carbon\Carbon::parse($application->applied_at)->format('M d, Y') : '—' }}
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted mb-1">Position</div>
+                        <div class="fw-medium">{{ $application->jobPosting->title ?? '—' }}</div>
+                    </div>
+                    @if(!empty($application->jobPosting->salary_grade))
+                    <div class="col-6">
+                        <div class="text-muted mb-1">Salary Grade</div>
+                        <div class="fw-medium">{{ Str::startsWith($application->jobPosting->salary_grade, 'SG-') ? $application->jobPosting->salary_grade : 'SG-' . $application->jobPosting->salary_grade }}</div>
+                    </div>
+                    @endif
+                    @php
+                        // Prefer the specific place the candidate actually
+                        // picked (job_posting_location_id) over the
+                        // posting's legacy place_of_assignment column,
+                        // which is only kept in sync to the FIRST location
+                        // for postings created before per-location places
+                        // existed and is not applicant-specific.
+                        $placeOfAssignment = $application->jobPostingLocation->place_of_assignment
+                            ?? $application->jobPosting->place_of_assignment
+                            ?? null;
+                    @endphp
+                    @if(!empty($placeOfAssignment))
+                    <div class="col-6">
+                        <div class="text-muted mb-1">Place of Assignment</div>
+                        <div class="fw-medium">{{ $placeOfAssignment }}</div>
+                    </div>
+                    @endif
+                    @if(!empty($application->jobPosting->employment_type))
+                    <div class="col-6">
+                        <div class="text-muted mb-1">Employment Type</div>
+                        <div class="fw-medium">{{ $application->jobPosting->employment_type }}</div>
+                    </div>
+                    @endif
+                    <div class="col-6">
+                        <div class="text-muted mb-1">Current Status</div>
+                        <span class="badge text-bg-{{ $color }}">
+                            {{ str_replace('_', ' ', ucfirst($application->status)) }}
+                        </span>
+                    </div>
+                    @if($application->notes)
                     <div class="col-12">
-                        <div class="text-muted mb-1">Highest Educational Attainment</div>
-                        <div class="fw-medium">{{ $application->candidate->education ?? '—' }}</div>
+                        <div class="text-muted mb-1">Notes</div>
+                        <div class="fw-medium">{{ $application->notes }}</div>
                     </div>
-                    <div class="col-sm-6">
-                        <div class="text-muted mb-1">Training Hours</div>
-                        <div class="fw-medium">{{ $application->candidate->training_hours ?? '—' }}</div>
-                    </div>
-                    <div class="col-sm-6">
-                        <div class="text-muted mb-1">Years of Experience</div>
-                        <div class="fw-medium">{{ $application->candidate->years_experience ?? '—' }}</div>
-                    </div>
-                    <div class="col-12">
-                        <div class="text-muted mb-1">Eligibility</div>
-                        <div class="fw-medium">{{ $application->candidate->eligibility ?? '—' }}</div>
-                    </div>
+                    @endif
                 </div>
             </div>
         </div>
 
+        {{-- Position requirements (from the job posting this candidate applied to) --}}
+        <div class="card">
+            <div class="card-header bg-white py-2">
+                <span class="fw-medium small">Position Requirements</span>
+            </div>
+            <div class="card-body p-3">
+                @if ($jobPosting && ($jobPosting->qualification_education || $jobPosting->qualification_training || $jobPosting->qualification_experience || $jobPosting->qualification_eligibility))
+                    <div class="row g-2 small">
+                        @if ($jobPosting->qualification_education)
+                        <div class="col-md-6">
+                            <div class="text-muted mb-1">Education required</div>
+                            <div class="fw-medium">{{ $jobPosting->qualification_education }}</div>
+                        </div>
+                        @endif
+                        @if ($jobPosting->qualification_training)
+                        <div class="col-md-6">
+                            <div class="text-muted mb-1">Training required</div>
+                            <div class="fw-medium">{{ $jobPosting->qualification_training }}</div>
+                        </div>
+                        @endif
+                        @if ($jobPosting->qualification_experience)
+                        <div class="col-md-6">
+                            <div class="text-muted mb-1">Experience required</div>
+                            <div class="fw-medium">{{ $jobPosting->qualification_experience }}</div>
+                        </div>
+                        @endif
+                        @if ($jobPosting->qualification_eligibility)
+                        <div class="col-md-6">
+                            <div class="text-muted mb-1">Eligibility required</div>
+                            <div class="fw-medium">{{ $jobPosting->qualification_eligibility }}</div>
+                        </div>
+                        @endif
+                    </div>
+                @else
+                    <p class="text-muted small mb-0">No qualification standards specified for this posting.</p>
+                @endif
+            </div>
+        </div>
+
+        {{-- Qualification checklist --}}
+        <div class="card">
+            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                <span class="fw-medium small">Qualification Checklist</span>
+                @if ($application->qualification_result)
+                    <span class="badge text-bg-{{ $application->qualification_result === 'qualified' ? 'success' : 'danger' }}">
+                        {{ ucfirst($application->qualification_result) }}
+                    </span>
+                @endif
+            </div>
+            <div class="card-body p-3">
+                <hr class="my-3">
+                <form action="{{ route('applications.qualification-check', $application->id) }}" method="POST">
+                    @csrf
+
+                    {{-- Notice header fields — typed manually each time, per the current workflow --}}
+                    <div class="row g-2 small mb-3">
+                        <div class="col-sm-6">
+                            <label class="text-muted mb-1 d-block" for="item_number">Plantilla Item No.</label>
+                            <input type="text" name="item_number" id="item_number" class="form-control form-control-sm"
+                                   placeholder="e.g. OSEC-DECSB-ADOF4-123456-2015"
+                                   value="{{ old('item_number', $check['item_number'] ?? '') }}">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="text-muted mb-1 d-block" for="chair_name">Sub-Committee Chair</label>
+                            <input type="text" name="chair_name" id="chair_name" class="form-control form-control-sm"
+                                   placeholder="Full name"
+                                   value="{{ old('chair_name', $check['chair_name'] ?? '') }}">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="text-muted mb-1 d-block" for="evaluation_date">Evaluation Date</label>
+                            <input type="date" name="evaluation_date" id="evaluation_date" class="form-control form-control-sm"
+                                   value="{{ old('evaluation_date', $check['evaluation_date'] ?? '') }}">
+                        </div>
+                    </div>
+
+                    {{--
+                        Per-criterion rows matching the official CSC-format notice:
+                        each row = required QS (reference only) + the candidate's
+                        actual qualification text (typed by HR) + Qualified/Not
+                        qualified radio buttons. Overall result = qualified only
+                        if every row is marked Qualified (see
+                        ApplicationController::saveQualificationCheck).
+                    --}}
+                    @php
+                        $criteriaFields = [
+                            'education' => ['label' => 'Education', 'required' => $jobPosting->qualification_education ?? null],
+                            'experience' => ['label' => 'Experience', 'required' => $jobPosting->qualification_experience ?? null],
+                            'training' => ['label' => 'Training', 'required' => $jobPosting->qualification_training ?? null],
+                            'eligibility' => ['label' => 'Eligibility', 'required' => $jobPosting->qualification_eligibility ?? null],
+                        ];
+                    @endphp
+
+                    <div class="mb-2">
+                        @foreach ($criteriaFields as $key => $meta)
+                            @php
+                                $rowActual = old($key . '_actual', $check['criteria'][$key]['actual'] ?? $selfReported[$key] ?? '');
+                                $rowPassed = old($key . '_passed', array_key_exists($key, $check['criteria'] ?? []) ? ($check['criteria'][$key]['passed'] ? '1' : '0') : null);
+                            @endphp
+                            <div class="border-bottom py-2">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <label class="fw-medium mb-0">{{ $meta['label'] }}</label>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <input type="radio" class="btn-check" name="{{ $key }}_passed" value="1"
+                                               id="{{ $key }}_passed_yes" autocomplete="off"
+                                               {{ $rowPassed === '1' ? 'checked' : '' }}>
+                                        <label class="btn btn-outline-success" for="{{ $key }}_passed_yes" style="font-size:.7rem; padding:.15rem .5rem;">Qualified</label>
+
+                                        <input type="radio" class="btn-check" name="{{ $key }}_passed" value="0"
+                                               id="{{ $key }}_passed_no" autocomplete="off"
+                                               {{ $rowPassed === '0' ? 'checked' : '' }}>
+                                        <label class="btn btn-outline-danger" for="{{ $key }}_passed_no" style="font-size:.7rem; padding:.15rem .5rem;">Not qualified</label>
+                                    </div>
+                                </div>
+                                @if ($meta['required'])
+                                    <div class="text-muted mb-1" style="font-size:.75rem;">
+                                        Required: {{ $meta['required'] }}
+                                    </div>
+                                @endif
+                                <input type="text" name="{{ $key }}_actual" class="form-control form-control-sm"
+                                       placeholder="Candidate's actual {{ strtolower($meta['label']) }}..."
+                                       value="{{ $rowActual }}">
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <textarea name="check_notes" class="form-control form-control-sm mb-2" rows="2"
+                              placeholder="Notes about this qualification check...">{{ old('check_notes', $check['notes'] ?? '') }}</textarea>
+
+                    <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                        Save qualification check
+                    </button>
+                </form>
+
+                @if ($application->qualification_result)
+                    <hr class="my-2">
+                    <form action="{{ route('applications.qualification-notice', $application->id) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn-sm w-100" style="background-color: var(--hr-primary); color: #fff;">
+                            {{ $application->qualification_notified_at ? 'Resend result email' : 'Email result to candidate' }}
+                        </button>
+                    </form>
+                    @if ($application->qualification_notified_at)
+                        <p class="text-muted mb-0 mt-2" style="font-size:.75rem;">
+                            Last sent {{ \Carbon\Carbon::parse($application->qualification_notified_at)->format('M d, Y h:i A') }}
+                        </p>
+                    @endif
+                @endif
+            </div>
+        </div>
+
+
+
+
     </div>
 </div>
+
+@push('scripts')
+<script src="{{ asset('js/application-show-polish.js') }}"></script>
+@endpush
 @endsection

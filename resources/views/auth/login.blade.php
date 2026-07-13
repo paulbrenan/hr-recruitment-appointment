@@ -1,7 +1,6 @@
 @extends('layouts.auth')
 
 @section('title', 'Sign in')
-@section('brand', 'HR Recruitment')
 
 @section('content')
 <h5 class="mb-3">Sign in</h5>
@@ -37,8 +36,5 @@
     <button type="submit" class="btn btn-hr-primary w-100">Sign in</button>
 </form>
 
-<p class="text-center small text-muted mt-3 mb-2">
-    Don't have an account?
-</p>
 
 @endsection

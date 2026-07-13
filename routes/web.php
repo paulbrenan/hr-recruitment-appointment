@@ -83,6 +83,9 @@ Route::get('/job-postings/{id}', [JobPostingController::class, 'show'])->name('j
 Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-postings.store');
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
+Route::get('/job-postings/{id}/export-qualifications', [JobPostingController::class, 'exportQualifications'])->name('job-postings.export-qualifications');
+Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
+Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');
 
 // Rankings
 Route::get('/rankings', [RankingController::class, 'index'])->name('rankings.index');
@@ -91,22 +94,33 @@ Route::post('/rankings/send-all', [RankingController::class, 'sendAll'])->name('
 
 // Applications
 Route::get('/applications', [ApplicationController::class, 'index'])->name('applications.index');
+Route::get('/applications/export', [ApplicationController::class, 'exportExcel'])->name('applications.export');
 Route::get('/applications/{id}', [ApplicationController::class, 'show'])->name('applications.show');
 Route::put('/applications/{id}/status', [ApplicationController::class, 'updateStatus'])->name('applications.updateStatus');
-Route::delete('/applications/{id}', [ApplicationController::class, 'destroy'])->name('applications.destroy');
+Route::post('/applications/{id}/qualification-check', [ApplicationController::class, 'saveQualificationCheck'])->name('applications.qualification-check');
+Route::post('/applications/{id}/qualification-notice', [ApplicationController::class, 'sendQualificationNotice'])->name('applications.qualification-notice');
+Route::post('/job-postings/{id}/qualification-notices/send-all', [ApplicationController::class, 'sendAllQualificationNotices'])->name('applications.qualification-notices.send-all');
 
 // Scheduling
 Route::get('/interviews', [InterviewScheduleController::class, 'index'])->name('interviews.index');
 Route::post('/interviews', [InterviewScheduleController::class, 'store'])->name('interviews.store');
+Route::post('/interviews/for-posting', [InterviewScheduleController::class, 'storeForPosting'])->name('interviews.store-for-posting');
 Route::put('/interviews/{id}', [InterviewScheduleController::class, 'update'])->name('interviews.update');
 Route::delete('/interviews/{id}', [InterviewScheduleController::class, 'destroy'])->name('interviews.destroy');
+Route::get('/interviews/panelists-for-posting/{jobPostingId}', [InterviewScheduleController::class, 'panelistsForPosting'])->name('interviews.panelists-for-posting');
 
 // Assessment & ranking
 Route::get('/assessments', [AssessmentController::class, 'index'])->name('assessments.index');
+Route::get('/assessments/template', [AssessmentController::class, 'downloadImportTemplate'])->name('assessments.template');
+Route::post('/assessments/import', [AssessmentController::class, 'importScores'])->name('assessments.import');
 Route::post('/assessments/send/{application}', [AssessmentController::class, 'sendOne'])->name('assessments.send-one');
 Route::post('/assessments/criteria', [AssessmentController::class, 'storeCriterion'])->name('assessments.criteria.store');
+Route::post('/assessments/criteria/import-scan', [AssessmentController::class, 'importCriteriaScan'])->name('assessments.criteria.import-scan');
+Route::delete('/assessments/criteria/destroy-all', [AssessmentController::class, 'destroyAllCriteria'])->name('assessments.criteria.destroy-all');
 Route::delete('/assessments/criteria/{id}', [AssessmentController::class, 'destroyCriterion'])->name('assessments.criteria.destroy');
 Route::post('/assessments/scores', [AssessmentController::class, 'saveScores'])->name('assessments.scores.save');
+Route::get('/assessments/scores/import-template', [AssessmentController::class, 'downloadImportTemplate'])->name('assessments.scores.import-template');
+Route::post('/assessments/scores/import', [AssessmentController::class, 'importScores'])->name('assessments.scores.import');
 Route::post('/assessments/send-all', [AssessmentController::class, 'sendAll'])->name('assessments.send-all');
 
 // Offer management
@@ -136,3 +150,5 @@ Route::get('/appointments', [AppointmentController::class, 'index'])->name('appo
 Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
 Route::put('/appointments/{id}', [AppointmentController::class, 'update'])->name('appointments.update');
 Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy'])->name('appointments.destroy');
+// Activity Log Book (added by install_activity_log_book.php)
+Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');

@@ -5,22 +5,24 @@
 <style>
   body { font-family: Segoe UI, Arial, sans-serif; background:#f4f6f7; margin:0; padding:0; }
   .wrap { max-width:650px; margin:32px auto; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.08); }
-  .header { background:linear-gradient(120deg,#2b7a78 0%,#1d5e5c 100%); color:#fff; padding:28px 32px; text-align:center; border-bottom:4px solid #ffc20e; }
-  .header img { width:64px; height:64px; margin-bottom:10px; background:#fff; border-radius:50%; padding:4px; }
-  .header h1 { margin:0 0 4px; font-size:1.1rem; font-weight:800; }
-  .header p  { margin:0; font-size:.82rem; opacity:.85; }
+  .header { background:linear-gradient(120deg,#003087 0%,#0a1a33 100%); background-color:#003087; color:#fff; padding:32px 32px 26px; text-align:center; border-bottom:4px solid #ffd700; }
+  .header .check-icon { width:52px; height:52px; border-radius:50%; background:#fff; display:inline-block;
+                         line-height:52px; font-size:26px; font-weight:800; color:#003087; margin-bottom:14px; }
+  .header h1 { margin:0 0 10px; font-size:1.4rem; font-weight:800; }
+  .header .brand { margin:0 0 4px; font-size:.85rem; font-weight:600; opacity:.95; }
+  .header p  { margin:0; font-size:.8rem; opacity:.8; }
   .body { padding:28px 32px; color:#333; font-size:.88rem; line-height:1.6; }
-  .txn { background:#e8f5f5; border:2px dashed #2b7a78; border-radius:6px;
+  .txn { background:#e6ecf7; border:2px dashed #0047b3; border-radius:6px;
          text-align:center; padding:16px; margin:20px 0; }
   .txn .lbl { font-size:.78rem; color:#555; margin-bottom:4px; }
-  .txn .num { font-size:1.35rem; font-weight:800; color:#2b7a78; letter-spacing:.05em; }
-  .section-title { font-weight:700; font-size:.9rem; color:#2b7a78;
-                   border-bottom:2px solid #e8f5f5; padding-bottom:6px; margin:24px 0 12px; }
+  .txn .num { font-size:1.35rem; font-weight:800; color:#003087; letter-spacing:.05em; }
+  .section-title { font-weight:700; font-size:.9rem; color:#003087;
+                   border-bottom:2px solid #e6ecf7; padding-bottom:6px; margin:24px 0 12px; }
   .detail-row { display:flex; padding:5px 0; border-bottom:1px solid #f5f5f5; font-size:.84rem; }
   .detail-row .lbl { color:#666; min-width:170px; flex-shrink:0; }
   .detail-row .val { font-weight:500; }
   .req-block { background:#fafbfc; border:1px solid #e3e8ec; border-radius:6px; padding:18px 22px; margin-top:8px; font-size:.82rem; }
-  .req-block h4 { margin:0 0 10px; font-size:.88rem; color:#1a5c5a; font-weight:700; }
+  .req-block h4 { margin:0 0 10px; font-size:.88rem; color:#003087; font-weight:700; }
   .req-block ol { margin:0; padding-left:18px; }
   .req-block ol li { margin-bottom:6px; line-height:1.55; }
   .req-block ul { margin:4px 0 8px 0; padding-left:16px; }
@@ -28,7 +30,7 @@
   .req-block .sub-title { font-weight:600; margin:10px 0 4px; color:#333; }
   .add-req { background:#fff8e1; border:1px solid #ffe082; border-radius:6px; padding:18px 22px; margin-top:12px; font-size:.82rem; }
   .add-req h4 { margin:0 0 10px; font-size:.88rem; color:#b45309; font-weight:700; }
-  .note { background:#e8f5f5; border-radius:6px; padding:12px 16px; font-size:.78rem; color:#1a5c5a; margin-top:20px; line-height:1.55; }
+  .note { background:#e6ecf7; border-radius:6px; padding:12px 16px; font-size:.78rem; color:#003087; margin-top:20px; line-height:1.55; }
   .footer { background:#f4f6f7; padding:16px 32px; font-size:.75rem; color:#888; text-align:center; border-top:1px solid #e3e8ec; }
   .deped-logo { text-align:center; margin-bottom:8px; }
 </style>
@@ -38,9 +40,10 @@
 
   {{-- Header --}}
   <div class="header">
-    <img src="{{ asset('images/deped-logo.png') }}" alt="DepEd Logo">
-    <h1>Department of Education – Schools Division Office of Cavite Province</h1>
-    <p>Region IV-A &bull; Online Recruitment Form – Submission Confirmation</p>
+    <span class="check-icon">&#10003;</span>
+    <h1>Application Submitted Successfully!</h1>
+    <p class="brand">Department of Education &ndash; Schools Division Office of Cavite Province</p>
+    <p>Region IV-A &bull; Online Recruitment Form</p>
   </div>
 
   <div class="body">
@@ -52,7 +55,7 @@
 
     <div style="text-align:center; margin:20px 0;">
       <a href="{{ url('/portal/my-applications') }}"
-         style="background:#2b7a78; color:#fff; text-decoration:none; padding:12px 32px;
+         style="background:#003087; color:#fff; text-decoration:none; padding:12px 32px;
                 border-radius:6px; font-weight:700; font-size:.9rem; display:inline-block;">
         View My Application Status
       </a>
@@ -60,6 +63,15 @@
     <p style="text-align:center; font-size:.78rem; color:#888; margin-top:-8px;">
       Or copy this link: {{ url('/portal/my-applications') }}
     </p>
+
+    @if (isset($jobPosting) && $jobPosting->memoPdfUrl())
+    <div style="text-align:center; margin:14px 0 4px;">
+      <a href="{{ $jobPosting->memoPdfUrl() }}" target="_blank" rel="noopener"
+         style="color:#003087; font-weight:700; font-size:.85rem; text-decoration:underline;">
+        📄 View the Official Memo (PDF)
+      </a>
+    </div>
+    @endif
 
     {{-- Transaction Number --}}
     <div class="txn">
@@ -107,7 +119,7 @@
         <li>Photocopy of Performance Rating in the last rating period(s) covering one (1) year performance in the current/latest position, if applicable</li>
         <li>
           Checklist of Requirements and Omnibus Sworn Statement on the Certification on the Authenticity and Veracity (CAV) of the documents submitted and Data Privacy Consent Form, <strong>signed by authorized official (e.g., Brgy. Captain)</strong>.<br>
-          Access and download here: <a href="http://tinyurl.com/ChecklistOfReqtOmnibus" style="color:#2b7a78;">http://tinyurl.com/ChecklistOfReqtOmnibus</a>
+          Access and download here: <a href="http://tinyurl.com/ChecklistOfReqtOmnibus" style="color:#003087;">http://tinyurl.com/ChecklistOfReqtOmnibus</a>
         </li>
       </ol>
     </div>
@@ -184,15 +196,17 @@
       For inquiries, please contact the Human Resource Unit at:<br>
       📍 Cavite Capitol Compound, Brgy. Luciano, Trece Martires City, Cavite<br>
       📞 (046) 419-1286, 412-0349<br>
-      🌐 <a href="http://www.deped cavite.com.ph" style="color:#2b7a78;">www.depedcavite.com.ph</a><br>
+      🌐 <a href="http://www.depedcavite.com.ph" style="color:#003087;">www.depedcavite.com.ph</a><br>
       ✉️ deped.cavite@deped.gov.ph
     </p>
   </div>
 
   <div class="footer">
+    <img src="{{ $message->embed(public_path('images/deped-logo.png')) }}" alt="DepEd Logo" width="36" height="36" style="width:36px;height:36px;border-radius:50%;margin-bottom:8px;display:inline-block;">
+    <br>
     DepEd Schools Division Office of Cavite Province &bull; Human Resource Unit<br>
     This is an automated email. Please do not reply directly to this message.
-  </div>
+  </div> 
 </div>
 </body>
 </html>

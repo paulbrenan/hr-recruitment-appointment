@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobPosting;
+use App\Models\JobPostingLocation;
 use App\Models\PdfImportBatch;
 use App\Jobs\ProcessPdfImportJob;
 use Illuminate\Http\Request;
@@ -102,9 +103,36 @@ class JobPostingImportController extends Controller
         $grouped = collect($batch->candidates)
             ->groupBy('group_key')
             ->map(function ($rows) {
+                // Build parsed_locations for the review form.
+                // For table-type blocks: one entry per school row.
+                // For single-type blocks: one entry with the inline place text.
+                // place_of_assignment_parsed is null for unrecoverable/TBD rows.
+                $parsedLocations = $rows->map(function ($row) {
+                    $parsed = array_key_exists('place_of_assignment_parsed', $row)
+                        ? $row['place_of_assignment_parsed']
+                        : ($row['place_of_assignment'] ?? null);
+
+                    // Don't pre-fill "To be determined" or unrecoverable markers
+                    if ($parsed !== null) {
+                        $lc = strtolower(trim($parsed));
+                        if (str_starts_with($lc, 'to be determined') ||
+                            str_starts_with($lc, '[unreadable') ||
+                            str_starts_with($lc, '[unreadable')) {
+                            $parsed = null;
+                        }
+                    }
+
+                    return [
+                        'school'        => $parsed,
+                        'unrecoverable' => !empty($row['needs_manual_review']),
+                        'row_number'    => $row['school_row_number'] ?? null,
+                    ];
+                })->values()->toArray();
+
                 return [
-                    'label' => $rows->first()['group_label'] ?? 'Untitled position',
-                    'rows' => $rows->values(),
+                    'label'            => $rows->first()['group_label'] ?? 'Untitled position',
+                    'rows'             => $rows->values(),
+                    'parsed_locations' => $parsedLocations,
                 ];
             });
 
@@ -117,6 +145,13 @@ class JobPostingImportController extends Controller
     }
 
     // ── Confirm: bulk-create real job_postings from checked candidates ────────
+    // Each group can now carry MULTIPLE place-of-assignment rows (typed in on
+    // the review screen via the "type place, press Enter, add another" UI),
+    // instead of a single Place field. For each selected group we create one
+    // JobPosting, then bulk-insert its job_posting_locations rows -- mirroring
+    // JobPostingController::syncLocations() -- and keep the legacy
+    // place_of_assignment/vacancies columns in sync from the first location +
+    // the summed vacancy count, same convention the manual form uses.
     public function confirm(Request $request, $batchId)
     {
         $batch = PdfImportBatch::findOrFail($batchId);
@@ -137,37 +172,61 @@ class JobPostingImportController extends Controller
         }
 
         $validated = $request->validate([
-            'selected' => ['nullable', 'array'],
-            'selected.*' => ['integer'],
-            'rows' => ['required', 'array'],
-        ]);
+        'selected'                          => ['nullable', 'array'],
+        'selected.*'                        => ['integer'],
+        'rows'                              => ['required', 'array'],
+        'rows.*.title'                      => ['nullable', 'string', 'max:255'],
+        'rows.*.salary_grade'               => ['nullable', 'string', 'max:50'],
+        'rows.*.vacancies'                  => ['nullable', 'integer', 'min:1'],
+        'rows.*.location_place'             => ['nullable', 'array'],
+        'rows.*.location_place.*'           => ['nullable', 'string', 'max:500'],
+        'rows.*.qualification_education'    => ['nullable', 'string'],
+        'rows.*.qualification_training'     => ['nullable', 'string'],
+        'rows.*.qualification_experience'   => ['nullable', 'string'],
+        'rows.*.qualification_eligibility'  => ['nullable', 'string'],
+        'rows.*.duties_responsibilities'    => ['nullable', 'string'],
+            ]);
 
         $selectedIndexes = array_flip($validated['selected'] ?? []);
         $editedRows = $validated['rows'];
 
-        // Real requirements extracted from THIS document's cover memo
-        // (Fix 2) — applied to every posting created from this import.
-        // No more silent fallback to the old hardcoded standard A-J
-        // default: if extraction found nothing for this particular PDF,
-        // these fields are simply left null, same as any manually
-        // created posting where HR hasn't filled them in yet.
-        $extractedRequirements = $batch->requirements ?? ['mandatory' => [], 'additional' => ''];
-        $mandatoryText = !empty($extractedRequirements['mandatory'])
-            ? implode("\n", $extractedRequirements['mandatory'])
-            : null;
-        $additionalText = !empty($extractedRequirements['additional'])
-            ? $extractedRequirements['additional']
-            : null;
+        // Mandatory/additional requirements are NOT copied onto each
+        // created posting here anymore. RequirementsExtractor always
+        // returns the same static DepEd-standard text regardless of which
+        // PDF was uploaded, so duplicating that block into every single
+        // imported JobPosting row's mandatory_requirements/
+        // additional_requirements columns just bloats storage for no
+        // benefit. These columns stay null on import (same as a manual
+        // posting HR hasn't filled them in for yet) — JobPosting::
+        // mandatoryRequirementsList()/additionalRequirementsList() fall
+        // back to the same static defaults at display time instead, from
+        // one source of truth.
 
         $created = 0;
         $skipped = 0;
 
+        // The tmp PDF at $batch->pdf_path no longer exists by this point --
+        // ProcessPdfImportJob's cleanupTmp() deletes it right after OCR
+        // finishes, long before the user reaches this confirm step. That
+        // job already copies the memo PDF into permanent public storage
+        // and stamps the path onto the batch while the file still exists,
+        // so we just read it from there. Every posting created from this
+        // import links back to the same file so applicants can view the
+        // exact source document.
+        $memoPdfPath = $batch->memo_pdf_path;
+
         // How far back to look when deciding a row is "the same import,
         // done again" rather than a genuinely new posting for the same
-        // title/location. Re-running the same PDF (new upload, new batch
-        // id) isn't caught by the confirm()-level lock above since it's a
-        // different batch each time -- this is what actually protects
-        // against that case.
+        // title. Re-running the same PDF (new upload, new batch id) isn't
+        // caught by the confirm()-level lock above since it's a different
+        // batch each time -- this is what actually protects against that
+        // case.
+        //
+        // NOTE: this now matches on title alone (not title + place), since
+        // a single group can fan out into several locations at once. If you
+        // re-run the same PDF and only add a NEW location to an existing
+        // title, the whole group is skipped rather than partially
+        // re-created -- flag if you'd rather this check per-location.
         $recentWindow = now()->subHours(24);
 
         foreach ($editedRows as $index => $rowData) {
@@ -176,16 +235,30 @@ class JobPostingImportController extends Controller
             }
 
             $title = $rowData['title'];
-            $place = $rowData['place_of_assignment'] ?? null;
+
+            // Build location rows from the flat location_place[] array.
+            // Duplicate entries for the same school name = multiple vacancies
+            // for that school. Blank rows are dropped.
+            $placeCounts = [];
+            foreach (($rowData['location_place'] ?? []) as $place) {
+                $place = trim($place);
+                if ($place === '') continue;
+                $placeCounts[$place] = ($placeCounts[$place] ?? 0) + 1;
+            }
+
+            $locationRows = [];
+            foreach ($placeCounts as $place => $count) {
+                $locationRows[] = [
+                    'place_of_assignment' => $place,
+                    'vacancies'           => $count,
+                ];
+            }
+
+            // Use the top-level vacancies field HR edited (or fall back to
+            // total from location rows, or 1 if nothing was entered).
+            $hrVacancies = max(1, (int) ($rowData['vacancies'] ?? 0));
 
             $alreadyImported = JobPosting::where('title', $title)
-                ->where(function ($query) use ($place) {
-                    if ($place === null) {
-                        $query->whereNull('place_of_assignment');
-                    } else {
-                        $query->where('place_of_assignment', $place);
-                    }
-                })
                 ->where('created_at', '>=', $recentWindow)
                 ->exists();
 
@@ -194,7 +267,10 @@ class JobPostingImportController extends Controller
                 continue;
             }
 
-            JobPosting::create([
+            $firstPlace     = $locationRows[0]['place_of_assignment'] ?? null;
+            $totalVacancies = $hrVacancies; // HR's edited top-level vacancies field
+
+            $posting = JobPosting::create([
                 'title' => $title,
                 'salary_grade' => $rowData['salary_grade'] ?? null,
                 'qualification_education' => $rowData['qualification_education'] ?? null,
@@ -202,13 +278,29 @@ class JobPostingImportController extends Controller
                 'qualification_experience' => $rowData['qualification_experience'] ?? null,
                 'qualification_eligibility' => $rowData['qualification_eligibility'] ?? null,
                 'duties_responsibilities' => $rowData['duties_responsibilities'] ?? null,
-                'place_of_assignment' => $place,
-                'mandatory_requirements' => $mandatoryText,
-                'additional_requirements' => $additionalText,
-                'vacancies' => max(1, (int) ($rowData['vacancies'] ?? 1)),
+                // Legacy single-location columns, kept in sync from the
+                // first entered location -- same convention as
+                // syncLocations() uses on the manual job posting form.
+                'place_of_assignment' => $firstPlace,
+                'memo_pdf_path' => $memoPdfPath,
+                'vacancies' => $totalVacancies,
                 'employment_type' => 'Regular',
                 'status' => 'open',
             ]);
+
+            if (!empty($locationRows)) {
+                $insertRows = [];
+                foreach ($locationRows as $loc) {
+                    $insertRows[] = [
+                        'job_posting_id' => $posting->id,
+                        'place_of_assignment' => $loc['place_of_assignment'],
+                        'vacancies' => $loc['vacancies'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                JobPostingLocation::insert($insertRows);
+            }
 
             $created++;
         }

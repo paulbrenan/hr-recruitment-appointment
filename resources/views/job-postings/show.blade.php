@@ -348,14 +348,7 @@
                             <span class="badge text-bg-light text-dark border ms-1">{{ $applications->count() }}</span>
                         </h6>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            @if ($locations->count() > 1)
-                            <select id="qualLocationFilter" class="form-select form-select-sm" style="max-width:280px;">
-                                <option value="">All places of assignment</option>
-                                @foreach ($locations as $loc)
-                                <option value="{{ $loc->id }}">{{ $loc->place_of_assignment }} ({{ $applications->where('job_posting_location_id', $loc->id)->count() }})</option>
-                                @endforeach
-                            </select>
-                            @endif
+
                             @if ($allChecked)
                             <a href="{{ route('job-postings.export-qualifications', $posting->id) }}"
                                class="btn btn-sm btn-outline-success">
@@ -1216,6 +1209,12 @@ document.getElementById('qualLocationFilter')?.addEventListener('change', functi
     });
 });
 
+// ── Schedule modal: update applicant count when location filter changes ────
+document.getElementById('schedLocationSelect')?.addEventListener('change', function () {
+    // Nothing needed — the server handles filtering on submit.
+    // Could show a live count here in future.
+});
+
 // ── Schedule modal: type checkboxes "select all" + at-least-one guard ──────
 document.getElementById('schedTypeSelectAll')?.addEventListener('change', function () {
     document.querySelectorAll('.sched-type-checkbox').forEach(cb => cb.checked = this.checked);
@@ -1234,6 +1233,7 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
         e.preventDefault();
         alert('Please select at least one schedule type.');
     }
+
 });
 </script>
 @endpush

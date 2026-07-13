@@ -681,12 +681,6 @@
                         </button>
                     </form>
                     @endif
-
-                    @if ($posting->status !== 'closed')
-                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#importCriteriaModal">
-                        <i class="bi bi-upload me-1"></i> Scan file for criteria
-                    </button>
-                    @endif
                 </div>
             </div>
         </div>
@@ -695,40 +689,6 @@
 </div>{{-- row --}}
 
 {{-- ── Modals ────────────────────────────────────────────────────────────── --}}
-
-{{-- Scan file for assessment criteria --}}
-<div class="modal fade" id="importCriteriaModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ route('assessments.criteria.import-scan') }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
-                <div class="modal-header">
-                    <h6 class="modal-title">Scan file for assessment criteria</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted small">
-                        Upload a PDF, Word document, Excel file, or photo of the criteria table
-                        (e.g. a CSC merit selection form). The system scans it for recognized
-                        criteria names — Education, Training, Experience, Performance,
-                        Outstanding Accomplishments, Application of Education, Application of
-                        Learning and Development, Potential — and adds whichever ones it finds,
-                        using their standard weight.
-                    </p>
-                    <input type="file" name="criteria_file" class="form-control form-control-sm"
-                           accept=".pdf,.docx,.xlsx,.xls,.jpg,.jpeg,.png" required>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">
-                        <i class="bi bi-upload me-1"></i> Scan &amp; add criteria
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 {{-- New Schedule (per-job: schedules ALL qualified applicants at once) --}}
 <div class="modal fade" id="newScheduleModal" tabindex="-1">

@@ -153,7 +153,8 @@ class InterviewScheduleController extends Controller
         $validated = $request->validate([
             'job_posting_id'          => ['required', 'exists:job_postings,id'],
             'job_posting_location_id' => ['nullable', 'exists:job_posting_locations,id'],
-            'type'                    => ['required', 'in:open_ranking,interview,exam'],
+            'type'                    => ['required', 'array', 'min:1'],
+            'type.*'                  => ['in:open_ranking,interview,exam'],
             'scheduled_at'            => ['required', 'date'],
             'location'                => ['nullable', 'string', 'max:255'],
             'panelist_ids'            => ['nullable', 'array'],
@@ -177,26 +178,28 @@ class InterviewScheduleController extends Controller
 
         $created = 0;
         foreach ($applications as $application) {
-            $schedule = InterviewSchedule::create([
-                'application_id' => $application->id,
-                'type'           => $validated['type'],
-                'scheduled_at'   => $validated['scheduled_at'],
-                'location'       => $validated['location'] ?? null,
-                'status'         => 'scheduled',
-            ]);
+            foreach ($validated['type'] as $type) {
+                $schedule = InterviewSchedule::create([
+                    'application_id' => $application->id,
+                    'type'           => $type,
+                    'scheduled_at'   => $validated['scheduled_at'],
+                    'location'       => $validated['location'] ?? null,
+                    'status'         => 'scheduled',
+                ]);
 
-            if (!empty($panelistIds)) {
-                $schedule->panelists()->sync($panelistIds);
+                if (!empty($panelistIds)) {
+                    $schedule->panelists()->sync($panelistIds);
+                }
+
+                // Send invitation to candidate (one per selected type)
+                try {
+                    $application->candidate->notify(new \App\Notifications\ScheduleInvitationNotification($schedule));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to send schedule invitation: ' . $e->getMessage());
+                }
+
+                $created++;
             }
-
-            // Send invitation to candidate
-            try {
-                $application->candidate->notify(new \App\Notifications\ScheduleInvitationNotification($schedule));
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Failed to send schedule invitation: ' . $e->getMessage());
-            }
-
-            $created++;
         }
 
         // Redirect back to the job posting pipeline (Step 3)

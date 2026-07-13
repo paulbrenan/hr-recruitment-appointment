@@ -115,9 +115,8 @@ Route::get('/assessments/template', [AssessmentController::class, 'downloadImpor
 Route::post('/assessments/import', [AssessmentController::class, 'importScores'])->name('assessments.import');
 Route::post('/assessments/send/{application}', [AssessmentController::class, 'sendOne'])->name('assessments.send-one');
 Route::post('/assessments/criteria', [AssessmentController::class, 'storeCriterion'])->name('assessments.criteria.store');
-Route::post('/assessments/criteria/import-scan', [AssessmentController::class, 'importCriteriaScan'])->name('assessments.criteria.import-scan');
-Route::delete('/assessments/criteria/destroy-all', [AssessmentController::class, 'destroyAllCriteria'])->name('assessments.criteria.destroy-all');
 Route::delete('/assessments/criteria/{id}', [AssessmentController::class, 'destroyCriterion'])->name('assessments.criteria.destroy');
+Route::delete('/assessments/criteria/destroy-all', [AssessmentController::class, 'destroyAllCriteria'])->name('assessments.criteria.destroy-all');
 Route::post('/assessments/scores', [AssessmentController::class, 'saveScores'])->name('assessments.scores.save');
 Route::get('/assessments/scores/import-template', [AssessmentController::class, 'downloadImportTemplate'])->name('assessments.scores.import-template');
 Route::post('/assessments/scores/import', [AssessmentController::class, 'importScores'])->name('assessments.scores.import');

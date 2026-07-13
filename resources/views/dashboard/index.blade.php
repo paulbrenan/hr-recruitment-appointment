@@ -47,7 +47,7 @@
         </a>
     </div>
     <div class="col-md-3">
-        <a href="{{ route('interviews.index') }}" class="stat-card-link">
+        <a href="{{ route('job-postings.index') }}" class="stat-card-link">
             <div class="card stat-card p-3">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
@@ -107,7 +107,7 @@
             <div class="card-body p-3">
                 <h6 class="mb-3">Upcoming interviews &amp; exams</h6>
                 @forelse ($upcomingSchedules as $s)
-                <a href="{{ route('interviews.index') }}" class="row-link">
+                <a href="{{ route('job-postings.show', $s->application->job_posting_id) }}" class="row-link">
                     <div class="d-flex justify-content-between align-items-center border-bottom py-2 dash-row">
                         <div>
                             <div class="fw-medium small">{{ $s->application->candidate->full_name }}</div>
@@ -119,7 +119,7 @@
                 @empty
                 <p class="text-muted small mb-0">No upcoming interviews or exams scheduled.</p>
                 @endforelse
-                <a href="{{ route('interviews.index') }}" class="small d-block mt-2 view-all-link">View full schedule <i class="bi bi-arrow-right"></i></a>
+                <a href="{{ route('job-postings.index') }}" class="small d-block mt-2 view-all-link">View full schedule <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>

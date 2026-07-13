@@ -777,7 +777,8 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label small">Date &amp; time</label>
-                        <input type="datetime-local" name="scheduled_at" class="form-control form-control-sm" required>
+                        <input type="datetime-local" name="scheduled_at" class="form-control form-control-sm"
+                               min="{{ now()->format('Y-m-d\TH:i') }}" required>
                     </div>
                     <div class="mb-2">
                         <label class="form-label small">Venue</label>
@@ -793,9 +794,6 @@
                                            value="{{ $p->id }}" id="sp{{ $p->id }}">
                                     <label class="form-check-label small" for="sp{{ $p->id }}">
                                         {{ $p->name }}
-                                        <span class="badge ms-1 {{ $p->pivot->is_available ? 'text-bg-success' : 'text-bg-secondary' }}" style="font-size:.65rem;">
-                                            {{ $p->pivot->is_available ? 'Available' : 'Unavailable' }}
-                                        </span>
                                     </label>
                                 </div>
                                 @endforeach

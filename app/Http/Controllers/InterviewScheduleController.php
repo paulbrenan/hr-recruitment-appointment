@@ -21,7 +21,7 @@ class InterviewScheduleController extends Controller
         return [
             'application_id'  => ['required', 'exists:applications,id'],
             'type'            => ['required', 'in:open_ranking,interview,exam'],
-            'scheduled_at'    => ['required', 'date'],
+            'scheduled_at'    => ['required', 'date', 'after_or_equal:now'],
             'location'        => ['nullable', 'string', 'max:255'],
             // Legacy single-interviewer fields — kept nullable so old data survives
             'interviewer_name'  => ['nullable', 'string', 'max:255'],
@@ -45,17 +45,10 @@ class InterviewScheduleController extends Controller
             'remarks'           => ['nullable', 'string'],
         ];
     }
-    public function index()
-    {
-        // Farthest future date at the top, nearest dates below it,
-        // descending all the way down to the oldest past schedule.
-        $schedules = InterviewSchedule::with(['application.candidate', 'application.jobPosting', 'panelists'])
-            ->orderBy('scheduled_at', 'desc')
-            ->get();
-        $applications    = Application::with(['candidate', 'jobPosting'])->get();
-        $allPanelists    = Panelist::orderBy('name')->get();
-        return view('interviews.index', compact('schedules', 'applications', 'allPanelists'));
-    }
+    // index() removed -- the old standalone Scheduling page is gone.
+    // Schedules are now created and managed directly inside the
+    // job-postings pipeline's "Open Ranking & Scheduling" step.
+
     public function store(Request $request)
     {
         $validated = $request->validate($this->createRules());
@@ -107,9 +100,7 @@ class InterviewScheduleController extends Controller
             }
         }
 
-        return redirect()
-            ->route('interviews.index')
-            ->with('success', 'Schedule created successfully. Invitation email sent.');
+        return back()->with('success', 'Schedule created successfully. Invitation email sent.');
     }
     public function update(Request $request, $id)
     {
@@ -119,9 +110,7 @@ class InterviewScheduleController extends Controller
         unset($validated['panelist_ids']);
         $schedule->update($validated);
         $schedule->panelists()->sync($panelistIds);
-        return redirect()
-            ->route('interviews.index')
-            ->with('success', 'Schedule updated successfully.');
+        return back()->with('success', 'Schedule updated successfully.');
     }
     /**
      * GET /interviews/panelists-for-posting/{jobPostingId}
@@ -155,7 +144,7 @@ class InterviewScheduleController extends Controller
             'job_posting_location_id' => ['nullable', 'exists:job_posting_locations,id'],
             'type'                    => ['required', 'array', 'min:1'],
             'type.*'                  => ['in:open_ranking,interview,exam'],
-            'scheduled_at'            => ['required', 'date'],
+            'scheduled_at'            => ['required', 'date', 'after_or_equal:now'],
             'location'                => ['nullable', 'string', 'max:255'],
             'panelist_ids'            => ['nullable', 'array'],
             'panelist_ids.*'          => ['exists:panelists,id'],
@@ -212,8 +201,6 @@ class InterviewScheduleController extends Controller
     {
         $schedule = InterviewSchedule::findOrFail($id);
         $schedule->delete();
-        return redirect()
-            ->route('interviews.index')
-            ->with('success', 'Schedule deleted successfully.');
+        return back()->with('success', 'Schedule deleted successfully.');
     }
 }

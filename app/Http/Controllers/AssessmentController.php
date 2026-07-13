@@ -16,86 +16,10 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class AssessmentController extends Controller
 {
-    public function index(Request $request)
-    {
-        // All postings with their locations eager-loaded
-        $allPostings = JobPosting::with('locations')->orderBy('title')->get();
-
-        // Unique titles for the first dropdown
-        $postings = $allPostings->unique('title')->values();
-
-        // Which title is selected? Default to the first unique title.
-        $selectedTitle = $request->query('title');
-        if (!$selectedTitle && $postings->isNotEmpty()) {
-            $selectedTitle = $postings->first()->title;
-        }
-
-        // All postings matching the selected title (one per place of assignment)
-        $locationPostings = $allPostings->where('title', $selectedTitle)->values();
-
-        // Which specific posting (place of assignment) is selected?
-        $selectedPostingId = $request->query('job_posting');
-
-        // Auto-select the first location posting if none chosen yet
-        if (!$selectedPostingId && $locationPostings->isNotEmpty()) {
-            $selectedPostingId = $locationPostings->first()->id;
-        }
-
-        $criteria = AssessmentCriterion::where('job_posting_id', $selectedPostingId)
-            ->orderBy('id')
-            ->get();
-
-        $usedWeight = $criteria->sum('weight_percentage');
-        $remainingWeight = max(0, 100 - $usedWeight);
-
-        $applications = Application::with(['candidate', 'assessments'])
-            ->where('job_posting_id', $selectedPostingId)
-            ->get();
-
-        $selectedPosting = JobPosting::with('locations')->find($selectedPostingId);
-
-        $rankedCandidates = $applications->map(function ($app) use ($criteria) {
-            $scores = [];
-            $total = 0;
-
-            foreach ($criteria as $c) {
-                $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
-                $score = $assessment ? (float) $assessment->score : null;
-                $scores[$c->id] = $score;
-                if ($score !== null) {
-                    $total += $score;
-                }
-            }
-
-            // The official CAR form's "Application Code" is the applicant-facing
-            // identifier that stays visible when the name is concealed for public
-            // posting (RA No. 10163 / Data Privacy Act) — the app already generates
-            // one per application, so reuse it rather than adding a new field.
-            $remarks = optional($app->assessments->first())->evaluator_remarks;
-
-            return (object) [
-                'application_id'   => $app->id,
-                'application_code' => $app->transaction_number,
-                'candidate'        => $app->candidate,
-                'candidate_name'   => $app->candidate?->full_name ?? 'Unknown',
-                'scores'           => $scores,
-                'total_score'      => $total,
-                'remarks'          => $remarks,
-                'notification_sent' => $app->status === 'ranking_sent',
-            ];
-        })->sortByDesc('total_score')->values();
-
-        // Attach rank and passed flag
-        $total_count = $rankedCandidates->count();
-        $rankedCandidates = $rankedCandidates->map(function ($cand, $i) use ($total_count) {
-            $cand->rank   = $i + 1;
-            $cand->passed = $cand->total_score >= 75;
-            $cand->total  = $total_count;
-            return $cand;
-        });
-
-        return view('assessments.index', compact('criteria', 'rankedCandidates', 'postings', 'selectedPostingId', 'selectedPosting', 'usedWeight', 'remainingWeight', 'locationPostings', 'selectedTitle'));
-    }
+    // index() removed -- the old standalone Assessment & Ranking page is
+    // gone. Its data (criteria, ranked candidates, weights) is now built
+    // directly inside the job-postings pipeline's Assessment & Results
+    // step -- see JobPostingController / the pipeline view instead.
 
     public function storeCriterion(Request $request)
     {
@@ -122,9 +46,7 @@ class AssessmentController extends Controller
 
         AssessmentCriterion::create($validated);
 
-        return redirect()
-            ->route('assessments.index', ['job_posting' => $validated['job_posting_id']])
-            ->with('success', 'Assessment criterion added.');
+        return back()->with('success', 'Assessment criterion added.');
     }
 
     public function destroyCriterion($id)
@@ -133,9 +55,7 @@ class AssessmentController extends Controller
         $jobPostingId = $criterion->job_posting_id;
         $criterion->delete();
 
-        return redirect()
-            ->route('assessments.index', ['job_posting' => $jobPostingId])
-            ->with('success', 'Assessment criterion removed.');
+        return back()->with('success', 'Assessment criterion removed.');
     }
 
     /**
@@ -540,9 +460,7 @@ class AssessmentController extends Controller
             $message .= ' Skipped out-of-range scores: ' . implode(', ', array_unique($outOfRange)) . '.';
         }
 
-        return redirect()
-            ->route('assessments.index', ['job_posting' => $jobPostingId])
-            ->with((!empty($unmatchedCodes) || !empty($outOfRange)) ? 'error' : 'success', $message);
+        return back()->with((!empty($unmatchedCodes) || !empty($outOfRange)) ? 'error' : 'success', $message);
     }
 
     public function saveScores(Request $request)
@@ -590,9 +508,7 @@ class AssessmentController extends Controller
         // Auto-send ranking notification after scores are saved
         $this->autoSendNotification($validated['application_id'], $validated['job_posting_id']);
 
-        return redirect()
-            ->route('assessments.index', ['job_posting' => $validated['job_posting_id']])
-            ->with('success', 'Scores saved and ranking notification sent to the applicant.');
+        return back()->with('success', 'Scores saved and ranking notification sent to the applicant.');
     }
 
     /**
@@ -691,9 +607,7 @@ class AssessmentController extends Controller
         $app->candidate->notify(new RankingResultNotification($ranked, $posting));
         $app->update(['status' => 'ranking_sent']);
 
-        return redirect()
-            ->route('assessments.index', ['job_posting' => $request->job_posting_id])
-            ->with('success', "Notification sent to {$app->candidate->full_name}.");
+        return back()->with('success', "Notification sent to {$app->candidate->full_name}.");
     }
 
     /**
@@ -748,8 +662,6 @@ class AssessmentController extends Controller
             $sent++;
         }
 
-        return redirect()
-            ->route('assessments.index', ['job_posting' => $request->job_posting_id])
-            ->with('success', "Ranking notifications sent to {$sent} applicant(s).");
+        return back()->with('success', "Ranking notifications sent to {$sent} applicant(s).");
     }
 }

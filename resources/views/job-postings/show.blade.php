@@ -62,11 +62,13 @@
                     @foreach ($steps as $num => $step)
                     @php
                         // isDone/isActive reflect which panel is actually being
-                        // viewed ($activeStep), not the status-driven lock
-                        // boundary ($currentStep) — otherwise step 1 shows as
-                        // "done" the moment status is open, even while still
-                        // sitting on step 1 itself.
-                        $isDone   = $activeStep > $num;
+                        // $isDone reflects real progress ($currentStep, the
+                        // lock boundary) so a step's checkmark persists no
+                        // matter which panel you're currently viewing.
+                        // $isActive reflects which panel you're viewing
+                        // ($activeStep) and is independent of $isDone -- you
+                        // can be actively viewing a step that's already done.
+                        $isDone   = $currentStep > $num;
                         $isActive = $activeStep === $num;
                         $isLocked = $currentStep < $num;
                     @endphp
@@ -99,7 +101,7 @@
                     @if ($num < 4)
                     <div class="step-connector" id="step-connector-{{ $num }}"
                          style="width:3px;height:14px;margin-left:calc(0.5rem + 10px);
-                                background:{{ $activeStep > $num ? '#198754' : '#dee2e6' }};"></div>
+                                background:{{ $currentStep > $num ? '#198754' : '#dee2e6' }};"></div>
                     @endif
                     @endforeach
                 </div>
@@ -1065,7 +1067,7 @@ function updateStepTracker(n) {
     document.querySelectorAll('.step-row').forEach(row => {
         const step     = parseInt(row.dataset.step, 10);
         const isActive = step === n;
-        const isDone   = n > step;
+        const isDone   = currentStep > step; // real progress, not the step being viewed
 
         row.classList.toggle('bg-primary', isActive);
         row.classList.toggle('bg-opacity-10', isActive);
@@ -1092,7 +1094,7 @@ function updateStepTracker(n) {
 
     document.querySelectorAll('.step-connector').forEach(conn => {
         const step = parseInt(conn.id.replace('step-connector-', ''), 10);
-        conn.style.background = n > step ? '#198754' : '#dee2e6';
+        conn.style.background = currentStep > step ? '#198754' : '#dee2e6';
     });
 }
 

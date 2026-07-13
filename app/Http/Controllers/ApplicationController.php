@@ -303,7 +303,20 @@ class ApplicationController extends Controller
             ->get();
 
         $sent = 0;
+        $first = true;
         foreach ($applications as $application) {
+            // Throttle: mail sandboxes (e.g. Mailtrap testing plan) reject
+            // rapid consecutive sends with "550 Too many emails per
+            // second". A short pause between sends keeps us under that
+            // limit without meaningfully slowing down the request.
+            if (!$first) {
+                // Mailtrap's Sandbox rate limit is a rolling 10-second
+                // window (not literally "per second" despite the error
+                // text) -- 12s clears it with margin.
+                sleep(12);
+            }
+            $first = false;
+
             try {
                 $application->candidate->notify(new QualificationResultNotification($application));
                 $application->update(['qualification_notified_at' => now()]);

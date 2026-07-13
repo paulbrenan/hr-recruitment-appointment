@@ -337,14 +337,7 @@
                             <span class="badge text-bg-light text-dark border ms-1">{{ $applications->count() }}</span>
                         </h6>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            @if ($locations->count() > 1)
-                            <select id="qualLocationFilter" class="form-select form-select-sm" style="max-width:280px;">
-                                <option value="">All places of assignment</option>
-                                @foreach ($locations as $loc)
-                                <option value="{{ $loc->id }}">{{ $loc->place_of_assignment }} ({{ $applications->where('job_posting_location_id', $loc->id)->count() }})</option>
-                                @endforeach
-                            </select>
-                            @endif
+
                             @if ($allChecked)
                             <a href="{{ route('job-postings.export-qualifications', $posting->id) }}"
                                class="btn btn-sm btn-outline-success">
@@ -1075,20 +1068,6 @@ document.getElementById('qualCheckModal')?.addEventListener('show.bs.modal', fun
         if (targetId) document.getElementById(targetId)?.setAttribute('checked', 'checked'), document.getElementById(targetId).checked = true;
     });
     document.getElementById('qualCheckNotes').value = check.notes ?? '';
-});
-
-// ── Qualification checking: filter by place of assignment ──────────────────
-document.getElementById('qualLocationFilter')?.addEventListener('change', function () {
-    const val = this.value;
-    document.querySelectorAll('#panel-2 [data-location-id]').forEach(row => {
-        if (!val) {
-            row.style.display = ''; // show all when no filter
-        } else {
-            // Rows with no location (null) match all filters — don't hide them
-            const rowLoc = row.dataset.locationId;
-            row.style.display = (!rowLoc || rowLoc === 'null' || rowLoc === val) ? '' : 'none';
-        }
-    });
 });
 
 // ── Schedule modal: update applicant count when location filter changes ────

@@ -13,6 +13,15 @@
         <p class="text-muted mb-0 small">Manage open positions, qualifications, and assignment details</p>
     </div>
     <div class="d-flex gap-2">
+        @if ($showArchived ?? false)
+            <a href="{{ route('job-postings.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back to active postings
+            </a>
+        @else
+            <a href="{{ route('job-postings.index', ['archived' => 1]) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-archive me-1"></i> Show archived
+            </a>
+        @endif
         <a href="{{ route('job-postings.import.create') }}" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-file-earmark-pdf me-1"></i> Import from PDF
         </a>
@@ -23,6 +32,14 @@
 </div>
 
 <div class="row mb-3 g-2">
+    @if ($showArchived ?? false)
+    <div class="col-md-2">
+        <div class="card p-3">
+            <div class="text-muted small">Archived</div>
+            <div class="fs-4 fw-semibold">{{ $postings->count() }}</div>
+        </div>
+    </div>
+    @else
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Open</div>
@@ -53,6 +70,7 @@
             <div class="fs-4 fw-semibold">{{ $postings->sum(fn($p) => $p->locations->sum('vacancies') ?: $p->vacancies) }}</div>
         </div>
     </div>
+    @endif
 </div>
 
 <div class="card">
@@ -131,12 +149,14 @@
                                 'interview_scheduled' => 'primary',
                                 'ranking'             => 'warning',
                                 'closed'              => 'dark',
+                                'archived'            => 'secondary',
                             ];
                             $statusLabels = [
                                 'open'                => 'Open',
                                 'interview_scheduled' => 'Interview',
                                 'ranking'             => 'Ranking',
                                 'closed'              => 'Closed',
+                                'archived'            => 'Archived',
                             ];
                         @endphp
                         <span class="badge badge-status text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }}">

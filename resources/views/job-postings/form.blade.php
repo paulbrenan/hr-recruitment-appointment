@@ -190,11 +190,15 @@
 
                 <div class="col-md-4">
                     <label class="form-label small fw-medium">Posted date</label>
-                    <input type="date" class="form-control" name="posted_at" value="{{ old('posted_at', optional($posting->posted_at ?? null)->format('Y-m-d')) }}">
+                    <input type="date" class="form-control" name="posted_at"
+                           value="{{ old('posted_at', optional($posting->posted_at ?? null)->format('Y-m-d')) }}"
+                           @if (!$posting->exists) min="{{ now()->format('Y-m-d') }}" @endif>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small fw-medium">Closes</label>
-                    <input type="date" class="form-control" name="closes_at" value="{{ old('closes_at', optional($posting->closes_at ?? null)->format('Y-m-d')) }}">
+                    <input type="date" class="form-control" name="closes_at"
+                           value="{{ old('closes_at', optional($posting->closes_at ?? null)->format('Y-m-d')) }}"
+                           @if (!$posting->exists) min="{{ now()->format('Y-m-d') }}" @endif>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small fw-medium">Status</label>

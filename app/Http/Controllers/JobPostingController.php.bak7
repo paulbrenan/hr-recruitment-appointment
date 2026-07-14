@@ -115,7 +115,7 @@ class JobPostingController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->rules(forCreate: true));
+        $validated = $request->validate($this->rules());
 
         // Don't create a duplicate posting for a title that already
         // exists -- merge the submitted place(s) of assignment into the

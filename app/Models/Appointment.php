@@ -15,11 +15,13 @@ class Appointment extends Model
         'appointment_date',
         'onboarding_date',
         'appointment_paper_path',
+        'letter_sent_at',
     ];
 
     protected $casts = [
         'appointment_date' => 'date',
         'onboarding_date' => 'date',
+        'letter_sent_at' => 'datetime',
     ];
 
     public function application(): BelongsTo

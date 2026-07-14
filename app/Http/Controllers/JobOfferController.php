@@ -4,11 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\JobOffer;
 use App\Models\Application;
+use App\Notifications\OfferLetterNotification;
 use Illuminate\Http\Request;
 
 class JobOfferController extends Controller
 {
-    private const MIN_COMPENSATION = 14634; // Salary Grade 1, Step 1 (EO No. 64, SG SA 2026 table)
+    // SG 1 Step 1 — derived from config/salary_grades.php at runtime
+    private function minCompensation(): int
+    {
+        return config('salary_grades.table.1.0', 14634); // index 0 = step 1
+    }
 
     public function index()
     {
@@ -22,36 +27,38 @@ class JobOfferController extends Controller
             ->orderByDesc('applied_at')
             ->get();
 
-        $minCompensation = self::MIN_COMPENSATION;
+        $minCompensation = $this->minCompensation();
 
         return view('offers.index', compact('offers', 'eligibleApplications', 'minCompensation'));
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate(
-            [
-                'application_id' => 'required|exists:applications,id|unique:job_offers,application_id',
-                'compensation' => 'required|numeric|min:' . self::MIN_COMPENSATION,
-                'response_deadline' => 'nullable|date|after_or_equal:today',
-                'benefits' => 'nullable|string',
-                'terms' => 'nullable|string',
-            ],
-            [
-                'compensation.min' => 'Compensation cannot be below \u20b1' . number_format(self::MIN_COMPENSATION, 0) . ' (Salary Grade 1, Step 1, the government minimum).',
-            ]
-        );
-
-        JobOffer::create([
-            'application_id' => $validated['application_id'],
-            'compensation' => $validated['compensation'],
-            'response_deadline' => $validated['response_deadline'] ?? null,
-            'benefits' => $validated['benefits'] ?? null,
-            'terms' => $validated['terms'] ?? null,
-            'status' => 'draft',
+        $validated = $request->validate([
+            'application_id'  => 'required|exists:applications,id|unique:job_offers,application_id',
+            'salary_grade'    => 'required|integer|min:1|max:33',
+            'salary_step'     => 'required|integer|min:1|max:8',
+            'response_deadline' => 'nullable|date|after_or_equal:today',
+            'benefits'        => 'nullable|string',
+            'terms'           => 'nullable|string',
         ]);
 
-        return redirect()->route('offers.index')->with('success', 'Offer generated as draft.');
+        // Resolve the exact compensation from the official SG table
+        $grade        = (int) $validated['salary_grade'];
+        $step         = (int) $validated['salary_step'];
+        $sgTable      = config('salary_grades.table');
+        $compensation = $sgTable[$grade][$step - 1] ?? $this->minCompensation();
+
+        JobOffer::create([
+            'application_id'    => $validated['application_id'],
+            'compensation'      => $compensation,
+            'response_deadline' => $validated['response_deadline'] ?? null,
+            'benefits'          => $validated['benefits'] ?? null,
+            'terms'             => $validated['terms'] ?? null,
+            'status'            => 'draft',
+        ]);
+
+        return redirect()->route('offers.index')->with('success', "Offer generated as draft — SG {$grade} Step {$step} (₱" . number_format($compensation, 2) . ').');
     }
 
     public function send($id)
@@ -69,7 +76,19 @@ class JobOfferController extends Controller
 
         $offer->application->update(['status' => 'offer_sent']);
 
-        return redirect()->route('offers.index')->with('success', 'Offer sent to candidate.');
+        // Reload with relations so the notification has candidate/jobPosting
+        // available without extra queries inside the Notification class.
+        $offer->load(['application.candidate', 'application.jobPosting']);
+
+        // Deliver the formal offer letter to the candidate.
+        $offer->application->candidate->notify(new OfferLetterNotification($offer));
+
+        // Stamp separately from offer_sent_at (which tracks the business
+        // status) so this column reflects actual email dispatch, matching
+        // the reminder_sent_at guard pattern used in interview schedules.
+        $offer->update(['email_sent_at' => now()]);
+
+        return redirect()->route('offers.index')->with('success', 'Offer sent to candidate. Offer letter emailed.');
     }
 
     public function respond(Request $request, $id)

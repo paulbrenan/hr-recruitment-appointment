@@ -4,10 +4,13 @@
 // Canonical list of position titles for job postings, sourced from the
 // official DepEd "Position Applying For" list. Used to populate the
 // searchable title dropdown on the Job Posting create/edit form.
+//
+// Entries can be added automatically by JobTitleRegistrar when the PDF
+// import detects a genuine new title variant (e.g. a Secondary/Elementary
+// prefixed grade) that doesn't yet exist in this list.
 
 return [
     'titles' => [
-        'Contract of Service (COS)',
         'Accountant I',
         'Accountant III',
         'Administrative Aide I',
@@ -24,14 +27,20 @@ return [
         'Administrative Officer II',
         'Administrative Officer IV',
         'Administrative Officer V',
+        'Administrative Support II For Disaster Preparedness And',
+        'Administrative Support II For School-based Feeding Program (SBFP)',
         'Assistant School Principal II',
         'Attorney III',
         'Chief Education Program Supervisor',
+        'Contract of Service (COS)',
         'Dental Aide',
         'Dentist II',
+        'Division Memorandum ‘ Ra S Aa 2 Osds-2025-0066 As Oe Republic Of The Philippines Department Of Education Region Iv-a Schools Division Office Of Cavite Province April 10, 2025 Division Memorandum No. Bb , S. 2025 Call For Application For The Positions Of Administrative Support II For Disaster Preparedness And Response Program (dprp) And School-based Feeding Program (sbfp) Under Contract Of Service To: Assistant Schools Division Superintendents Chief, Curriculum Implementation Division Chief, School Governance And Operations Division Education Program Supervisors Public Schools District Supervisors Elementary And Secondary School Heads Hrmpsb - Chairman And Members All Concerned Ip In View Of Transparent Governance, This Office Announces The Opening Of Application For Positions Of Administrative Support II For Disaster Preparedness And Response Program (dprp) And School-based Feeding Program (sbfp) Under Contract Of Service With The Following Qualifications: >» Administrative Support II For Disaster Preparedness And Response Program (DPRP)',
         'Driver',
         'Education Program Specialist',
         'Education Program Supervisor',
+        'Elementary School Principal III',
+        'Elementary School Principal IV',
         'Engineer III',
         'Farmworker I',
         'Guidance Coordinator I',
@@ -49,6 +58,8 @@ return [
         'Head Teacher VI',
         'Information Technology Officer I',
         'Legal Assistant I',
+        'Master Teacher I',
+        'Master Teacher II',
         'Medical Officer III',
         'Nurse II',
         'Planning Officer III',
@@ -62,18 +73,23 @@ return [
         'School Principal II',
         'School Principal III',
         'School Principal IV',
+        'School Sports Program Focal Person (Contract of Service)',
+        'Secondary School Principal I',
+        'Secondary School Principal II',
+        'Secondary School Principal III',
+        'Secondary School Principal IV',
         'Security Guard I',
         'Security Guard II',
         'Senior Education Program Specialist',
-        'Teacher I',
-        'Teacher II',
-        'Teacher III',
-        'Master Teacher I',
-        'Master Teacher II',
-        'Special Science Teacher I',
+        'Senior High School Assistant School Principal II',
         'Special Education Teacher I',
         'Special Education Teacher II',
         'Special Education Teacher III',
+        'Special Science Teacher I',
+        'Teacher I',
+        'Teacher II',
+        'Teacher III',
+        'Technical Assistant I',
         'Watchman I',
     ],
 ];

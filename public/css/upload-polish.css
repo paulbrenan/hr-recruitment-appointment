@@ -1,0 +1,81 @@
+/* ============================================
+   Upload PDF — interactive polish
+   Save to: public/css/upload-polish.css
+   ============================================ */
+
+/* ── File input restyled as a drop zone ──────────────────────────────────── */
+input[type="file"][name="pdf_file"] {
+    position: relative;
+    border: 2px dashed #c7cfd6;
+    border-radius: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    background: #fafbfc;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+input[type="file"][name="pdf_file"]:hover {
+    border-color: var(--hr-primary, #003087);
+    background: rgba(0, 48, 135, 0.03);
+}
+input[type="file"][name="pdf_file"].upload-dragover {
+    border-color: var(--hr-primary, #003087);
+    background: rgba(0, 48, 135, 0.06);
+    box-shadow: 0 0 0 4px rgba(0, 48, 135, 0.08);
+}
+
+/* ── Selected-file chip (injected by upload-polish.js) ───────────────────── */
+.upload-file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 48, 135, 0.08);
+    color: var(--hr-primary, #003087);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-top: 10px;
+    animation: upload-chip-in 0.2s ease both;
+}
+@keyframes upload-chip-in {
+    from { opacity: 0; transform: scale(0.9); }
+    to   { opacity: 1; transform: scale(1); }
+}
+.upload-file-chip .upload-file-size {
+    font-weight: 400;
+    color: #6c7780;
+}
+.upload-file-chip.upload-file-warning {
+    background: rgba(220, 53, 69, 0.1);
+    color: #c0392b;
+}
+
+/* ── Submit button: loading state while OCR kicks off ────────────────────── */
+.upload-btn-loading {
+    opacity: 0.75;
+    pointer-events: none;
+    position: relative;
+}
+.upload-btn-loading .upload-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: upload-spin 0.6s linear infinite;
+    margin-right: 6px;
+}
+@keyframes upload-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Card fade-in ─────────────────────────────────────────────────────────── */
+.card {
+    animation: upload-card-in 0.3s ease both;
+}
+@keyframes upload-card-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

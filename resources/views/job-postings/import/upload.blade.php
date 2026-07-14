@@ -4,12 +4,13 @@
 @section('page-title', 'Import job postings from PDF')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('css/upload-polish.css') }}">
 <div class="card">
     <div class="card-body p-4">
         <p class="text-muted small mb-3">
-            Upload a "Call for Application" PDF (e.g. a DepEd Division Memorandum) to extract its text.
-            <strong>This is a diagnostic step</strong> — it shows the raw extracted text per page so we can
-            confirm extraction works correctly before building the actual posting parser.
+            Upload a "Call for Application" PDF (e.g. a DepEd Division Memorandum). The system will
+            run OCR, detect each vacant position, and take you to a review screen where you can check,
+            edit, and confirm which postings to actually import.
         </p>
 
         @if ($errors->any())
@@ -25,13 +26,15 @@
             <div class="mb-3">
                 <label class="form-label small fw-medium">PDF file</label>
                 <input type="file" class="form-control" name="pdf_file" accept="application/pdf" required>
-                <div class="form-text" style="font-size: 0.72rem;">Max 20MB.</div>
+                <div class="form-text" style="font-size: 0.72rem;">Max 20MB. OCR processing may take a moment for multi-page documents.</div>
             </div>
             <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
-                <i class="bi bi-file-earmark-text me-1"></i> Extract text
+                <i class="bi bi-file-earmark-text me-1"></i> Upload and process
             </button>
             <a href="{{ route('job-postings.index') }}" class="btn btn-sm btn-outline-secondary">Cancel</a>
         </form>
     </div>
 </div>
+
+<script src="{{ asset('js/upload-polish.js') }}"></script>
 @endsection

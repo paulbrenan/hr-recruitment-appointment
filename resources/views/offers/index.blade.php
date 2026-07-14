@@ -28,6 +28,7 @@
                     <th>Position</th>
                     <th>Compensation</th>
                     <th>Sent</th>
+                    <th>Email delivery</th>
                     <th>Response by</th>
                     <th>Status</th>
                     <th></th>
@@ -40,6 +41,14 @@
                     <td>{{ $o->application->jobPosting->title ?? '-' }}</td>
                     <td>&#8369;{{ number_format($o->compensation, 2) }}</td>
                     <td>{{ $o->offer_sent_at ? \Carbon\Carbon::parse($o->offer_sent_at)->format('M d, Y') : '-' }}</td>
+                    <td>
+                        @if ($o->email_sent_at)
+                            <span class="badge text-bg-success">Sent</span>
+                            <div class="text-muted" style="font-size: 0.72rem;">{{ \Carbon\Carbon::parse($o->email_sent_at)->format('M d, Y g:i A') }}</div>
+                        @else
+                            <span class="badge text-bg-secondary">Not sent</span>
+                        @endif
+                    </td>
                     <td>{{ $o->response_deadline ? \Carbon\Carbon::parse($o->response_deadline)->format('M d, Y') : '-' }}</td>
                     <td>
                         @php
@@ -56,16 +65,20 @@
                                 <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Send</button>
                             </form>
                             @elseif ($o->status === 'sent')
-                            <button type="button" class="btn btn-sm btn-outline-success"
-                                data-bs-toggle="modal" data-bs-target="#respondModal"
-                                data-offer-id="{{ $o->id }}" data-response="accepted">
-                                Accept
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-danger"
-                                data-bs-toggle="modal" data-bs-target="#respondModal"
-                                data-offer-id="{{ $o->id }}" data-response="declined">
-                                Decline
-                            </button>
+                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
+                                  onsubmit="return confirm('Mark this offer as accepted?')">
+                                @csrf
+                                @method('PUT')
+                                <input type="hidden" name="response" value="accepted">
+                                <button type="submit" class="btn btn-sm btn-outline-success">Accept</button>
+                            </form>
+                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
+                                  onsubmit="return confirm('Mark this offer as declined?')">
+                                @csrf
+                                @method('PUT')
+                                <input type="hidden" name="response" value="declined">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
+                            </form>
                             @else
                             <span class="text-muted small">No actions</span>
                             @endif
@@ -79,7 +92,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">No offers yet.</td>
+                    <td colspan="8" class="text-center text-muted py-4">No offers yet.</td>
                 </tr>
                 @endforelse
             </tbody>
@@ -93,12 +106,12 @@
         @if ($eligibleApplications->isEmpty())
         <p class="text-muted small mb-0">No candidates are currently eligible for an offer. Candidates become eligible once shortlisted, assessed, or ranked, and don't already have an offer.</p>
         @else
-        @if ($errors->has('compensation'))
-        <div class="alert alert-danger small py-2">{{ $errors->first('compensation') }}</div>
+        @if ($errors->has('salary_grade') || $errors->has('salary_step'))
+        <div class="alert alert-danger small py-2">{{ $errors->first('salary_grade') ?: $errors->first('salary_step') }}</div>
         @endif
         <form method="POST" action="{{ route('offers.store') }}" class="row g-2">
             @csrf
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <select name="application_id" class="form-select form-select-sm" required>
                     <option value="">Select candidate</option>
                     @foreach ($eligibleApplications as $app)
@@ -106,11 +119,24 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3">
-                <input type="number" name="compensation" class="form-control form-control-sm" placeholder="Compensation (PHP)" min="{{ $minCompensation }}" step="0.01" value="{{ old('compensation') }}" required>
-                <div class="form-text" style="font-size: 0.72rem;">Min &#8369;{{ number_format($minCompensation, 0) }} (SG 1, Step 1)</div>
+            <div class="col-md-2">
+                <select name="salary_grade" class="form-select form-select-sm" id="sgSelect" required>
+                    <option value="">SG</option>
+                    @for ($sg = 1; $sg <= 33; $sg++)
+                        <option value="{{ $sg }}" {{ old('salary_grade') == $sg ? 'selected' : '' }}>SG {{ $sg }}</option>
+                    @endfor
+                </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
+                <select name="salary_step" class="form-select form-select-sm" id="stepSelect" required>
+                    <option value="">Step</option>
+                    @for ($step = 1; $step <= 8; $step++)
+                        <option value="{{ $step }}" {{ old('salary_step') == $step ? 'selected' : '' }}>Step {{ $step }}</option>
+                    @endfor
+                </select>
+                <div class="form-text" style="font-size: 0.72rem;" id="sgAmountHint">&nbsp;</div>
+            </div>
+            <div class="col-md-2">
                 <input type="date" name="response_deadline" class="form-control form-control-sm" min="{{ now()->toDateString() }}" value="{{ old('response_deadline') }}">
             </div>
             <div class="col-md-2">
@@ -121,44 +147,31 @@
     </div>
 </div>
 
-{{-- Respond to offer modal --}}
-<div class="modal fade" id="respondModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" id="respondForm" action="">
-                @csrf
-                @method('PUT')
-                <input type="hidden" name="response" id="respondResponseInput">
-                <div class="modal-header">
-                    <h6 class="modal-title" id="respondModalTitle">Confirm response</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="small mb-0" id="respondModalBody"></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Confirm</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+{{-- Respond modal removed — accept/decline now use inline forms per row --}}
 @endsection
 
 @push('scripts')
 <script>
-    document.getElementById('respondModal').addEventListener('show.bs.modal', function (event) {
-        const button = event.relatedTarget;
-        const offerId = button.getAttribute('data-offer-id');
-        const response = button.getAttribute('data-response');
+    // ── SG/step → compensation live preview ──────────────────────────────────
+    const sgTable = @json(config('salary_grades.table'));
 
-        document.getElementById('respondForm').action = '/offers/' + offerId + '/respond';
-        document.getElementById('respondResponseInput').value = response;
-        document.getElementById('respondModalTitle').textContent = response === 'accepted' ? 'Mark offer as accepted' : 'Mark offer as declined';
-        document.getElementById('respondModalBody').textContent = response === 'accepted'
-            ? 'This will mark the offer as accepted and update the application status accordingly.'
-            : 'This will mark the offer as declined and update the application status accordingly.';
-    });
+    function updateAmountHint() {
+        const sg   = parseInt(document.getElementById('sgSelect').value);
+        const step = parseInt(document.getElementById('stepSelect').value);
+        const hint = document.getElementById('sgAmountHint');
+        if (sg && step && sgTable[sg] && sgTable[sg][step - 1]) {
+            const amount = sgTable[sg][step - 1];
+            hint.textContent = '₱' + amount.toLocaleString('en-PH');
+            hint.style.color = 'var(--hr-primary)';
+        } else {
+            hint.textContent = '\u00a0';
+        }
+    }
+
+    document.getElementById('sgSelect').addEventListener('change', updateAmountHint);
+    document.getElementById('stepSelect').addEventListener('change', updateAmountHint);
+    updateAmountHint(); // run on load in case old() values are present
+
+    // Respond modal removed — no JS needed for accept/decline
 </script>
 @endpush

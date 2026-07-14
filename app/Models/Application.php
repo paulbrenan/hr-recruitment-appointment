@@ -10,18 +10,32 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Application extends Model
 {
     protected $fillable = [
+        'transaction_number',
         'candidate_id',
         'job_posting_id',
+        'job_posting_location_id',
         'status',
         'applied_at',
         'notes',
-        'ranking_notified_at' => 'datetime',
+        'ranking_notified_at',
+        'qualification_check',
+        'qualification_result',
+        'qualification_checked_at',
+        'qualification_notified_at',
     ];
 
     protected $casts = [
         'applied_at' => 'date',
-        'ranking_notified_at'   => 'datetime',
+        'ranking_notified_at' => 'datetime',
+        'qualification_check' => 'array',
+        'qualification_checked_at' => 'datetime',
+        'qualification_notified_at' => 'datetime',
     ];
+
+    public function talentPool()
+    {
+        return $this->hasOne(\App\Models\TalentPool::class);
+    }
 
     public function candidate(): BelongsTo
     {
@@ -31,6 +45,11 @@ class Application extends Model
     public function jobPosting(): BelongsTo
     {
         return $this->belongsTo(JobPosting::class);
+    }
+
+    public function jobPostingLocation(): BelongsTo
+    {
+        return $this->belongsTo(JobPostingLocation::class);
     }
 
     public function documents(): HasMany
@@ -56,5 +75,22 @@ class Application extends Model
     public function appointment(): HasOne
     {
         return $this->hasOne(Appointment::class);
+    }
+
+    /**
+     * Generate a unique, human-readable transaction number.
+     * Format: APP-YYYYMMDD-XXXXXX
+     *
+     * Loops until a collision-free value is found (practically instant —
+     * 36^6 = ~2.1 billion combinations).
+     */
+    public static function generateTransactionNumber(): string
+    {
+        do {
+            $suffix = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6));
+            $number = 'APP-' . date('Ymd') . '-' . $suffix;
+        } while (static::where('transaction_number', $number)->exists());
+
+        return $number;
     }
 }

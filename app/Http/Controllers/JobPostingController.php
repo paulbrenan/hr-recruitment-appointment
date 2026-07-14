@@ -3,7 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\AssessmentCriterion;
+use App\Models\InterviewSchedule;
 use App\Models\JobPosting;
+use App\Models\JobPostingLocation;
+use App\Models\Panelist;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -31,7 +35,7 @@ class JobPostingController extends Controller
      * Validation rules shared by store() and update(), matching the
      * job_postings migration exactly.
      */
-    private function rules(): array
+    private function rules(bool $forCreate = false): array
     {
         return [
             'title' => ['required', 'string', 'max:255', Rule::in(config('job_titles.titles', []))],
@@ -43,7 +47,7 @@ class JobPostingController extends Controller
             'qualification_eligibility' => ['nullable', 'string'],
             'mandatory_requirements' => ['nullable', 'string'],
             'additional_requirements' => ['nullable', 'string'],
-            'place_of_assignment' => ['nullable', 'string', 'max:255'],
+            // place_of_assignment is now managed via job_posting_locations table
             'employment_type' => ['nullable', 'string', 'max:255'],
             'salary_grade' => [
                 'nullable',
@@ -59,25 +63,41 @@ class JobPostingController extends Controller
                     }
                 },
             ],
-            'vacancies' => ['required', 'integer', 'min:1'],
-            'posted_at' => ['nullable', 'date'],
+            // vacancies is now per-location in job_posting_locations table
+            'posted_at' => [
+                'nullable',
+                'date',
+                // Only enforced when creating a brand new posting -- editing
+                // an existing posting must not break just because its
+                // original dates are now in the past.
+                ...($forCreate ? ['after_or_equal:today'] : []),
+            ],
             'closes_at' => [
                 'nullable',
                 'date',
+                ...($forCreate ? ['after_or_equal:today'] : []),
                 Rule::when(
                     fn ($input) => !empty($input['posted_at']),
                     ['after_or_equal:posted_at']
                 ),
             ],
-            'status' => ['required', 'in:draft,open,filled,closed'],
+            'status' => ['required', 'in:open,interview_scheduled,ranking,closed'],
         ];
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $postings = JobPosting::latest()->get();
+        // Archived postings are terminal/out-of-pipeline -- keep them out
+        // of the default list, toggle-able via ?archived=1.
+        $showArchived = $request->boolean('archived');
 
-        return view('job-postings.index', compact('postings'));
+        $postings = JobPosting::with('locations')
+            ->when($showArchived, fn ($q) => $q->where('status', 'archived'))
+            ->when(!$showArchived, fn ($q) => $q->where('status', '!=', 'archived'))
+            ->latest()
+            ->get();
+
+        return view('job-postings.index', compact('postings', 'showArchived'));
     }
 
     public function create()
@@ -85,29 +105,97 @@ class JobPostingController extends Controller
         $posting = new JobPosting();
         $posting->exists = false;
         $posting->mandatory_requirements = implode("\n", self::DEFAULT_MANDATORY_REQUIREMENTS);
-        $jobTitles = config('job_titles.titles', []);
+        $jobTitles         = config('job_titles.titles', []);
+        $panelists         = Panelist::orderBy('name')->get();
+        $assignedPanelists = collect(); // empty for new posting
+        $locations         = collect();
 
-        return view('job-postings.form', compact('posting', 'jobTitles'));
+        return view('job-postings.form', compact('posting', 'jobTitles', 'panelists', 'assignedPanelists', 'locations'));
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->rules());
+        $validated = $request->validate($this->rules(forCreate: true));
 
-        JobPosting::create($validated);
+        // Don't create a duplicate posting for a title that already
+        // exists -- merge the submitted place(s) of assignment into the
+        // existing posting's locations instead (same place again adds to
+        // its vacancy count, a new place becomes a new location row; same
+        // convention the PDF import pipeline uses).
+        $existing = JobPosting::where('title', $validated['title'])->first();
+
+        if ($existing) {
+            $this->mergeLocationsInto($existing, $request);
+
+            return redirect()
+                ->route('job-postings.show', $existing->id)
+                ->with('success', 'A posting for "' . $existing->title . '" already exists -- the place(s) of assignment you entered were added to it instead of creating a duplicate.');
+        }
+
+        $posting = JobPosting::create($validated);
+
+        $this->syncLocations($posting, $request);
+        $this->syncPanelists($posting, $request);
 
         return redirect()
             ->route('job-postings.index')
             ->with('success', 'Job posting created successfully.');
     }
 
+    /**
+     * Merge location_place[]/location_vacancies[] from a create-form
+     * submission into an ALREADY-EXISTING posting, without touching its
+     * current locations (unlike syncLocations(), which wholesale replaces
+     * them -- that's correct for editing a posting's own form, but wrong
+     * here since we're adding to a different, pre-existing posting).
+     * Same place submitted again increments that location's vacancy count
+     * rather than creating a second row for it.
+     */
+    private function mergeLocationsInto(JobPosting $posting, \Illuminate\Http\Request $request): void
+    {
+        $places    = $request->input('location_place', []);
+        $vacancies = $request->input('location_vacancies', []);
+
+        $existingLocations = $posting->locations()->get()->keyBy('place_of_assignment');
+
+        foreach ($places as $i => $place) {
+            $place = trim($place);
+            if ($place === '') continue;
+
+            $addVacancies = max(1, (int) ($vacancies[$i] ?? 1));
+
+            $existingLocation = $existingLocations->get($place);
+            if ($existingLocation) {
+                $existingLocation->increment('vacancies', $addVacancies);
+            } else {
+                $newLocation = $posting->locations()->create([
+                    'place_of_assignment' => $place,
+                    'vacancies'           => $addVacancies,
+                ]);
+                $existingLocations->put($place, $newLocation);
+            }
+        }
+
+        // Keep the legacy place_of_assignment/vacancies columns in sync,
+        // same convention syncLocations() uses.
+        $posting->refresh();
+        $allLocations = $posting->locations()->get();
+        $posting->updateQuietly([
+            'place_of_assignment' => $allLocations->first()?->place_of_assignment,
+            'vacancies'           => $allLocations->sum('vacancies') ?: 1,
+        ]);
+    }
+
     public function edit($id)
     {
         $posting = JobPosting::findOrFail($id);
         $posting->exists = true;
-        $jobTitles = config('job_titles.titles', []);
+        $jobTitles  = config('job_titles.titles', []);
+        $panelists         = Panelist::orderBy('name')->get();
+        $assignedPanelists = $posting->panelists()->get()->keyBy('id');
+        $locations         = $posting->locations()->get();
 
-        return view('job-postings.form', compact('posting', 'jobTitles'));
+        return view('job-postings.form', compact('posting', 'jobTitles', 'panelists', 'assignedPanelists', 'locations'));
     }
 
     public function update(Request $request, $id)
@@ -116,23 +204,390 @@ class JobPostingController extends Controller
 
         $validated = $request->validate($this->rules());
 
+        $oldStatus = $posting->status;
+        $newStatus = $validated['status'];
+
         $posting->update($validated);
+
+        // Cascade status to applications when the posting stage changes
+        if ($oldStatus !== $newStatus) {
+            $this->cascadeStatusToApplications($posting, $newStatus);
+        }
+
+        $this->syncLocations($posting, $request);
+        $this->syncPanelists($posting, $request);
 
         return redirect()
             ->route('job-postings.index')
             ->with('success', 'Job posting updated successfully.');
     }
 
-    public function show($id)
+    /**
+     * Map job posting pipeline stage → application status, then bulk-update.
+     *
+     * Mapping:
+     *   open                → submitted
+     *   interview_scheduled → interview_scheduled
+     *   ranking             → ranked
+     *   closed              → rejected  (for all non-hired applicants)
+     *
+     * Special rule: if any applicant on this posting is already 'hired',
+     * closing the posting will NOT override their status (hired stays hired).
+     */
+    private function cascadeStatusToApplications(JobPosting $posting, string $postingStatus): void
     {
-        $posting = JobPosting::findOrFail($id);
+        $map = [
+            'open'                => 'submitted',
+            'interview_scheduled' => 'interview_scheduled',
+            'ranking'             => 'ranked',
+            'closed'              => 'rejected',
+        ];
 
-        $applications = Application::with('candidate')
+        if (!isset($map[$postingStatus])) {
+            return;
+        }
+
+        $applicationStatus = $map[$postingStatus];
+
+        $query = Application::where('job_posting_id', $posting->id);
+
+        // Never override an applicant who has already been hired
+        if ($applicationStatus === 'rejected') {
+            $query->where('status', '!=', 'hired');
+        }
+
+        $query->update(['status' => $applicationStatus]);
+    }
+
+    /**
+     * Sync place-of-assignment locations from the form submission.
+     * Expects parallel arrays:
+     *   location_place[]    — place of assignment strings
+     *   location_vacancies[] — vacancy count per place
+     * Empty/blank place rows are skipped.
+     */
+    private function syncLocations(JobPosting $posting, \Illuminate\Http\Request $request): void
+    {
+        $places    = $request->input('location_place', []);
+        $vacancies = $request->input('location_vacancies', []);
+
+        // Delete all existing location rows for this posting then re-insert
+        $posting->locations()->delete();
+
+        $rows = [];
+        foreach ($places as $i => $place) {
+            $place = trim($place);
+            if ($place === '') continue;
+
+            $rows[] = [
+                'job_posting_id'     => $posting->id,
+                'place_of_assignment' => $place,
+                'vacancies'          => max(1, (int) ($vacancies[$i] ?? 1)),
+                'created_at'         => now(),
+                'updated_at'         => now(),
+            ];
+        }
+
+        if (!empty($rows)) {
+            JobPostingLocation::insert($rows);
+        }
+
+        // Keep the legacy place_of_assignment column in sync (first location)
+        // so existing code that reads it doesn't break
+        $first = $rows[0]['place_of_assignment'] ?? null;
+        $totalVacancies = array_sum(array_column($rows, 'vacancies')) ?: 1;
+        $posting->updateQuietly([
+            'place_of_assignment' => $first,
+            'vacancies'           => $totalVacancies,
+        ]);
+    }
+
+    /**
+     * Sync panelist assignments and availability from the form submission.
+     * Expects:
+     *   panelist_ids[]        — checked panelist IDs to assign
+     *   panelist_available[]  — panelist IDs that are marked available
+     *   new_panelist_names[]  — names of brand-new panelists to create and assign
+     */
+    private function syncPanelists(JobPosting $posting, \Illuminate\Http\Request $request): void
+    {
+        // Create any newly added panelists
+        $newNames = array_filter(array_map('trim', $request->input('new_panelist_names', [])));
+        foreach ($newNames as $name) {
+            if ($name !== '') {
+                $new = Panelist::create(['name' => $name]);
+                // Add to assigned list so they get synced below
+                $request->merge([
+                    'panelist_ids' => array_merge($request->input('panelist_ids', []), [$new->id]),
+                    'panelist_available' => array_merge($request->input('panelist_available', []), [$new->id]),
+                ]);
+            }
+        }
+
+        $assignedIds   = array_map('intval', $request->input('panelist_ids', []));
+        $availableIds  = array_map('intval', $request->input('panelist_available', []));
+
+        // Build pivot data: assigned panelists with their availability flag
+        $syncData = [];
+        foreach ($assignedIds as $panelistId) {
+            $syncData[$panelistId] = ['is_available' => in_array($panelistId, $availableIds)];
+        }
+
+        // sync() removes unassigned, adds new, updates existing
+        $posting->panelists()->sync($syncData);
+    }
+
+    /**
+     * Mark one applicant as Hired and reject other applicants competing
+     * for that SAME place of assignment. Sibling places under the same
+     * posting are left untouched. The posting itself is only closed once
+     * every place of assignment (or, for legacy postings, the single
+     * vacancies count) has no open slots left. Called from
+     * ApplicationController or a dedicated route -- not directly from
+     * the form.
+     */
+    public function hireApplicant(Request $request, $postingId, $applicationId)
+    {
+        $posting     = JobPosting::findOrFail($postingId);
+        $application = Application::where('job_posting_id', $postingId)
+                                  ->findOrFail($applicationId);
+
+        // Hire the selected applicant
+        $application->update(['status' => 'hired']);
+
+        // Reject other applicants competing for the SAME place of
+        // assignment only. Applicants at a different place under this
+        // same posting are unaffected -- their slot is still open.
+        Application::where('job_posting_id', $postingId)
+                   ->where('id', '!=', $applicationId)
+                   ->where('status', '!=', 'hired')
+                   ->when(
+                       $application->job_posting_location_id !== null,
+                       fn ($q) => $q->where('job_posting_location_id', $application->job_posting_location_id),
+                       fn ($q) => $q->whereNull('job_posting_location_id')
+                   )
+                   ->update(['status' => 'rejected']);
+
+        // Close the posting only once EVERY place of assignment (or, for
+        // a legacy posting with no location rows, the single vacancies
+        // count) has no open slots left.
+        $posting = $posting->fresh('locations');
+        $stillOpenElsewhere = $posting->hasAnyOpenVacancy();
+
+        if (!$stillOpenElsewhere) {
+            $posting->update(['status' => 'closed']);
+        }
+
+        $message = $stillOpenElsewhere
+            ? 'Applicant marked as hired. That place of assignment is now filled; other places under this posting remain open.'
+            : 'Applicant marked as hired. All vacancies for this posting are now filled and it has been closed.';
+
+        return redirect()
+            ->back()
+            ->with('success', $message);
+    }
+
+    public function show($id, \Illuminate\Http\Request $request)
+    {
+        $posting   = JobPosting::with(['locations', 'panelists', 'assessmentCriteria'])->findOrFail($id);
+        $locations = $posting->locations;
+        $panelists = $posting->panelists;
+
+        $applications = Application::with(['candidate', 'assessments'])
             ->where('job_posting_id', $id)
             ->latest('applied_at')
             ->get();
 
-        return view('job-postings.show', compact('posting', 'applications'));
+        // Step 2 — interview schedules for this posting's applications
+        $applicationIds = $applications->pluck('id');
+        $schedules = InterviewSchedule::with(['application.candidate', 'panelists'])
+            ->whereIn('application_id', $applicationIds)
+            ->orderBy('scheduled_at', 'desc')
+            ->get();
+
+        // Step 3 — assessment criteria + ranking
+        $criteria        = $posting->assessmentCriteria()->orderBy('id')->get();
+        $usedWeight      = $criteria->sum('weight_percentage');
+        $remainingWeight = max(0, 100 - $usedWeight);
+
+        $rankedCandidates = $applications->map(function ($app) use ($criteria) {
+            $scores = [];
+            $total  = 0;
+            foreach ($criteria as $c) {
+                $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
+                $score = $assessment ? (float) $assessment->score : null;
+                $scores[$c->id] = $score;
+                if ($score !== null) $total += $score;
+            }
+            return (object) [
+                'application_id'    => $app->id,
+                'candidate'         => $app->candidate,
+                'candidate_name'    => $app->candidate?->full_name ?? 'Unknown',
+                'scores'            => $scores,
+                'total_score'       => $total,
+                'notification_sent' => $app->status === 'ranking_sent',
+            ];
+        })->sortByDesc('total_score')->values()->map(function ($cand, $i) use ($applications) {
+            $cand->rank   = $i + 1;
+            $cand->passed = $cand->total_score >= 75;
+            $cand->total  = $applications->count();
+            return $cand;
+        });
+
+        // Derive current pipeline step from posting status.
+        // Overview (1) and Qualification Checking (2) both live under status
+        // "open" — they're two views of the same stage, not separate statuses.
+        // $currentStep is the LOCK BOUNDARY (highest step unlocked so far);
+        // $activeStep is which panel is shown by default on page load.
+        $stepMap = [
+            'open'                => 2,
+            'interview_scheduled' => 3,
+            'ranking'             => 4,
+            'closed'              => 4,
+        ];
+        $currentStep = $stepMap[$posting->status] ?? 1;
+
+        // Allow returning to a specific panel after an action elsewhere
+        // (e.g. saving a qualification check redirects back here with
+        // ?step=2 so HR lands back on Qualification Checking instead of
+        // Overview). Clamped to $currentStep so a crafted URL can't skip
+        // ahead of what the posting's status actually unlocks.
+        $requestedStep = (int) $request->query('step', 0);
+        $activeStep = $requestedStep > 0
+            ? min($requestedStep, $currentStep)
+            : ($posting->status === 'open' ? 1 : $currentStep);
+
+        return view('job-postings.show', compact(
+            'posting', 'locations', 'panelists', 'applications',
+            'schedules', 'criteria', 'usedWeight', 'remainingWeight',
+            'rankedCandidates', 'currentStep', 'activeStep'
+        ));
+    }
+
+    /**
+     * POST /job-postings/{id}/advance
+     * Advances the posting to the next pipeline step.
+     */
+    public function advance(Request $request, $id)
+    {
+        $posting = JobPosting::findOrFail($id);
+
+        $transitions = [
+            'open'                => 'interview_scheduled',
+            'interview_scheduled' => 'ranking',
+            'ranking'             => 'closed',
+        ];
+
+        $nextStatus = $transitions[$posting->status] ?? null;
+
+        if ($nextStatus) {
+            $oldStatus = $posting->status;
+            $posting->update(['status' => $nextStatus]);
+            $this->cascadeStatusToApplications($posting, $nextStatus);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['status' => $posting->fresh()->status, 'ok' => true]);
+        }
+
+        return redirect()->route('job-postings.show', $posting->id)
+            ->with('success', 'Posting advanced to next stage.');
+    }
+
+    /**
+     * POST /job-postings/{id}/archive
+     * Archives a closed posting. Only valid from 'closed' -- archiving is
+     * a terminal, one-way move out of the active pipeline, not a pipeline
+     * stage itself.
+     */
+    public function archive(Request $request, $id)
+    {
+        $posting = JobPosting::findOrFail($id);
+
+        if ($posting->status !== 'closed') {
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => 'Only closed postings can be archived.'], 422);
+            }
+
+            return back()->with('error', 'Only closed postings can be archived.');
+        }
+
+        $posting->update(['status' => 'archived']);
+
+        if ($request->expectsJson()) {
+            return response()->json(['status' => $posting->fresh()->status, 'ok' => true]);
+        }
+
+        return redirect()->route('job-postings.index')
+            ->with('success', 'Posting archived.');
+    }
+
+    /**
+     * DELETE /job-postings/{posting}/panelists/{panelist}
+     * Removes a panelist from this posting's panel (pivot only, not global pool).
+     */
+    public function detachPanelist($postingId, $panelistId)
+    {
+        $posting = JobPosting::findOrFail($postingId);
+        $posting->panelists()->detach($panelistId);
+
+        return back()->with('success', 'Panelist removed from this posting.');
+    }
+
+    /**
+     * Export qualification check results for all applicants on this posting
+     * to an Excel file. Only available once all applicants have been checked.
+     */
+    public function exportQualifications($id)
+    {
+        $posting = JobPosting::with('locations')->findOrFail($id);
+
+        $applications = Application::with('candidate')
+            ->where('job_posting_id', $id)
+            ->get();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Qualification Check');
+
+        // Headers
+        $headers = ['Candidate Name', 'Email', 'Place of Assignment', 'Education', 'Training', 'Experience', 'Eligibility', 'Overall Result', 'Notes'];
+        foreach ($headers as $i => $h) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue($col . '1', $h);
+        }
+        $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+
+        $row = 2;
+        foreach ($applications as $app) {
+            $check    = $app->qualification_check ?? [];
+            $criteria = $check['criteria'] ?? [];
+            $location = $posting->locations->firstWhere('id', $app->job_posting_location_id);
+
+            $sheet->setCellValue('A' . $row, $app->candidate?->full_name ?? '—');
+            $sheet->setCellValue('B' . $row, $app->candidate?->email ?? '—');
+            $sheet->setCellValue('C' . $row, $location?->place_of_assignment ?? '—');
+            $sheet->setCellValue('D' . $row, ($criteria['education']['passed'] ?? null) === true ? 'Qualified' : (($criteria['education']['passed'] ?? null) === false ? 'Not Qualified' : '—'));
+            $sheet->setCellValue('E' . $row, ($criteria['training']['passed'] ?? null) === true ? 'Qualified' : (($criteria['training']['passed'] ?? null) === false ? 'Not Qualified' : '—'));
+            $sheet->setCellValue('F' . $row, ($criteria['experience']['passed'] ?? null) === true ? 'Qualified' : (($criteria['experience']['passed'] ?? null) === false ? 'Not Qualified' : '—'));
+            $sheet->setCellValue('G' . $row, ($criteria['eligibility']['passed'] ?? null) === true ? 'Qualified' : (($criteria['eligibility']['passed'] ?? null) === false ? 'Not Qualified' : '—'));
+            $sheet->setCellValue('H' . $row, ucfirst(str_replace('_', ' ', $app->qualification_result ?? '—')));
+            $sheet->setCellValue('I' . $row, $check['notes'] ?? '');
+            $row++;
+        }
+
+        foreach (range(1, 9) as $c) {
+            $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
+        }
+
+        $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $filename = 'qualification-check-' . $id . '-' . now()->format('Ymd') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     public function destroy($id)

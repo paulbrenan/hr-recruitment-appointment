@@ -4,6 +4,9 @@
 @section('page-title', ($posting->exists ?? false) ? 'Edit job posting' : 'New job posting')
 
 @section('content')
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/form-polish.css') }}">
+@endpush
 <div class="card">
     <div class="card-body p-4">
         @if ($errors->any())
@@ -16,7 +19,7 @@
                 </ul>
             </div>
         @endif
-        <form action="{{ ($posting->exists ?? false) ? route('job-postings.update', $posting->id) : route('job-postings.store') }}" method="POST">
+        <form id="postingForm" action="{{ ($posting->exists ?? false) ? route('job-postings.update', $posting->id) : route('job-postings.store') }}" method="POST">
             @if ($posting->exists ?? false)
                 @method('PUT')
             @endif
@@ -41,10 +44,7 @@
                         ></div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label small fw-medium">Vacancies</label>
-                    <input type="number" class="form-control" name="vacancies" value="{{ old('vacancies', $posting->vacancies ?? 1) }}" min="1">
-                </div>
+                {{-- Vacancies are now per-location below; this field is removed --}}
                 <div class="col-md-2">
                     <label class="form-label small fw-medium">Salary Grade</label>
                     @php
@@ -59,24 +59,57 @@
                     </select>
                 </div>
 
-                <div class="col-md-6">
-                    <label class="form-label small fw-medium">Place of assignment</label>
-                    <div class="position-relative" id="schoolSearchWrapper">
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="schoolSearchInput"
-                            name="place_of_assignment"
-                            autocomplete="off"
-                            placeholder="Type to search schools or division units, or enter a new one..."
-                            value="{{ old('place_of_assignment', $posting->place_of_assignment ?? '') }}"
-                        >
-                        <div
-                            id="schoolSearchResults"
-                            class="list-group position-absolute w-100 shadow-sm"
-                            style="z-index: 1050; max-height: 220px; overflow-y: auto; display: none; top: 100%;"
-                        ></div>
-                        <div class="form-text" style="font-size: 0.72rem;">Pick from the list (schools or division units) or type one not yet listed.</div>
+                <div class="col-12">
+                    <label class="form-label small fw-medium mb-2 d-block">Places of assignment &amp; vacancies</label>
+                    <div class="border rounded p-3">
+                        <table class="table table-sm mb-2 align-middle" id="locationsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 70%;">Place of assignment</th>
+                                    <th style="width: 20%;">Vacancies</th>
+                                    <th style="width: 10%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="locationRows">
+                                @php
+                                    $locationRows = old('location_place')
+                                        ? array_map(null, old('location_place', []), old('location_vacancies', []))
+                                        : $locations->map(fn($l) => [$l->place_of_assignment, $l->vacancies])->toArray();
+                                    // If no rows yet, start with one empty row
+                                    if (empty($locationRows)) $locationRows = [['', 1]];
+                                @endphp
+                                @foreach ($locationRows as $i => [$place, $vac])
+                                <tr class="location-row">
+                                    <td>
+                                        <div class="position-relative location-school-wrapper">
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm location-school-input"
+                                                name="location_place[]"
+                                                autocomplete="off"
+                                                placeholder="Search or type a school / unit..."
+                                                value="{{ $place ?? '' }}"
+                                            >
+                                            <div class="list-group position-absolute w-100 shadow-sm location-school-results"
+                                                 style="z-index: 1050; max-height: 200px; overflow-y: auto; display: none; top: 100%;"></div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" name="location_vacancies[]" value="{{ $vac ?? 1 }}" min="1" style="width: 80px;">
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-location-btn" title="Remove row">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="addLocationBtn">
+                            <i class="bi bi-plus-lg me-1"></i> Add location
+                        </button>
+                        <div class="form-text mt-1" style="font-size: 0.72rem;">Each row is one place of assignment. Add as many as needed for this job title.</div>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -157,21 +190,117 @@
 
                 <div class="col-md-4">
                     <label class="form-label small fw-medium">Posted date</label>
-                    <input type="date" class="form-control" name="posted_at" value="{{ old('posted_at', optional($posting->posted_at ?? null)->format('Y-m-d')) }}">
+                    <input type="date" class="form-control" name="posted_at"
+                           value="{{ old('posted_at', optional($posting->posted_at ?? null)->format('Y-m-d')) }}"
+                           @if (!$posting->exists) min="{{ now()->format('Y-m-d') }}" @endif>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small fw-medium">Closes</label>
-                    <input type="date" class="form-control" name="closes_at" value="{{ old('closes_at', optional($posting->closes_at ?? null)->format('Y-m-d')) }}">
+                    <input type="date" class="form-control" name="closes_at"
+                           value="{{ old('closes_at', optional($posting->closes_at ?? null)->format('Y-m-d')) }}"
+                           @if (!$posting->exists) min="{{ now()->format('Y-m-d') }}" @endif>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small fw-medium">Status</label>
                     <select class="form-select" name="status">
-                        @foreach (['draft', 'open', 'filled', 'closed'] as $status)
-                            <option value="{{ $status }}" {{ ($posting->status ?? 'draft') === $status ? 'selected' : '' }}>{{ ucfirst($status) }}</option>
+                        @php
+                            $pipelineStages = [
+                                'open'                => 'Open',
+                                'interview_scheduled' => 'Interview Scheduled',
+                                'ranking'             => 'Ranking',
+                                'closed'              => 'Closed',
+                            ];
+                        @endphp
+                        @foreach ($pipelineStages as $value => $label)
+                            <option value="{{ $value }}" {{ ($posting->status ?? 'open') === $value ? 'selected' : '' }}>
+                                {{ $label }}
+                            </option>
                         @endforeach
                     </select>
+                    <div class="form-text" style="font-size: 0.72rem;">
+                        Changing the stage will update all applicants on this posting.
+                    </div>
                 </div>
             </div>
+
+                {{-- ── Panelist / Interview Panel ─────────────────────────── --}}
+                <div class="col-12">
+                    <div class="border rounded p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="small fw-medium text-muted">Interview Panel / Ranking Committee</div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="addPanelistBtn">
+                                <i class="bi bi-plus-lg me-1"></i> Add panelist
+                            </button>
+                        </div>
+
+                        {{-- New panelist name inputs (added dynamically) --}}
+                        <div id="newPanelistInputs"></div>
+
+                        {{-- Global panelist list --}}
+                        @if ($panelists->isEmpty())
+                            <p class="text-muted small mb-0" id="emptyPanelistMsg">No panelists in the system yet. Use "Add panelist" to create one.</p>
+                        @else
+                            <p class="text-muted small mb-2" style="font-size: 0.72rem;">Check a panelist to assign them to this posting. Tick "Available" if they are available for this schedule.</p>
+                            <ul class="list-group" id="panelistList">
+                                @foreach ($panelists as $panelist)
+                                    @php
+                                        $assigned  = isset($assignedPanelists[$panelist->id]);
+                                        $available = $assigned && $assignedPanelists[$panelist->id]->pivot->is_available;
+                                    @endphp
+                                    <li class="list-group-item d-flex align-items-center gap-3 py-2" id="panelistRow{{ $panelist->id }}">
+                                        {{-- Assign checkbox --}}
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input panelist-assign-cb mt-0"
+                                            name="panelist_ids[]"
+                                            value="{{ $panelist->id }}"
+                                            id="panelist{{ $panelist->id }}"
+                                            {{ $assigned ? 'checked' : '' }}
+                                        >
+                                        {{-- Name — click to edit inline --}}
+                                        <div class="flex-grow-1 d-flex align-items-center gap-2" style="min-width: 0;">
+                                            <span
+                                                class="panelist-name-display small fw-medium"
+                                                data-panelist-id="{{ $panelist->id }}"
+                                                title="Click to rename"
+                                                style="cursor: pointer; border-bottom: 1px dashed #adb5bd;"
+                                            >{{ $panelist->name }}</span>
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm panelist-name-input d-none"
+                                                data-panelist-id="{{ $panelist->id }}"
+                                                value="{{ $panelist->name }}"
+                                                style="max-width: 220px;"
+                                            >
+                                            <span class="panelist-save-status small ms-1" data-panelist-id="{{ $panelist->id }}"></span>
+                                        </div>
+                                        {{-- Available checkbox — only active when assigned --}}
+                                        <div class="d-flex align-items-center gap-1">
+                                            <input
+                                                type="checkbox"
+                                                class="form-check-input panelist-avail-cb mt-0"
+                                                name="panelist_available[]"
+                                                value="{{ $panelist->id }}"
+                                                id="avail{{ $panelist->id }}"
+                                                {{ $available ? 'checked' : '' }}
+                                                {{ !$assigned ? 'disabled' : '' }}
+                                            >
+                                            <label class="form-check-label small text-muted mb-0" for="avail{{ $panelist->id }}">Available</label>
+                                        </div>
+                                        {{-- Delete button (calls a JS confirm; uses a hidden form) --}}
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-link text-danger p-0 ms-1 panelist-delete-btn"
+                                            data-panelist-id="{{ $panelist->id }}"
+                                            data-panelist-name="{{ $panelist->name }}"
+                                            title="Remove panelist from system"
+                                        ><i class="bi bi-trash"></i></button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                </div>
 
             <div class="mt-4 d-flex gap-2">
                 <button type="submit" class="btn" style="background-color: var(--hr-primary); color: #fff;">Save posting</button>
@@ -181,8 +310,47 @@
     </div>
 </div>
 
+{{-- ── Floating save bar ──────────────────────────────────────────────── --}}
+<div id="floatingSaveBar" style="
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1040;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-top: 1px solid #dee2e6;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+">
+    <span class="small text-muted">
+        @if ($posting->exists ?? false)
+            Editing: <strong>{{ $posting->title ?? 'Job posting' }}</strong>
+        @else
+            New job posting
+        @endif
+    </span>
+    <div class="d-flex gap-2">
+        <a href="{{ route('job-postings.index') }}" class="btn btn-sm btn-outline-secondary">Cancel</a>
+        <button type="button" id="floatingSaveBtn" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
+            <i class="bi bi-floppy me-1"></i> Save posting
+        </button>
+    </div>
+</div>
+{{-- Push page content up so the floating bar doesn't cover the bottom buttons --}}
+<div style="height: 64px;"></div>
+
 @push('scripts')
 <script>
+    // Floating save bar → submit the posting form
+    document.getElementById('floatingSaveBtn').addEventListener('click', function () {
+        document.getElementById('postingForm').requestSubmit();
+    });
+
     (function () {
         const titles = @json($jobTitles ?? []);
         const searchInput = document.getElementById('titleSearchInput');
@@ -259,55 +427,89 @@
     @php
         $placeOfAssignmentOptions = array_merge(config('schools.schools', []), config('schools.sdo_units', []));
     @endphp
-    (function () {
-        const schools = @json($placeOfAssignmentOptions);
-        const schoolInput = document.getElementById('schoolSearchInput');
-        const schoolResultsBox = document.getElementById('schoolSearchResults');
-        const schoolWrapper = document.getElementById('schoolSearchWrapper');
+    // ── Multi-location school search ─────────────────────────────────────────
+    const schoolOptions = @json($placeOfAssignmentOptions);
 
-        function renderSchoolResults(filter) {
-            const query = filter.trim().toLowerCase();
+    function initLocationRow(row) {
+        const input      = row.querySelector('.location-school-input');
+        const resultsBox = row.querySelector('.location-school-results');
+        const wrapper    = row.querySelector('.location-school-wrapper');
+
+        if (!input || input._locationInited) return;
+        input._locationInited = true;
+
+        function render(filter) {
+            const query   = filter.trim().toLowerCase();
             const matches = query === ''
-                ? schools
-                : schools.filter(s => s.toLowerCase().includes(query));
+                ? schoolOptions
+                : schoolOptions.filter(s => s.toLowerCase().includes(query));
 
-            schoolResultsBox.innerHTML = '';
+            resultsBox.innerHTML = '';
 
             if (matches.length === 0) {
-                schoolResultsBox.style.display = 'none';
+                resultsBox.style.display = 'none';
                 return;
             }
 
             matches.slice(0, 50).forEach(function (school) {
                 const item = document.createElement('button');
                 item.type = 'button';
-                item.className = 'list-group-item list-group-item-action small';
+                item.className = 'list-group-item list-group-item-action small py-1';
                 item.textContent = school;
-                item.addEventListener('click', function () {
-                    schoolInput.value = school;
-                    schoolResultsBox.style.display = 'none';
+                item.addEventListener('mousedown', function (e) {
+                    e.preventDefault(); // prevent blur before click
+                    input.value = school;
+                    resultsBox.style.display = 'none';
                 });
-                schoolResultsBox.appendChild(item);
+                resultsBox.appendChild(item);
             });
 
-            schoolResultsBox.style.display = 'block';
+            resultsBox.style.display = 'block';
         }
 
-        schoolInput.addEventListener('input', function () {
-            renderSchoolResults(schoolInput.value);
-        });
+        input.addEventListener('input',  () => render(input.value));
+        input.addEventListener('focus',  () => render(input.value));
+        input.addEventListener('blur',   () => setTimeout(() => { resultsBox.style.display = 'none'; }, 200));
+    }
 
-        schoolInput.addEventListener('focus', function () {
-            renderSchoolResults(schoolInput.value);
-        });
+    // Init existing rows
+    document.querySelectorAll('.location-row').forEach(initLocationRow);
 
-        document.addEventListener('click', function (event) {
-            if (!schoolWrapper.contains(event.target)) {
-                schoolResultsBox.style.display = 'none';
-            }
-        });
-        // Note: no submit-blocking here -- typing a school not in the list is allowed.
-    })();
+    // Remove row
+    document.getElementById('locationRows').addEventListener('click', function (e) {
+        const btn = e.target.closest('.remove-location-btn');
+        if (!btn) return;
+        const rows = document.querySelectorAll('.location-row');
+        if (rows.length <= 1) {
+            // Keep at least one row — just clear it
+            const row = btn.closest('.location-row');
+            row.querySelector('.location-school-input').value = '';
+            row.querySelector('input[type="number"]').value = 1;
+            return;
+        }
+        btn.closest('.location-row').remove();
+    });
+
+    // Add new row
+    document.getElementById('addLocationBtn').addEventListener('click', function () {
+        const tbody    = document.getElementById('locationRows');
+        const template = tbody.querySelector('.location-row');
+        const newRow   = template.cloneNode(true);
+
+        // Clear values in the cloned row
+        newRow.querySelector('.location-school-input').value = '';
+        newRow.querySelector('.location-school-results').innerHTML = '';
+        newRow.querySelector('.location-school-results').style.display = 'none';
+        newRow.querySelector('input[type="number"]').value = 1;
+
+        // Reset the init flag so initLocationRow wires it up fresh
+        const clonedInput = newRow.querySelector('.location-school-input');
+        clonedInput._locationInited = false;
+
+        tbody.appendChild(newRow);
+        initLocationRow(newRow);
+        clonedInput.focus();
+    });
 
     function initRequirementList(listId, inputId, addBtnId, hiddenId) {
         const listEl = document.getElementById(listId);
@@ -389,6 +591,150 @@
 
     initRequirementList('mandatoryList', 'mandatoryInput', 'mandatoryAddBtn', 'mandatoryHidden');
     initRequirementList('additionalList', 'additionalInput', 'additionalAddBtn', 'additionalHidden');
+
+    // ── Panelist JS ──────────────────────────────────────────────────────────
+
+    // When assign checkbox is unchecked, disable the Available checkbox too
+    document.querySelectorAll('.panelist-assign-cb').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            const row      = document.getElementById('panelistRow' + this.value);
+            const availCb  = row ? row.querySelector('.panelist-avail-cb') : null;
+            if (availCb) {
+                availCb.disabled = !this.checked;
+                if (!this.checked) availCb.checked = false;
+            }
+        });
+    });
+
+    // Add new panelist input row
+    let newPanelistCount = 0;
+    document.getElementById('addPanelistBtn').addEventListener('click', function () {
+        newPanelistCount++;
+        const wrapper = document.getElementById('newPanelistInputs');
+        const div = document.createElement('div');
+        div.className = 'input-group input-group-sm mb-2';
+        div.innerHTML = `
+            <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
+            <input type="text" class="form-control" name="new_panelist_names[]" placeholder="New panelist name..." autocomplete="off">
+            <button type="button" class="btn btn-outline-danger" onclick="this.closest('.input-group').remove()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        `;
+        wrapper.appendChild(div);
+        div.querySelector('input').focus();
+    });
+
+    // Delete panelist from system (submits a hidden DELETE form via JS)
+    document.querySelectorAll('.panelist-delete-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const name = this.dataset.panelistName;
+            const id   = this.dataset.panelistId;
+            if (!confirm('Remove "' + name + '" from the panelist pool? This cannot be undone.')) return;
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/panelists/' + id;
+            form.innerHTML = `
+                @csrf
+                <input type="hidden" name="_method" value="DELETE">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        });
+    });
+
+    // ── Inline panelist name editing ─────────────────────────────────────────
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')
+        ? document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        : '{{ csrf_token() }}';
+
+    function savePanelistName(id, newName, statusEl, displayEl, inputEl) {
+        if (!newName.trim() || newName.trim() === displayEl.textContent.trim()) {
+            // Nothing changed — just switch back to display mode
+            inputEl.classList.add('d-none');
+            displayEl.classList.remove('d-none');
+            statusEl.textContent = '';
+            return;
+        }
+
+        statusEl.innerHTML = '<span class="text-muted"><i class="bi bi-hourglass-split"></i></span>';
+
+        fetch('/panelists/' + id, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ name: newName.trim() }),
+        })
+        .then(function (res) {
+            if (!res.ok) throw new Error('Server error ' + res.status);
+            return res.json();
+        })
+        .then(function () {
+            displayEl.textContent = newName.trim();
+            // Update the delete button's data-panelist-name too
+            const row = displayEl.closest('li');
+            if (row) {
+                const deleteBtn = row.querySelector('.panelist-delete-btn');
+                if (deleteBtn) deleteBtn.dataset.panelistName = newName.trim();
+            }
+            inputEl.classList.add('d-none');
+            displayEl.classList.remove('d-none');
+            statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-lg"></i></span>';
+            setTimeout(() => { statusEl.textContent = ''; }, 2000);
+        })
+        .catch(function () {
+            statusEl.innerHTML = '<span class="text-danger small">Save failed</span>';
+            inputEl.focus();
+        });
+    }
+
+    // Click on name display → switch to input
+    document.querySelectorAll('.panelist-name-display').forEach(function (display) {
+        display.addEventListener('click', function () {
+            const id     = this.dataset.panelistId;
+            const input  = document.querySelector('.panelist-name-input[data-panelist-id="' + id + '"]');
+            const status = document.querySelector('.panelist-save-status[data-panelist-id="' + id + '"]');
+            if (!input) return;
+
+            display.classList.add('d-none');
+            input.classList.remove('d-none');
+            input.value = display.textContent.trim();
+            input.focus();
+            input.select();
+        });
+    });
+
+    // Enter → save; Escape → cancel
+    document.querySelectorAll('.panelist-name-input').forEach(function (input) {
+        const id      = input.dataset.panelistId;
+        const display = document.querySelector('.panelist-name-display[data-panelist-id="' + id + '"]');
+        const status  = document.querySelector('.panelist-save-status[data-panelist-id="' + id + '"]');
+
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                savePanelistName(id, input.value, status, display, input);
+            }
+            if (e.key === 'Escape') {
+                input.classList.add('d-none');
+                display.classList.remove('d-none');
+                status.textContent = '';
+            }
+        });
+
+        input.addEventListener('blur', function () {
+            // Small delay so Enter keydown fires first and doesn't double-save
+            setTimeout(function () {
+                if (!input.classList.contains('d-none')) {
+                    savePanelistName(id, input.value, status, display, input);
+                }
+            }, 150);
+        });
+    });
 </script>
+<script src="{{ asset('js/form-polish.js') }}"></script>
 @endpush
 @endsection

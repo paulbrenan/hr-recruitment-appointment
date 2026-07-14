@@ -122,7 +122,7 @@
                         @endif
                     </td>
                     {{-- Vacancies shown per-location --}}
-                    <td class="ps-4">{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</td>
+                    <td>{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</td>
                     <td>{{ $posting->closes_at ? \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') : '—' }}</td>
                     <td>
                         @php

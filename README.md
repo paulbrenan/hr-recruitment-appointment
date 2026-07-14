@@ -4,7 +4,6 @@ Recruitment & Appointment module for an HR Management System (HRMS), built as a 
 
 Built independently from the existing Human Resource Management System (HRMS) and Leave Management System project, but structured conventionally so it can be merged or linked later.
 
-📄 **Full requirements documentation:** [Google Doc](https://docs.google.com/document/d/1Sr5fsCJcqEC29AfBEqkGtpiUxWYWlPcL17MIvnnCJ6M/edit?usp=sharing)
 
 ---
 

@@ -14,6 +14,13 @@ class QualificationResultNotification extends Notification
 
     public function __construct(
         public readonly Application $application,
+        // When null (default), "passed" is derived from qualification_result,
+        // same as before. When explicitly false, the disqualification
+        // template is sent even though qualification_result is 'qualified' --
+        // used by the Step 3 "Send all emails" flow for applicants who
+        // qualified but were never given a schedule, without altering their
+        // saved qualification check result.
+        public readonly ?bool $overridePassed = null,
     ) {}
 
     public function via($notifiable): array
@@ -24,7 +31,7 @@ class QualificationResultNotification extends Notification
     public function toMail($notifiable): MailMessage
     {
         $application = $this->application;
-        $passed = $application->qualification_result === 'qualified';
+        $passed = $this->overridePassed ?? ($application->qualification_result === 'qualified');
         $criteriaRows = $this->buildCriteriaRows();
 
         $subject = $passed

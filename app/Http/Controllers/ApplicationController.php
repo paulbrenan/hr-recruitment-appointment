@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\JobPosting;
 use App\Notifications\QualificationResultNotification;
+use App\Notifications\QualifiedScheduleNotification;
 use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -32,24 +33,6 @@ class ApplicationController extends Controller
         return view('applications.index', compact('applications', 'jobPostings'));
     }
 
-    /**
-     * Export applicants to Excel from the Applications page.
-     *
-     * Two modes, chosen by whether a job posting is selected in the filter
-     * bar (same filter logic as index() above):
-     *
-     *  - Scoped to a job posting: loads the official CAR template file
-     *    (resources/templates/car-school-admin-elem.xlsx — the real CSC/
-     *    DepEd form, letterhead and all) and fills in "Application Code"
-     *    (col D) and "Name of Applicant" (col C) starting at row 16 on
-     *    every sheet in the file, for each applicant on that posting. All
-     *    other formatting, merges, and instructions in the template are
-     *    left untouched. Score columns (E–M) stay blank for the committee
-     *    to fill in by hand.
-     *  - No posting selected: a flat reference list (tracking number, name,
-     *    posting, applied date, status) across whatever's currently
-     *    filtered by status.
-     */
     /**
      * Export applicants to Excel from the Applications page.
      *
@@ -331,5 +314,76 @@ class ApplicationController extends Controller
         return redirect()
             ->route('job-postings.show', ['id' => $jobPostingId, 'step' => 2])
             ->with('success', "Emailed qualification result to {$sent} {$label} applicant(s).");
+    }
+
+    /**
+     * Step 3 "Send all emails" bulk action, triggered from the Interview /
+     * exam schedules panel. For every applicant on this posting who has a
+     * saved qualification check and hasn't been notified by this button
+     * before (schedule_notice_sent_at is null):
+     *
+     *   - qualified + has a schedule  -> QualifiedScheduleNotification
+     *                                    (qualified letter + schedule details, one email)
+     *   - not qualified               -> QualificationResultNotification
+     *                                    (disqualified template)
+     *   - qualified but NO schedule   -> QualificationResultNotification, forced to
+     *                                    the disqualified template via $overridePassed.
+     *                                    qualification_result on the record itself is
+     *                                    left untouched -- only the outgoing email
+     *                                    template is affected.
+     *
+     * Already-notified applicants (schedule_notice_sent_at not null) are
+     * skipped, so re-clicking the button only emails newly-added or
+     * newly-scheduled applicants.
+     */
+    public function sendAllScheduleNotices($jobPostingId)
+    {
+        $applications = Application::with(['candidate', 'jobPosting', 'interviewSchedules' => function ($q) {
+                $q->orderByDesc('scheduled_at');
+            }])
+            ->where('job_posting_id', $jobPostingId)
+            ->whereNotNull('qualification_result')
+            ->whereNotNull('qualification_check')
+            ->whereNull('schedule_notice_sent_at')
+            ->get();
+
+        if ($applications->isEmpty()) {
+            return redirect()
+                ->route('job-postings.show', ['id' => $jobPostingId, 'step' => 3])
+                ->with('error', 'No applicants left to notify — everyone eligible has already been emailed.');
+        }
+
+        $sent = 0;
+        $first = true;
+
+        foreach ($applications as $application) {
+            // Same Mailtrap-sandbox throttle used by sendAllQualificationNotices().
+            if (!$first) {
+                sleep(12);
+            }
+            $first = false;
+
+            $schedule = $application->interviewSchedules->first();
+            $isQualified = $application->qualification_result === 'qualified';
+
+            try {
+                if ($isQualified && $schedule) {
+                    $application->candidate->notify(new QualifiedScheduleNotification($application, $schedule));
+                } else {
+                    // Not qualified, or qualified but never scheduled -> disqualification letter.
+                    $forcePassedFalse = ($isQualified && !$schedule) ? false : null;
+                    $application->candidate->notify(new QualificationResultNotification($application, $forcePassedFalse));
+                }
+
+                $application->update(['schedule_notice_sent_at' => now()]);
+                $sent++;
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Bulk schedule notice failed for application ' . $application->id . ': ' . $e->getMessage());
+            }
+        }
+
+        return redirect()
+            ->route('job-postings.show', ['id' => $jobPostingId, 'step' => 3])
+            ->with('success', "Emailed {$sent} applicant(s).");
     }
 }

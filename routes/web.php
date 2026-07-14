@@ -100,6 +100,10 @@ Route::put('/applications/{id}/status', [ApplicationController::class, 'updateSt
 Route::post('/applications/{id}/qualification-check', [ApplicationController::class, 'saveQualificationCheck'])->name('applications.qualification-check');
 Route::post('/applications/{id}/qualification-notice', [ApplicationController::class, 'sendQualificationNotice'])->name('applications.qualification-notice');
 Route::post('/job-postings/{id}/qualification-notices/send-all', [ApplicationController::class, 'sendAllQualificationNotices'])->name('applications.qualification-notices.send-all');
+// NEW — Step 3 "Send all emails": qualified+scheduled applicants get the qualified
+// letter + schedule; not-qualified (or qualified-but-unscheduled) applicants get
+// the disqualification notice.
+Route::post('/job-postings/{id}/schedule-notices/send-all', [ApplicationController::class, 'sendAllScheduleNotices'])->name('applications.schedule-notices.send-all');
 
 // Scheduling
 // GET /interviews (interviews.index) removed -- replaced by the

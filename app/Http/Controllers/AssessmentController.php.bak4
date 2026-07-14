@@ -172,48 +172,6 @@ class AssessmentController extends Controller
         // accomplishments" would never match as written. Rejoin this
         // known fragment before matching.
         $normalized = str_replace('accomplishm ents', 'accomplishments', $normalized);
-        // The RTP-SG forms wrap the same word at a different point --
-        // "Accomplishme" / "nts" -- so both split variants are rejoined.
-        $normalized = str_replace('accomplishme nts', 'accomplishments', $normalized);
-
-        // Known official DepEd Cavite CAR templates each redistribute the
-        // same 100 points differently across the same criterion names
-        // (e.g. Performance is 25 pts on the school-admin form but 20 pts
-        // on both RTP-SG forms), and several of them scramble multi-word
-        // labels across narrow table columns in the extracted text. Both
-        // problems are avoided by recognizing each known template up
-        // front via a short label that sits outside the table and
-        // survives extraction intact, then using that template's
-        // pre-verified exact weights directly. Anything unrecognized
-        // falls through to the generic word scanner below.
-        $knownTemplates = [
-            'rtp-sg 11 to 15' => [
-                'Education' => 10, 'Training' => 10, 'Experience' => 10, 'Performance' => 20,
-                'Outstanding Accomplishments' => 10, 'Application of Education' => 10,
-                'Application of Learning and Development' => 10, 'Potential' => 20,
-            ],
-            'rtp-sg 16 to 23' => [
-                'Education' => 10, 'Training' => 10, 'Experience' => 10, 'Performance' => 20,
-                'Outstanding Accomplishments' => 5, 'Application of Education' => 15,
-                'Application of Learning and Development' => 10, 'Potential' => 20,
-            ],
-            'annex i-2' => [
-                'Education' => 10, 'Training' => 10, 'Experience' => 10, 'Performance' => 30,
-                'PPST COIs (Classroom Observation/Demo Teaching)' => 25,
-                'PPST NCOIs (Portfolio Annotation and BEI)' => 15,
-            ],
-            'school administration for secondary level' => [
-                'Education' => 10, 'Training' => 10, 'Experience' => 10, 'Performance' => 25,
-                'Outstanding Accomplishments' => 10, 'Application of Education' => 10,
-                'Application of Learning and Development' => 10, 'Potential' => 15,
-            ],
-        ];
-
-        foreach ($knownTemplates as $fingerprint => $criteria) {
-            if (str_contains($normalized, $fingerprint)) {
-                return $criteria;
-            }
-        }
 
         $result = [];
 

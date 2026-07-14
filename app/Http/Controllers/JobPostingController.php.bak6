@@ -35,7 +35,7 @@ class JobPostingController extends Controller
      * Validation rules shared by store() and update(), matching the
      * job_postings migration exactly.
      */
-    private function rules(bool $forCreate = false): array
+    private function rules(): array
     {
         return [
             'title' => ['required', 'string', 'max:255', Rule::in(config('job_titles.titles', []))],
@@ -64,18 +64,10 @@ class JobPostingController extends Controller
                 },
             ],
             // vacancies is now per-location in job_posting_locations table
-            'posted_at' => [
-                'nullable',
-                'date',
-                // Only enforced when creating a brand new posting -- editing
-                // an existing posting must not break just because its
-                // original dates are now in the past.
-                ...($forCreate ? ['after_or_equal:today'] : []),
-            ],
+            'posted_at' => ['nullable', 'date'],
             'closes_at' => [
                 'nullable',
                 'date',
-                ...($forCreate ? ['after_or_equal:today'] : []),
                 Rule::when(
                     fn ($input) => !empty($input['posted_at']),
                     ['after_or_equal:posted_at']
@@ -115,7 +107,7 @@ class JobPostingController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->rules(forCreate: true));
+        $validated = $request->validate($this->rules());
 
         // Don't create a duplicate posting for a title that already
         // exists -- merge the submitted place(s) of assignment into the

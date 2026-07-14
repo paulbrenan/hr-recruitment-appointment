@@ -160,18 +160,6 @@
                 </div>
                 @endif
 
-                @if ($posting->status === 'closed')
-                <div class="mt-3">
-                    <form action="{{ route('job-postings.archive', $posting->id) }}" method="POST"
-                          onsubmit="return confirm('Archive this posting? It will move out of the active job postings list.');">
-                        @csrf
-                        <button type="submit" class="btn btn-sm btn-outline-dark w-100">
-                            <i class="bi bi-archive me-1"></i> Archive posting
-                        </button>
-                    </form>
-                </div>
-                @endif
-
                 <div class="mt-3 pt-3 border-top">
                     @if ($currentStep < 3)
                     <a href="{{ route('job-postings.edit', $posting->id) }}"
@@ -642,34 +630,15 @@
                                     @else <span class="text-muted small">—</span>
                                     @endif
                                 </td>
-                                <td class="text-end">
+                                <td>
                                     @if ($posting->status !== 'closed')
-                                    @php
-                                        $candApp = $applications->firstWhere('id', $cand->application_id);
-                                        $isHired = $candApp && $candApp->status === 'hired';
-                                    @endphp
-                                    <div class="d-flex gap-1 justify-content-end">
-                                        @if (!$isHired)
-                                        <form action="{{ route('applications.updateStatus', $cand->application_id) }}" method="POST" class="m-0"
-                                              onsubmit="return confirm('Hire {{ addslashes($cand->candidate_name) }} for this position? If this fills the last opening for this role, the posting will close and remaining applicants will be automatically rejected and notified.');">
-                                            @csrf
-                                            @method('PUT')
-                                            <input type="hidden" name="status" value="hired">
-                                            <button type="submit" class="btn btn-sm btn-outline-success">
-                                                <i class="bi bi-check-lg"></i> Hire
-                                            </button>
-                                        </form>
-                                        @else
-                                        <span class="badge text-bg-dark align-self-center">Hired</span>
-                                        @endif
-                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal" data-bs-target="#editScoresModal"
-                                                data-application-id="{{ $cand->application_id }}"
-                                                data-candidate-name="{{ $cand->candidate_name }}"
-                                                data-scores="{{ json_encode($cand->scores) }}">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="modal" data-bs-target="#editScoresModal"
+                                            data-application-id="{{ $cand->application_id }}"
+                                            data-candidate-name="{{ $cand->candidate_name }}"
+                                            data-scores="{{ json_encode($cand->scores) }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
                                     @endif
                                 </td>
                             </tr>
@@ -1281,6 +1250,7 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
         e.preventDefault();
         alert('Please select at least one schedule type.');
     }
+
 });
 </script>
 @endpush

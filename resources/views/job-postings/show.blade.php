@@ -611,15 +611,34 @@
                                     @else <span class="text-muted small">—</span>
                                     @endif
                                 </td>
-                                <td>
+                                <td class="text-end">
                                     @if ($posting->status !== 'closed')
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                                            data-bs-toggle="modal" data-bs-target="#editScoresModal"
-                                            data-application-id="{{ $cand->application_id }}"
-                                            data-candidate-name="{{ $cand->candidate_name }}"
-                                            data-scores="{{ json_encode($cand->scores) }}">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
+                                    @php
+                                        $candApp = $applications->firstWhere('id', $cand->application_id);
+                                        $isHired = $candApp && $candApp->status === 'hired';
+                                    @endphp
+                                    <div class="d-flex gap-1 justify-content-end">
+                                        @if (!$isHired)
+                                        <form action="{{ route('applications.updateStatus', $cand->application_id) }}" method="POST" class="m-0"
+                                              onsubmit="return confirm('Hire {{ addslashes($cand->candidate_name) }} for this position? If this fills the last opening for this role, the posting will close and remaining applicants will be automatically rejected and notified.');">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="hidden" name="status" value="hired">
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-check-lg"></i> Hire
+                                            </button>
+                                        </form>
+                                        @else
+                                        <span class="badge text-bg-dark align-self-center">Hired</span>
+                                        @endif
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal" data-bs-target="#editScoresModal"
+                                                data-application-id="{{ $cand->application_id }}"
+                                                data-candidate-name="{{ $cand->candidate_name }}"
+                                                data-scores="{{ json_encode($cand->scores) }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                    </div>
                                     @endif
                                 </td>
                             </tr>

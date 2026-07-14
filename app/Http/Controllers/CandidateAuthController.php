@@ -17,15 +17,20 @@ class CandidateAuthController extends Controller
 {
     public function showRegister()
     {
-        // Eager-load each location's hired count (aliased as hired_count)
-        // in one query so JobPostingLocation::isFilled() doesn't have to
-        // hit the DB again per location.
-        $openPostings = JobPosting::where('status', 'open')
-            ->with(['locations' => function ($query) {
-                $query->withCount(['applications as hired_count' => function ($q) {
-                    $q->where('status', 'hired');
-                }])->orderBy('place_of_assignment');
-            }])
+        // Place of Assignment is no longer chosen on the public form --
+        // a posting simply disappears from the list once EITHER:
+        //   - every location (or the legacy vacancies column) is filled
+        //     (hasAnyOpenVacancy() sums across all locations already), or
+        //   - its closes_at due date has passed.
+        // Locations are still eager-loaded (needed by hasAnyOpenVacancy()),
+        // just without the per-location hired_count/order-by that only
+        // existed to feed the old Place dropdown.
+        $openPostings = JobPosting::where('status', '!=', 'closed')
+            ->where(function ($query) {
+                $query->whereNull('closes_at')
+                      ->orWhereDate('closes_at', '>=', now()->toDateString());
+            })
+            ->with('locations')
             ->orderBy('title')
             ->get()
             ->filter->hasAnyOpenVacancy()
@@ -83,35 +88,20 @@ class CandidateAuthController extends Controller
                 ->withErrors(['job_posting_id' => 'Sorry, this position is no longer available. Please choose another open position.']);
         }
 
-        // Resolve and verify the chosen location actually belongs to this
-        // posting (never trust the submitted ID on its own -- a tampered
-        // value could reference an unrelated posting's location). If the
-        // posting HAS location rows, a place must be chosen; if it has
-        // none (legacy posting), the field is skipped client-side and no
-        // location is expected here.
-        $jobPostingLocation = null;
-        $postingHasLocations = $jobPosting->locations()->exists();
-
-        if (!empty($validated['job_posting_location_id'])) {
-            $jobPostingLocation = $jobPosting->locations()->find((int) $validated['job_posting_location_id']);
-            if (!$jobPostingLocation) {
-                return back()
-                    ->withInput()
-                    ->withErrors(['job_posting_location_id' => 'Sorry, that place of assignment is no longer available. Please choose another option.']);
-            }
-            if ($jobPostingLocation->isFilled()) {
-                return back()
-                    ->withInput()
-                    ->withErrors(['job_posting_location_id' => 'Sorry, that place of assignment was just filled. Please choose another option.']);
-            }
-        } elseif ($postingHasLocations) {
-            return back()
-                ->withInput()
-                ->withErrors(['job_posting_location_id' => 'Please select a place of assignment.']);
-        } elseif (!$jobPosting->hasOpenLegacyVacancy()) {
+        // Place of Assignment is no longer picked on the public form --
+        // just re-check the posting hasn't been filled or closed between
+        // page load and submit (hasAnyOpenVacancy() sums across every
+        // location, or falls back to the legacy vacancies column).
+        if (!$jobPosting->hasAnyOpenVacancy()) {
             return back()
                 ->withInput()
                 ->withErrors(['job_posting_id' => 'Sorry, this position was just filled. Please choose another open position.']);
+        }
+
+        if ($jobPosting->closes_at && $jobPosting->closes_at->lt(now()->startOfDay())) {
+            return back()
+                ->withInput()
+                ->withErrors(['job_posting_id' => 'Sorry, the application period for this position has closed. Please choose another open position.']);
         }
 
         // Clean up any orphaned candidate record for this email
@@ -124,7 +114,7 @@ class CandidateAuthController extends Controller
             'first_name'       => $validated['first_name'],
             'middle_name'      => $validated['middle_name'] ?? null,
             'last_name'        => $validated['last_name'],
-            'position_applied' => $jobPosting->title . ($jobPostingLocation ? ' - ' . $jobPostingLocation->place_of_assignment : ($jobPosting->place_of_assignment ? ' - ' . $jobPosting->place_of_assignment : '')),
+            'position_applied' => $jobPosting->title . ($jobPosting->place_of_assignment ? ' - ' . $jobPosting->place_of_assignment : ''),
             'email'            => $validated['email'],
             'phone'            => $validated['phone'],
             'address'          => $validated['address'],
@@ -148,7 +138,6 @@ class CandidateAuthController extends Controller
             'transaction_number' => $txn,
             'candidate_id'       => $candidate->id,
             'job_posting_id'     => $jobPosting->id,
-'job_posting_location_id' => $jobPostingLocation->id ?? null,
             'status'             => 'submitted',
             'applied_at'         => now()->toDateString(),
             'notes'              => 'Submitted via Online Recruitment Form.',

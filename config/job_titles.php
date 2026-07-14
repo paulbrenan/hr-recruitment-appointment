@@ -81,6 +81,7 @@ return [
         'Security Guard I',
         'Security Guard II',
         'Senior Education Program Specialist',
+        'Senior High School Assistant School Principal II',
         'Special Education Teacher I',
         'Special Education Teacher II',
         'Special Education Teacher III',

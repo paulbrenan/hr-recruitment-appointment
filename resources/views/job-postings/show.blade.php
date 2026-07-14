@@ -1178,7 +1178,14 @@ function advanceStep() {
         },
     })
     .then(r => r.json())
-    .then(() => window.location.reload())
+    .then(() => {
+        // Navigate explicitly to the step that was just unlocked, instead
+        // of a bare reload -- a bare reload can preserve a stale ?step=
+        // from before the click, which the server clamps $activeStep to,
+        // leaving the OLD panel showing even though the posting genuinely
+        // advanced underneath it.
+        window.location.href = window.location.pathname + '?step=' + (currentStep + 1);
+    })
     .catch(() => {
         btn.disabled = false;
         btn.innerHTML = 'Advance';

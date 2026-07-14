@@ -35,7 +35,7 @@ class JobPostingController extends Controller
      * Validation rules shared by store() and update(), matching the
      * job_postings migration exactly.
      */
-    private function rules(bool $forCreate = false): array
+    private function rules(): array
     {
         return [
             'title' => ['required', 'string', 'max:255', Rule::in(config('job_titles.titles', []))],
@@ -64,18 +64,10 @@ class JobPostingController extends Controller
                 },
             ],
             // vacancies is now per-location in job_posting_locations table
-            'posted_at' => [
-                'nullable',
-                'date',
-                // Only enforced when creating a brand new posting -- editing
-                // an existing posting must not break just because its
-                // original dates are now in the past.
-                ...($forCreate ? ['after_or_equal:today'] : []),
-            ],
+            'posted_at' => ['nullable', 'date'],
             'closes_at' => [
                 'nullable',
                 'date',
-                ...($forCreate ? ['after_or_equal:today'] : []),
                 Rule::when(
                     fn ($input) => !empty($input['posted_at']),
                     ['after_or_equal:posted_at']
@@ -85,19 +77,11 @@ class JobPostingController extends Controller
         ];
     }
 
-    public function index(Request $request)
+    public function index()
     {
-        // Archived postings are terminal/out-of-pipeline -- keep them out
-        // of the default list, toggle-able via ?archived=1.
-        $showArchived = $request->boolean('archived');
+        $postings = JobPosting::with('locations')->latest()->get();
 
-        $postings = JobPosting::with('locations')
-            ->when($showArchived, fn ($q) => $q->where('status', 'archived'))
-            ->when(!$showArchived, fn ($q) => $q->where('status', '!=', 'archived'))
-            ->latest()
-            ->get();
-
-        return view('job-postings.index', compact('postings', 'showArchived'));
+        return view('job-postings.index', compact('postings'));
     }
 
     public function create()
@@ -115,7 +99,7 @@ class JobPostingController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->rules(forCreate: true));
+        $validated = $request->validate($this->rules());
 
         // Don't create a duplicate posting for a title that already
         // exists -- merge the submitted place(s) of assignment into the
@@ -249,12 +233,7 @@ class JobPostingController extends Controller
 
         $applicationStatus = $map[$postingStatus];
 
-        // Applicants already disqualified ('not_qualified') or already
-        // 'rejected' are NEVER touched by this cascade, at any stage --
-        // otherwise advancing the posting silently overwrites their real
-        // status (e.g. to 'ranked'), erasing the disqualification.
-        $query = Application::where('job_posting_id', $posting->id)
-            ->whereNotIn('status', ['not_qualified', 'rejected']);
+        $query = Application::where('job_posting_id', $posting->id);
 
         // Never override an applicant who has already been hired
         if ($applicationStatus === 'rejected') {
@@ -415,15 +394,7 @@ class JobPostingController extends Controller
         $usedWeight      = $criteria->sum('weight_percentage');
         $remainingWeight = max(0, 100 - $usedWeight);
 
-        // Disqualified (and rejected) applicants must never appear in
-        // ranking/assessment -- only candidates who passed Qualification
-        // Checking (step 2) belong here. Built from a filtered subset,
-        // NOT $applications itself, so $applications stays the full list
-        // for the qualification-checking view (step 2) where disqualified
-        // applicants should still show up, correctly labeled.
-        $rankableApplications = $applications->whereNotIn('status', ['not_qualified', 'rejected'])->values();
-
-        $rankedCandidates = $rankableApplications->map(function ($app) use ($criteria) {
+        $rankedCandidates = $applications->map(function ($app) use ($criteria) {
             $scores = [];
             $total  = 0;
             foreach ($criteria as $c) {
@@ -440,10 +411,10 @@ class JobPostingController extends Controller
                 'total_score'       => $total,
                 'notification_sent' => $app->status === 'ranking_sent',
             ];
-        })->sortByDesc('total_score')->values()->map(function ($cand, $i) use ($rankableApplications) {
+        })->sortByDesc('total_score')->values()->map(function ($cand, $i) use ($applications) {
             $cand->rank   = $i + 1;
             $cand->passed = $cand->total_score >= 75;
-            $cand->total  = $rankableApplications->count();
+            $cand->total  = $applications->count();
             return $cand;
         });
 

@@ -249,12 +249,7 @@ class JobPostingController extends Controller
 
         $applicationStatus = $map[$postingStatus];
 
-        // Applicants already disqualified ('not_qualified') or already
-        // 'rejected' are NEVER touched by this cascade, at any stage --
-        // otherwise advancing the posting silently overwrites their real
-        // status (e.g. to 'ranked'), erasing the disqualification.
-        $query = Application::where('job_posting_id', $posting->id)
-            ->whereNotIn('status', ['not_qualified', 'rejected']);
+        $query = Application::where('job_posting_id', $posting->id);
 
         // Never override an applicant who has already been hired
         if ($applicationStatus === 'rejected') {

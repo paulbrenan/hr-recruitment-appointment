@@ -115,7 +115,7 @@ class JobPostingController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate($this->rules(forCreate: true));
+        $validated = $request->validate($this->rules());
 
         // Don't create a duplicate posting for a title that already
         // exists -- merge the submitted place(s) of assignment into the
@@ -249,12 +249,7 @@ class JobPostingController extends Controller
 
         $applicationStatus = $map[$postingStatus];
 
-        // Applicants already disqualified ('not_qualified') or already
-        // 'rejected' are NEVER touched by this cascade, at any stage --
-        // otherwise advancing the posting silently overwrites their real
-        // status (e.g. to 'ranked'), erasing the disqualification.
-        $query = Application::where('job_posting_id', $posting->id)
-            ->whereNotIn('status', ['not_qualified', 'rejected']);
+        $query = Application::where('job_posting_id', $posting->id);
 
         // Never override an applicant who has already been hired
         if ($applicationStatus === 'rejected') {
@@ -415,15 +410,7 @@ class JobPostingController extends Controller
         $usedWeight      = $criteria->sum('weight_percentage');
         $remainingWeight = max(0, 100 - $usedWeight);
 
-        // Disqualified (and rejected) applicants must never appear in
-        // ranking/assessment -- only candidates who passed Qualification
-        // Checking (step 2) belong here. Built from a filtered subset,
-        // NOT $applications itself, so $applications stays the full list
-        // for the qualification-checking view (step 2) where disqualified
-        // applicants should still show up, correctly labeled.
-        $rankableApplications = $applications->whereNotIn('status', ['not_qualified', 'rejected'])->values();
-
-        $rankedCandidates = $rankableApplications->map(function ($app) use ($criteria) {
+        $rankedCandidates = $applications->map(function ($app) use ($criteria) {
             $scores = [];
             $total  = 0;
             foreach ($criteria as $c) {
@@ -440,10 +427,10 @@ class JobPostingController extends Controller
                 'total_score'       => $total,
                 'notification_sent' => $app->status === 'ranking_sent',
             ];
-        })->sortByDesc('total_score')->values()->map(function ($cand, $i) use ($rankableApplications) {
+        })->sortByDesc('total_score')->values()->map(function ($cand, $i) use ($applications) {
             $cand->rank   = $i + 1;
             $cand->passed = $cand->total_score >= 75;
-            $cand->total  = $rankableApplications->count();
+            $cand->total  = $applications->count();
             return $cand;
         });
 

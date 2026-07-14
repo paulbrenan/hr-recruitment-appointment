@@ -164,6 +164,15 @@ class AssessmentController extends Controller
     private function matchCriteriaCatalog(string $text): array
     {
         $normalized = preg_replace('/\s+/', ' ', strtolower($text));
+
+        // The official CAR template hard-wraps "Accomplishments" as
+        // "Accomplishm" / "ents" across two lines in its narrow column.
+        // That survives whitespace-collapsing above as two separate
+        // tokens with a space between them, so "outstanding
+        // accomplishments" would never match as written. Rejoin this
+        // known fragment before matching.
+        $normalized = str_replace('accomplishm ents', 'accomplishments', $normalized);
+
         $result = [];
 
         $multiWord = [
@@ -226,11 +235,32 @@ class AssessmentController extends Controller
         return html_entity_decode((string) $text);
     }
 
+    /**
+     * Windows' shell has no /dev/null -- shell_exec() there runs through
+     * cmd.exe, which doesn't understand that path and can make the whole
+     * redirected command misbehave. NUL is the Windows equivalent.
+     */
+    private function nullDevice(): string
+    {
+        return PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+    }
+
     private function extractTextFromPdf(string $path): string
     {
-        $text = @shell_exec('pdftotext -layout ' . escapeshellarg($path) . ' - 2>/dev/null');
-        if ($text && strlen(trim($text)) > 20) {
-            return $text;
+        // `-layout` reconstructs the page by visual column position, which
+        // is fine for simple documents but scrambles word order on narrow
+        // multi-column tables (e.g. the official CAR form splits
+        // "application of education" across columns so the words end up
+        // nowhere near each other). Plain content-stream order doesn't have
+        // that problem on such documents, so both are extracted and
+        // concatenated -- this is only used for keyword matching, not
+        // structure, so duplicated/reordered text is harmless.
+        $layoutText = @shell_exec('pdftotext -layout ' . escapeshellarg($path) . ' - 2>' . $this->nullDevice());
+        $plainText  = @shell_exec('pdftotext ' . escapeshellarg($path) . ' - 2>' . $this->nullDevice());
+        $combined   = trim((string) $layoutText) . "\n" . trim((string) $plainText);
+
+        if (trim($combined) !== '' && strlen(trim($combined)) > 20) {
+            return $combined;
         }
         // Likely a scanned/photographed PDF -- OCR fallback, same tools
         // the job posting PDF import already relies on.
@@ -242,7 +272,7 @@ class AssessmentController extends Controller
         $tmpDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'criteria_ocr_' . uniqid();
         mkdir($tmpDir, 0755, true);
         $prefix = $tmpDir . DIRECTORY_SEPARATOR . 'page';
-        shell_exec('pdftoppm -png -r 200 ' . escapeshellarg($path) . ' ' . escapeshellarg($prefix) . ' 2>/dev/null');
+        shell_exec('pdftoppm -png -r 200 ' . escapeshellarg($path) . ' ' . escapeshellarg($prefix) . ' 2>' . $this->nullDevice());
 
         $text = '';
         foreach (glob($prefix . '*.png') as $img) {
@@ -259,7 +289,7 @@ class AssessmentController extends Controller
 
     private function extractTextFromImage(string $path): string
     {
-        return (string) @shell_exec('tesseract ' . escapeshellarg($path) . ' stdout 2>/dev/null');
+        return (string) @shell_exec('tesseract ' . escapeshellarg($path) . ' stdout 2>' . $this->nullDevice());
     }
 
     /**

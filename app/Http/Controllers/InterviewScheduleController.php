@@ -100,6 +100,22 @@ class InterviewScheduleController extends Controller
             }
         }
 
+        // Email every panelist selected on the checklist (1-6), not just
+        // the legacy single interviewer_email field above. Panelists
+        // without an email on file are silently skipped rather than
+        // failing the whole request.
+        foreach ($schedule->panelists as $panelist) {
+            if (empty($panelist->email)) {
+                continue;
+            }
+            try {
+                Notification::route('mail', $panelist->email)
+                    ->notify(new InterviewerInvitationNotification($schedule));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Failed to send panelist schedule invitation to {$panelist->email}: " . $e->getMessage());
+            }
+        }
+
         return back()->with('success', 'Schedule created successfully. Invitation email sent.');
     }
     public function update(Request $request, $id)
@@ -178,6 +194,20 @@ class InterviewScheduleController extends Controller
 
                 if (!empty($panelistIds)) {
                     $schedule->panelists()->sync($panelistIds);
+
+                    // Email every panelist selected on the checklist (1-6).
+                    // Skipped silently if a panelist has no email on file.
+                    foreach ($schedule->panelists as $panelist) {
+                        if (empty($panelist->email)) {
+                            continue;
+                        }
+                        try {
+                            \Illuminate\Support\Facades\Notification::route('mail', $panelist->email)
+                                ->notify(new \App\Notifications\InterviewerInvitationNotification($schedule));
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::warning("Failed to send panelist schedule invitation to {$panelist->email}: " . $e->getMessage());
+                        }
+                    }
                 }
 
                 // Send invitation to candidate (one per selected type)

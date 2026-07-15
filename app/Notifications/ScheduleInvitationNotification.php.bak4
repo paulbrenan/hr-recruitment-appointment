@@ -47,7 +47,7 @@ class ScheduleInvitationNotification extends Notification
 
         return (new MailMessage)
             ->subject("You're Invited: {$typeLabel} — {$posting->title}")
-            ->view('mail.schedule-invitation', [
+            ->view('emails.schedule-invitation', [
                 'candidate'  => $candidate,
                 'jobPosting' => $posting,
                 'schedule'   => $this->schedule,

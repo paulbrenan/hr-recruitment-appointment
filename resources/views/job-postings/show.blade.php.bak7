@@ -405,19 +405,15 @@
                         // the check, so this is what keeps the grouping stable.
                         // Applicants who haven't been checked yet have a null
                         // qualification_result and land in "Pending".
-                        // Pending listed FIRST -- the pill switcher below marks
-                        // whichever group is first in this array as the default
-                        // active tab ($loop->first), and Pending is the one HR
-                        // actually needs to act on.
                         $qualGroups = [
-                            'pending'       => $applications->whereNull('qualification_result')->values(),
                             'qualified'     => $applications->where('qualification_result', 'qualified')->values(),
                             'not_qualified' => $applications->where('qualification_result', 'not_qualified')->values(),
+                            'pending'       => $applications->whereNull('qualification_result')->values(),
                         ];
                         $qualGroupMeta = [
-                            'pending'       => ['label' => 'Pending', 'color' => 'secondary'],
                             'qualified'     => ['label' => 'Qualified', 'color' => 'success'],
                             'not_qualified' => ['label' => 'Disqualified', 'color' => 'danger'],
+                            'pending'       => ['label' => 'Pending', 'color' => 'secondary'],
                         ];
                     @endphp
 

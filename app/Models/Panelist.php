@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Panelist extends Model
 {
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'email'];
 
     public function jobPostings()
     {

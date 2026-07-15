@@ -6,7 +6,6 @@ use App\Http\Controllers\CandidateAuthController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JobPostingController;
-use App\Http\Controllers\PanelistController;
 use App\Http\Controllers\JobPostingImportController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\InterviewScheduleController;
@@ -88,8 +87,6 @@ Route::get('/job-postings/{id}/export-qualifications', [JobPostingController::cl
 Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
 Route::post('/job-postings/{id}/archive', [JobPostingController::class, 'archive'])->name('job-postings.archive');
 Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');
-Route::put('/panelists/{id}', [PanelistController::class, 'update'])->name('panelists.update');
-Route::delete('/panelists/{id}', [PanelistController::class, 'destroy'])->name('panelists.destroy');
 
 // Rankings
 Route::get('/rankings', [RankingController::class, 'index'])->name('rankings.index');

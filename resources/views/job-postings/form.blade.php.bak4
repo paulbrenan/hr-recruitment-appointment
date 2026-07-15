@@ -580,6 +580,18 @@
 
     // ── Panelist JS ──────────────────────────────────────────────────────────
 
+    // When assign checkbox is unchecked, disable the Available checkbox too
+    document.querySelectorAll('.panelist-assign-cb').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            const row      = document.getElementById('panelistRow' + this.value);
+            const availCb  = row ? row.querySelector('.panelist-avail-cb') : null;
+            if (availCb) {
+                availCb.disabled = !this.checked;
+                if (!this.checked) availCb.checked = false;
+            }
+        });
+    });
+
     // Add new panelist input row
     let newPanelistCount = 0;
     document.getElementById('addPanelistBtn').addEventListener('click', function () {

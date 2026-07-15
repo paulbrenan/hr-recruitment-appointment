@@ -370,16 +370,10 @@ class ApplicationController extends Controller
             try {
                 if ($isQualified && $schedule) {
                     $application->candidate->notify(new QualifiedScheduleNotification($application, $schedule));
-                } elseif ($isQualified && !$schedule) {
-                    // Qualified but no schedule yet -- honest, distinct
-                    // notice. Previously this forced the DISQUALIFIED
-                    // template via $overridePassed = false, which
-                    // contradicted the qualification_result (and the
-                    // criteria table) that same email displayed.
-                    $application->candidate->notify(new QualifiedPendingScheduleNotification($application));
                 } else {
-                    // Genuinely not qualified.
-                    $application->candidate->notify(new QualificationResultNotification($application));
+                    // Not qualified, or qualified but never scheduled -> disqualification letter.
+                    $forcePassedFalse = ($isQualified && !$schedule) ? false : null;
+                    $application->candidate->notify(new QualificationResultNotification($application, $forcePassedFalse));
                 }
 
                 $application->update(['schedule_notice_sent_at' => now()]);

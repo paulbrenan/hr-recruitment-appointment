@@ -48,21 +48,15 @@ class InterviewerInvitationNotification extends Notification
         $typeLabel = $this->typeLabel();
         $when      = $this->schedule->scheduled_at->format('l, F j, Y \a\t g:i A');
 
-        $mail = (new MailMessage)
-            ->subject("Schedule Assignment: {$typeLabel} â€” {$posting->title}")
-            ->greeting("Hello,")
-            ->line("You have been assigned to conduct the following **{$typeLabel}** for the **{$posting->title}** position.")
-            ->line("**Candidate:** {$candidate->full_name}")
-            ->line("**Date & Time:** {$when}");
-
-        if ($this->schedule->location) {
-            $mail->line("**Location:** {$this->schedule->location}");
-        }
-
-        $mail->line('Please confirm your availability with HR if there is any conflict.')
-             ->salutation("Best regards,\nHR Recruitment Team");
-
-        return $mail;
+        return (new MailMessage)
+            ->subject("Schedule Assignment: {$typeLabel} — {$posting->title}")
+            ->view('mail.interviewer-invitation', [
+                'candidate'  => $candidate,
+                'jobPosting' => $posting,
+                'schedule'   => $this->schedule,
+                'typeLabel'  => $typeLabel,
+                'when'       => $when,
+            ]);
     }
 
     public function toArray(object $notifiable): array

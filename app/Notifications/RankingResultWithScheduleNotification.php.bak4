@@ -49,7 +49,7 @@ class RankingResultWithScheduleNotification extends Notification
 
         return (new MailMessage)
             ->subject("Congratulations! You Ranked #{$rank} — {$this->posting->title}")
-            ->view('mail.ranking-result-schedule', [
+            ->view('emails.ranking-result-schedule', [
                 'candidate' => $candidate,
                 'posting'   => $this->posting,
                 'schedule'  => $this->schedule,

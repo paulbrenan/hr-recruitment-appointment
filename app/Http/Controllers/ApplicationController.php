@@ -409,4 +409,4 @@ class ApplicationController extends Controller
             ->route('job-postings.show', ['id' => $jobPostingId, 'step' => 3])
             ->with('success', "Emailed {$sent} applicant(s).");
     }
-
+}

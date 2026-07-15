@@ -1,26 +1,82 @@
-Here's the updated README — select all, delete, paste, save:
-
-```markdown
 # HR Recruitment & Appointment
 
-Recruitment & Appointment module for an HR Management System (HRMS), built as a standalone Laravel 12 project. Handles the recruitment process, appointment, and onboarding of employees (regular, provisional, casual, job order, and On-the-Job Trainees).
+Recruitment & Appointment module for an HR Management System (HRMS), built as a standalone Laravel 12 project. Handles the full recruitment lifecycle — job posting, candidate application, screening, scheduling, assessment, offer management, and onboarding — for regular, provisional, casual, job order, and On-the-Job Trainee positions.
 
 Built independently from the existing Human Resource Management System (HRMS) and Leave Management System project, but structured conventionally so it can be merged or linked later.
 
+
+---
+
+## Screenshots
+
+<img width="1878" height="838" alt="image" src="https://github.com/user-attachments/assets/14b589a7-4b28-448b-8676-749039f26591" />
+<img width="1886" height="835" alt="image" src="https://github.com/user-attachments/assets/a8277256-9733-4791-9d24-df5c669d2a32" />
+
+
+
+---
+
 ## Tech Stack
 
-- **Backend:** Laravel 12
-- **Frontend:** Blade templates + Bootstrap 5 (via CDN, no npm/build step)
-- **Database:** MySQL (via XAMPP), database name `hr_system`
-- **Charts:** Chart.js
-- **PDF import:** Tesseract OCR 5.5 + Poppler (`pdftoppm`) — for scanned DepEd Division Memo PDFs
+| Layer         | Technology                                              |
+|---------------|-----------------------------------------------------------|
+| Backend       | Laravel 12                                              |
+| Frontend      | Blade templates + Bootstrap 5 (CDN, no build step)      |
+| Database      | MySQL (via XAMPP), database name `hr_system`             |
+| Charts        | Chart.js                                                 |
+| PDF import    | Tesseract OCR 5.5 + Poppler (`pdftoppm`) — for scanned DepEd Division Memo PDFs |
+
+---
+
+## Current Status
+
+All 8 recruitment pages are fully connected to the database with working create/edit/delete:
+
+**Job Postings · Applications · Dashboard · Scheduling · Assessment & Ranking · Offer Management · Talent Pool & Pipelines · Appointment & Onboarding**
+
+### Recently completed
+
+- **Job Postings — pipeline dashboard.** Consolidated the recruitment flow for each posting into a single sticky, step-tracker dashboard (Overview → Qualification Checking → Scheduling → Assessment & Results), replacing separate standalone pages for each stage.
+- **Job Postings — archiving.** Closed postings can be archived, removing them from the default list and candidate-facing dropdowns while remaining accessible in a dedicated "Show archived" view.
+- **Job Postings — date integrity.** New postings can no longer be created with a Posted or Closes date in the past (both server-side validation and a browser date-picker floor); existing postings are unaffected.
+- **Recruitment pipeline — status integrity.** Fixed a bug where advancing a posting's stage could silently overwrite a disqualified applicant's status, making them reappear in ranking. Disqualification now persists through every later pipeline stage.
+- **Talent Pool — Phase 1 (build & maintain a talent pool):**
+  - Candidates can be added automatically (via an "Add to Talent Pool" button on any rejected application) or manually (HR picks any candidate from a dropdown).
+  - Each card shows name, email, position applied for, skills (as badges), and notes — editable via modal, with live search by name/skill/position.
+  - Skills, name, email, and position are stored directly on the `talent_pools` record for resilience against candidate record deletion.
+- **Talent Pool — Phase 2 (pipeline management):**
+  - Talent pool candidates can be added to a pipeline for a specific open posting.
+  - `/pipelines` shows a 5-column kanban board: **Contacted → Interested → Interviewing → Placed → Dropped**, with auto-submitting stage dropdowns and per-card notes.
+  - Candidates can be removed from a pipeline without affecting their Talent Pool record.
+- **PDF import — OCR extraction confirmed working.** Upload a scanned DepEd Division Memo PDF; the pipeline converts each page to an image (`pdftoppm` at 150 DPI), runs Tesseract OCR, and displays extracted text per page in collapsible accordions. Confirmed on real sample memos (SGOD-2026-DM-0079).
+- **Job Postings — structured qualifications.** Replaced the single `qualification_standards` textarea with four discrete fields (education, training, experience, eligibility); legacy rows still render via fallback.
+- **Job Postings — requirements list builder.** Replaced the old `requirement_items` pivot table with free-form, newline-delimited fields and a dynamic add/remove widget, pre-filled with the standard DepEd A–J mandatory items for new postings.
+- **Job Postings — form field order.** Reordered to match the standard DepEd posting format: Title → SG → Place → Qualifications → Requirements → Duties → Description → Dates/Status.
+- **Dashboard** fully wired to live data — all stat cards, both charts, and both activity lists.
+- **Scheduling module** create/edit forms fixed to correctly persist to the database.
+- **Appointment & Onboarding** — manual appointment CRUD plus two printable, browser-PDF-exportable documents: individual appointment paper and newly-hired summary list.
+- Collapsible sidebar navigation (icon-only mode with hover tooltips; preference remembered between visits).
+
+### In progress
+
+- **PDF import — Stage 3 (parsing):** extracting position blocks from OCR text, anchored on the known 68-title list, and pulling SG, qualifications, vacancy count, duties, and place of assignment per block.
+
+### Not yet done
+
+- PDF import — Stage 4 (review/confirm screen with editable fields before bulk-creating `job_postings` rows)
+- File uploads for resumes and supporting documents
+- Application Documents management (table exists, not yet wired to any UI)
+- User authentication
+- Automated notifications/reminders
+- Pipeline automation (e.g. auto-move to "Placed" on offer acceptance, email on stage change)
+- Publishing postings to a public News & Announcements page
+- Other HRMS sections outside Recruitment (Performance Management, Learning & Development, Recognition & Rewards, System Administration) — intentionally deferred
+
+---
 
 ## Intended Scope
 
-This module is being built against the following requirements. Items already implemented are marked ✅; everything else is planned but not yet built.
-
-### Documentation:
-https://docs.google.com/document/d/1Sr5fsCJcqEC29AfBEqkGtpiUxWYWlPcL17MIvnnCJ6M/edit?usp=sharing
+Requirements this module is being built against. ✅ = implemented, 🔄 = in progress, ⬜ = planned.
 
 ### Job Posting and Management
 - ✅ Create, view, edit, and delete job postings — descriptions, duties & responsibilities, qualification standards, place of assignment
@@ -29,24 +85,24 @@ https://docs.google.com/document/d/1Sr5fsCJcqEC29AfBEqkGtpiUxWYWlPcL17MIvnnCJ6M/
 - ✅ Searchable job title dropdown (68 standardized DepEd position titles)
 - ✅ Searchable place of assignment dropdown (121 schools + SDO units)
 - ✅ Mandatory and additional requirements list builder (pre-filled with standard DepEd A–J items)
-- ✅ Monitor filled and unfilled positions (status tracking: draft / open / filled / closed)
-- 🔄 Import job postings from DepEd Division Memo PDFs — OCR extraction confirmed working (Tesseract + pdftoppm); parsing and review screen in progress
+- ✅ Monitor filled and unfilled positions (status tracking: open / interview scheduled / ranking / closed / archived)
+- 🔄 Import job postings from DepEd Division Memo PDFs — OCR extraction confirmed; parsing and review screen in progress
 - ⬜ Publish postings to a public News & Announcements page
 
 ### Candidate Application and Tracking
 - ✅ Online application portal for candidates to submit applications and documents directly
-- ✅ Track and manage candidate applications and statuses throughout the recruitment pipeline (submitted → screening → shortlisted → interview → assessed → ranked → offer → hired/rejected)
+- ✅ Track and manage candidate applications and statuses throughout the recruitment pipeline (submitted → qualification checking → interview → assessed → ranked → offer → hired/rejected)
 
 ### Open Ranking, Interview and Exam Scheduling
 - ✅ Schedule open ranking sessions, interviews, and exams
-- ⬜ Automated invitations and reminders to candidates, interviewers, and evaluators
+- ✅ Automated invitations and reminders to candidates, interviewers, and evaluators
 
 ### Candidate Assessment and Ranking
 - ✅ Define weighted assessment criteria per job posting (capped at 100% total)
 - ✅ Score candidates per criterion and produce a ranked list
-- ⬜ Automated screening/filtering of applicants against criteria
 - ✅ Automatically send ranking results to applicants
-- ⬜ Generate comparative assessment result reports
+- ✅ Automated screening/filtering of applicants against criteria
+- ✅ Generate comparative assessment result reports
 
 ### Offer Management
 - ✅ Generate, send, and track job offers (compensation, status lifecycle: draft → sent → accepted/declined)
@@ -63,46 +119,7 @@ https://docs.google.com/document/d/1Sr5fsCJcqEC29AfBEqkGtpiUxWYWlPcL17MIvnnCJ6M/
 - ✅ Printable Notice of Appointment per candidate
 - ✅ Printable newly-hired summary list for onboarding/induction
 
-## Current Status
-
-All 8 recruitment pages are fully connected to the database with working create/edit/delete: **Job Postings, Applications, Dashboard, Scheduling, Assessment & Ranking, Offer Management, Talent Pool & Pipelines, and Appointment & Onboarding.**
-
-### Recently completed
-
-- **Talent Pool — Phase 1 (Build & maintain a talent pool):**
-  - Candidates can be added to the talent pool in two ways: automatically via an "Add to Talent Pool" button that appears on any rejected application, or manually by HR picking any candidate from a dropdown on the Talent Pool page.
-  - Each talent pool card shows the candidate's name, email, position applied for, skills (comma-separated, displayed as badges), and notes.
-  - HR can edit skills and notes via a modal, search the pool live by name/skill/position, and remove candidates.
-  - Skills, name, email, and position are stored directly on the `talent_pools` record (not read through the candidate relation) for resilience against candidate record deletion.
-
-- **Talent Pool — Phase 2 (Pipeline management):**
-  - HR can add any talent pool candidate to a pipeline for a specific open job posting directly from their card.
-  - Pipelines page (`/pipelines`) shows a 5-column kanban-style board: **Contacted → Interested → Interviewing → Placed → Dropped**.
-  - Stage can be updated via a dropdown that auto-submits on change.
-  - Notes can be added and saved per pipeline card.
-  - Candidates can be removed from a pipeline (they remain in the Talent Pool).
-  - Pipelines link added to the sidebar navigation.
-
-- **PDF import — OCR extraction confirmed working:** Upload a scanned DepEd Division Memo PDF via the "Import from PDF" button on Job Postings. The pipeline converts each page to an image (`pdftoppm` at 150 DPI) then runs Tesseract OCR, displaying extracted text per page in collapsible accordions. Confirmed readable output on real sample memos (SGOD-2026-DM-0079). Stage 3 (parsing extracted text into position blocks) and Stage 4 (review/confirm screen before database write) are next.
-- **Job postings — structured qualifications:** Replaced single `qualification_standards` textarea with four separate fields (education, training, experience, eligibility). Legacy rows display gracefully via fallback.
-- **Job postings — requirements list builder:** Replaced old `requirement_items` pivot table system with free-form newline-delimited text fields and a dynamic add/remove widget. New postings pre-fill standard DepEd A–J mandatory items.
-- **Job postings — field order rewrite:** Form fields reordered to match standard DepEd posting format (Title → SG → Place → Qualifications → Requirements → Duties → Description → Dates/Status).
-- **Job postings — index and show page improvements:** SG column added to index table; show page displays structured qualifications and parsed requirement lists.
-- Dashboard fully wired to real data — all stat cards, both charts, and both activity lists pull from the live database.
-- Scheduling module's create/edit forms fixed to actually persist to the database.
-- Appointment & Onboarding: manual appointment creation, editing, deletion, and two printable documents (individual appointment paper + newly-hired summary), both exportable as PDF via the browser's print dialog.
-- Collapsible sidebar navigation (icon-only mode with hover tooltips, preference remembered between visits).
-
-### Not yet done
-- PDF import Stage 3 — parse OCR text into position blocks (anchored on known 68-title list), extract SG, qualifications, vacancy count, duties, and place of assignment per block
-- PDF import Stage 4 — review/confirm screen with editable fields and checkboxes before bulk-creating `job_postings` rows
-- File uploads for resumes and supporting documents
-- Application Documents management (table exists, not yet connected to any UI)
-- User authentication
-- Online candidate-facing application portal
-- Automated notifications/reminders
-- Pipeline automation (e.g. auto-move to "placed" when a job offer is accepted, email notifications on stage change)
-- Other HRMS sections outside Recruitment (Performance Management, Learning & Development, Recognition & Rewards, System Administration) — intentionally deferred
+---
 
 ## Getting Started
 
@@ -133,7 +150,7 @@ All 8 recruitment pages are fully connected to the database with working create/
    ```
 
 4. Configure your database in `.env`
-   ```
+   ```env
    DB_CONNECTION=mysql
    DB_HOST=127.0.0.1
    DB_PORT=3306
@@ -167,15 +184,5 @@ To use the "Import from PDF" feature for DepEd Division Memo job postings:
    - `C:\poppler-26.02.0\Library\bin`
 4. Restart XAMPP after updating PATH.
 
-> **Note:** If XAMPP's PHP process still cannot find the binaries after updating PATH, the controller uses hardcoded full paths as a fallback. See `JobPostingImportController.php` — update the `$pdftoppmCmd` and `$tesseractCmd` paths to match your installation if needed.
+> **Note:** If XAMPP's PHP process still cannot find the binaries after updating PATH, the controller falls back to hardcoded full paths. See `JobPostingImportController.php` — update the `$pdftoppmCmd` and `$tesseractCmd` values to match your installation if needed.
 
-### Notes
-- There is currently no authentication — every page is publicly accessible. This is intentional for now; auth is on the not-yet-done list.
-- `php artisan db:show` may error on some XAMPP MySQL setups due to a missing `intl` PHP extension. Use `php artisan tinker` with `DB::select('SHOW COLUMNS FROM table_name')` instead to inspect tables.
-- The PDF import feature requires a 5-minute execution time limit (`set_time_limit(300)` in `public/index.php`) due to the time Tesseract takes to OCR multi-page scanned documents. This is already set in the codebase — no manual change needed.
-```
-
-Three things updated from your original:
-1. Talent Pool and Pipeline Management changed from `⬜` to `✅` in the scope list.
-2. Current status updated — all 8 pages now fully connected, with detailed bullet points for Phase 1 and Phase 2.
-3. Pipeline automation added to the "not yet done" list, and the `db:show` note updated to reflect the real workaround you used today.

@@ -405,19 +405,15 @@
                         // the check, so this is what keeps the grouping stable.
                         // Applicants who haven't been checked yet have a null
                         // qualification_result and land in "Pending".
-                        // Pending listed FIRST -- the pill switcher below marks
-                        // whichever group is first in this array as the default
-                        // active tab ($loop->first), and Pending is the one HR
-                        // actually needs to act on.
                         $qualGroups = [
-                            'pending'       => $applications->whereNull('qualification_result')->values(),
                             'qualified'     => $applications->where('qualification_result', 'qualified')->values(),
                             'not_qualified' => $applications->where('qualification_result', 'not_qualified')->values(),
+                            'pending'       => $applications->whereNull('qualification_result')->values(),
                         ];
                         $qualGroupMeta = [
-                            'pending'       => ['label' => 'Pending', 'color' => 'secondary'],
                             'qualified'     => ['label' => 'Qualified', 'color' => 'success'],
                             'not_qualified' => ['label' => 'Disqualified', 'color' => 'danger'],
+                            'pending'       => ['label' => 'Pending', 'color' => 'secondary'],
                         ];
                     @endphp
 
@@ -720,34 +716,15 @@
                                     @else <span class="text-muted small">—</span>
                                     @endif
                                 </td>
-                                <td class="text-end">
+                                <td>
                                     @if ($posting->status !== 'closed')
-                                    @php
-                                        $candApp = $applications->firstWhere('id', $cand->application_id);
-                                        $isHired = $candApp && $candApp->status === 'hired';
-                                    @endphp
-                                    <div class="d-flex gap-1 justify-content-end">
-                                        @if (!$isHired)
-                                        <form action="{{ route('applications.updateStatus', $cand->application_id) }}" method="POST" class="m-0"
-                                              onsubmit="return confirm('Hire {{ addslashes($cand->candidate_name) }} for this position? If this fills the last opening for this role, the posting will close and remaining applicants will be automatically rejected and notified.');">
-                                            @csrf
-                                            @method('PUT')
-                                            <input type="hidden" name="status" value="hired">
-                                            <button type="submit" class="btn btn-sm btn-outline-success">
-                                                <i class="bi bi-check-lg"></i> Hire
-                                            </button>
-                                        </form>
-                                        @else
-                                        <span class="badge text-bg-dark align-self-center">Hired</span>
-                                        @endif
-                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal" data-bs-target="#editScoresModal"
-                                                data-application-id="{{ $cand->application_id }}"
-                                                data-candidate-name="{{ $cand->candidate_name }}"
-                                                data-scores="{{ json_encode($cand->scores) }}">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="modal" data-bs-target="#editScoresModal"
+                                            data-application-id="{{ $cand->application_id }}"
+                                            data-candidate-name="{{ $cand->candidate_name }}"
+                                            data-scores="{{ json_encode($cand->scores) }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
                                     @endif
                                 </td>
                             </tr>
@@ -1256,14 +1233,7 @@ function advanceStep() {
         },
     })
     .then(r => r.json())
-    .then(() => {
-        // Navigate to the CLEAN show URL, not reload() -- reload() reuses
-        // whatever query string is currently in the address bar (e.g. a
-        // leftover ?step=2 from an earlier "save qualification check"
-        // redirect), which would clamp activeStep back down to a step
-        // BEFORE the one this posting just advanced to.
-        window.location.href = '{{ route('job-postings.show', $posting->id) }}';
-    })
+    .then(() => window.location.reload())
     .catch(() => {
         btn.disabled = false;
         btn.innerHTML = 'Advance';
@@ -1366,6 +1336,7 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
         e.preventDefault();
         alert('Please select at least one schedule type.');
     }
+
 });
 </script>
 @endpush

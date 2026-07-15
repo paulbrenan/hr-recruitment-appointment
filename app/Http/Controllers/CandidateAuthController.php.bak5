@@ -25,13 +25,7 @@ class CandidateAuthController extends Controller
         // Locations are still eager-loaded (needed by hasAnyOpenVacancy()),
         // just without the per-location hired_count/order-by that only
         // existed to feed the old Place dropdown.
-        // Include-list, not exclude-list: register() only ever accepts a
-        // submission when status === 'open', so anything else ('ranking',
-        // 'interview_scheduled', 'closed', 'archived', ...) must not be
-        // shown as a selectable position here either -- otherwise a
-        // candidate can pick a stage-advanced posting from this dropdown
-        // and get bounced back with an error after filling out the form.
-        $openPostings = JobPosting::where('status', 'open')
+        $openPostings = JobPosting::whereNotIn('status', ['closed', 'archived'])
             ->where(function ($query) {
                 $query->whereNull('closes_at')
                       ->orWhereDate('closes_at', '>=', now()->toDateString());

@@ -413,27 +413,66 @@
                         $qualGroupMeta = [
                             'qualified'     => ['label' => 'Qualified', 'color' => 'success'],
                             'not_qualified' => ['label' => 'Disqualified', 'color' => 'danger'],
-                            'pending'       => ['label' => 'Pending qualification check', 'color' => 'secondary'],
+                            'pending'       => ['label' => 'Pending', 'color' => 'secondary'],
                         ];
                     @endphp
+
+                    {{-- Pill switcher — pick one group to view at a time --}}
+                    <div class="qual-pill-tabs mb-3" role="tablist">
+                        @foreach ($qualGroups as $groupKey => $groupApps)
+                        <button type="button"
+                                class="qual-pill-tab {{ $loop->first ? 'active' : '' }}"
+                                data-qual-tab="{{ $groupKey }}"
+                                role="tab" aria-selected="{{ $loop->first ? 'true' : 'false' }}">
+                            {{ $qualGroupMeta[$groupKey]['label'] }}
+                            <span class="qual-pill-count">{{ $groupApps->count() }}</span>
+                        </button>
+                        @endforeach
+                    </div>
+
+                    <style>
+                        .qual-pill-tabs {
+                            display: inline-flex;
+                            gap: 2px;
+                            background: #eef1f4;
+                            border-radius: 999px;
+                            padding: 3px;
+                        }
+                        .qual-pill-tab {
+                            border: 0;
+                            background: transparent;
+                            color: #6c757d;
+                            font-size: 0.82rem;
+                            font-weight: 600;
+                            padding: 6px 14px;
+                            border-radius: 999px;
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                            transition: background-color .15s ease, color .15s ease;
+                        }
+                        .qual-pill-tab .qual-pill-count {
+                            background: rgba(0,0,0,0.08);
+                            color: inherit;
+                            font-size: 0.72rem;
+                            font-weight: 700;
+                            border-radius: 999px;
+                            padding: 1px 7px;
+                            line-height: 1.5;
+                        }
+                        .qual-pill-tab.active {
+                            background: #fff;
+                            color: #212529;
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                        }
+                        .qual-pill-tab.active .qual-pill-count {
+                            background: var(--hr-primary, #0d6efd);
+                            color: #fff;
+                        }
+                    </style>
+
                     @foreach ($qualGroups as $groupKey => $groupApps)
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                            <h6 class="text-uppercase small fw-bold text-{{ $qualGroupMeta[$groupKey]['color'] }} mb-0" style="letter-spacing:.03em;">
-                                {{ $qualGroupMeta[$groupKey]['label'] }}
-                                <span class="badge text-bg-light text-dark border ms-1">{{ $groupApps->count() }}</span>
-                            </h6>
-                            @if ($groupKey !== 'pending' && $groupApps->isNotEmpty())
-                            <form action="{{ route('applications.qualification-notices.send-all', $posting->id) }}" method="POST" class="m-0"
-                                  onsubmit="return confirm('Email the {{ $qualGroupMeta[$groupKey]['label'] }} result to all {{ $groupApps->count() }} applicant(s) in this group?');">
-                                @csrf
-                                <input type="hidden" name="result" value="{{ $groupKey }}">
-                                <button type="submit" class="btn btn-sm btn-outline-{{ $qualGroupMeta[$groupKey]['color'] }}">
-                                    <i class="bi bi-envelope-check me-1"></i> Send all {{ strtolower($qualGroupMeta[$groupKey]['label']) }} mail
-                                </button>
-                            </form>
-                            @endif
-                        </div>
+                    <div class="qual-tab-panel {{ $loop->first ? '' : 'd-none' }}" data-qual-panel="{{ $groupKey }}">
                         @forelse ($groupApps as $app)
                         @php
                             $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
@@ -476,10 +515,28 @@
                             </div>
                         </div>
                         @empty
-                        <p class="text-muted small mb-0 py-2">None in this group.</p>
+                        <p class="text-muted small mb-0 py-3 text-center">None in this group.</p>
                         @endforelse
                     </div>
                     @endforeach
+
+                    <script>
+                        document.querySelectorAll('.qual-pill-tab').forEach(function (tab) {
+                            tab.addEventListener('click', function () {
+                                document.querySelectorAll('.qual-pill-tab').forEach(function (t) {
+                                    t.classList.remove('active');
+                                    t.setAttribute('aria-selected', 'false');
+                                });
+                                this.classList.add('active');
+                                this.setAttribute('aria-selected', 'true');
+
+                                var key = this.dataset.qualTab;
+                                document.querySelectorAll('.qual-tab-panel').forEach(function (panel) {
+                                    panel.classList.toggle('d-none', panel.dataset.qualPanel !== key);
+                                });
+                            });
+                        });
+                    </script>
                     @endif
                 </div>
             </div>
@@ -489,14 +546,31 @@
         <div class="step-panel d-none" id="panel-3">
             <div class="card mb-3">
                 <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    @php
+                        $pendingScheduleNotices = $applications
+                            ->whereNotNull('qualification_result')
+                            ->whereNull('schedule_notice_sent_at')
+                            ->count();
+                    @endphp
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h6 class="mb-0">Interview / exam schedules</h6>
-                        @if ($currentStep < 4)
-                        <button class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;"
-                                data-bs-toggle="modal" data-bs-target="#newScheduleModal">
-                            <i class="bi bi-plus-lg me-1"></i> New schedule
-                        </button>
-                        @endif
+                        <div class="d-flex gap-2">
+                            @if ($pendingScheduleNotices > 0)
+                            <form action="{{ route('applications.schedule-notices.send-all', $posting->id) }}" method="POST" class="m-0">
+                                @csrf
+                                <button type="submit" class="btn btn-sm btn-outline-primary"
+                                        onclick="return confirm('Send emails to {{ $pendingScheduleNotices }} applicant(s)? Qualified applicants with a schedule get the qualified letter + schedule; everyone else gets a disqualification notice.')">
+                                    <i class="bi bi-envelope me-1"></i> Send all emails ({{ $pendingScheduleNotices }})
+                                </button>
+                            </form>
+                            @endif
+                            @if ($currentStep < 4)
+                            <button class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;"
+                                    data-bs-toggle="modal" data-bs-target="#newScheduleModal">
+                                <i class="bi bi-plus-lg me-1"></i> New schedule
+                            </button>
+                            @endif
+                        </div>
                     </div>
 
                     @if ($schedules->isEmpty())

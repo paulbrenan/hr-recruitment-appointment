@@ -22,6 +22,7 @@ class Application extends Model
         'qualification_result',
         'qualification_checked_at',
         'qualification_notified_at',
+        'schedule_notice_sent_at', // NEW — tracks Step 3 "Send all emails" button
     ];
 
     protected $casts = [
@@ -30,6 +31,7 @@ class Application extends Model
         'qualification_check' => 'array',
         'qualification_checked_at' => 'datetime',
         'qualification_notified_at' => 'datetime',
+        'schedule_notice_sent_at' => 'datetime', // NEW
     ];
 
     public function talentPool()

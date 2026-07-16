@@ -36,7 +36,6 @@ return [
         'Dental Aide',
         'Dentist II',
         'Division Memorandum',
-        'Division Memorandum ‘ Ra S Aa 2 Osds-2025-0066 As Oe Republic Of The Philippines Department Of Education Region Iv-a Schools Division Office Of Cavite Province April 10, 2025 Division Memorandum No. Bb , S. 2025 Call For Application For The Positions Of Administrative Support II For Disaster Preparedness And Response Program (dprp) And School-based Feeding Program (sbfp) Under Contract Of Service To: Assistant Schools Division Superintendents Chief, Curriculum Implementation Division Chief, School Governance And Operations Division Education Program Supervisors Public Schools District Supervisors Elementary And Secondary School Heads Hrmpsb - Chairman And Members All Concerned Ip In View Of Transparent Governance, This Office Announces The Opening Of Application For Positions Of Administrative Support II For Disaster Preparedness And Response Program (dprp) And School-based Feeding Program (sbfp) Under Contract Of Service With The Following Qualifications: >» Administrative Support II For Disaster Preparedness And Response Program (DPRP)',
         'Driver',
         'Education Program Specialist',
         'Education Program Supervisor',

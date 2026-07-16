@@ -13,8 +13,14 @@ class PanelistController extends Controller
     public function update(Request $request, $id)
     {
         $panelist = Panelist::findOrFail($id);
-        $request->validate(['name' => 'required|string|max:255']);
-        $panelist->update(['name' => $request->input('name')]);
+        $validated = $request->validate([
+            'name'  => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+        ]);
+        $panelist->update([
+            'name'  => $validated['name'],
+            'email' => $validated['email'] ?? null,
+        ]);
 
         // Respond with JSON when called via AJAX (inline edit),
         // or redirect when called via a regular form submit.

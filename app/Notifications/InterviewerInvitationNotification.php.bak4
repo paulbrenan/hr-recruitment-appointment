@@ -7,7 +7,15 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ScheduleInvitationNotification extends Notification
+/**
+ * Sent to the interviewer/panelist listed on a schedule.
+ *
+ * Interviewers aren't a model in this system (just interviewer_name /
+ * interviewer_email strings on InterviewSchedule), so this is dispatched
+ * with Notification::route('mail', $email) rather than ->notify() on
+ * an Eloquent model. See InterviewScheduleController@store.
+ */
+class InterviewerInvitationNotification extends Notification
 {
     use Queueable;
 
@@ -23,11 +31,6 @@ class ScheduleInvitationNotification extends Notification
         return ['mail'];
     }
 
-    /**
-     * Human-readable label for the schedule type, used in the subject
-     * and greeting line. Falls back to the raw value for safety if a
-     * new type is ever added without updating this map.
-     */
     private function typeLabel(): string
     {
         return match ($this->schedule->type) {
@@ -40,14 +43,14 @@ class ScheduleInvitationNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $candidate  = $this->schedule->application->candidate;
-        $posting    = $this->schedule->application->jobPosting;
-        $typeLabel  = $this->typeLabel();
-        $when       = $this->schedule->scheduled_at->format('l, F j, Y \a\t g:i A');
+        $candidate = $this->schedule->application->candidate;
+        $posting   = $this->schedule->application->jobPosting;
+        $typeLabel = $this->typeLabel();
+        $when      = $this->schedule->scheduled_at->format('l, F j, Y \a\t g:i A');
 
         return (new MailMessage)
-            ->subject("You're Invited: {$typeLabel} — {$posting->title}")
-            ->view('mail.schedule-invitation', [
+            ->subject("Schedule Assignment: {$typeLabel} — {$posting->title}")
+            ->view('emails.interviewer-invitation', [
                 'candidate'  => $candidate,
                 'jobPosting' => $posting,
                 'schedule'   => $this->schedule,
@@ -61,7 +64,6 @@ class ScheduleInvitationNotification extends Notification
         return [
             'schedule_id' => $this->schedule->id,
             'type'        => $this->schedule->type,
-            'scheduled_at' => $this->schedule->scheduled_at,
         ];
     }
 }

@@ -63,16 +63,16 @@
   }
   .topnav-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
   .topnav-logo { height: 48px; width: auto; display: block; filter: drop-shadow(0 1px 4px rgba(0,0,0,.3)); }
-  .topnav-text .org { font-size: .68rem; font-weight: 700; color: rgba(255,255,255,.7); letter-spacing: .1em; text-transform: uppercase; }
-  .topnav-text .sys { font-size: .92rem; font-weight: 800; color: #ffffff; line-height: 1.15; }
+  .topnav-text .org { font-size: .78rem; font-weight: 700; color: rgba(255,255,255,.7); letter-spacing: .1em; text-transform: uppercase; }
+  .topnav-text .sys { font-size: 1.05rem; font-weight: 800; color: #ffffff; line-height: 1.15; }
   .topnav-clock {
     display: flex;
     align-items: baseline;
     gap: 8px;
     line-height: 1.2;
   }
-  .topnav-clock .clock-date { font-size: .75rem; font-weight: 600; color: rgba(255,255,255,.65); }
-  .topnav-clock .clock-time { font-size: .9rem; font-weight: 800; color: #fff; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+  .topnav-clock .clock-date { font-size: .85rem; font-weight: 600; color: rgba(255,255,255,.65); }
+  .topnav-clock .clock-time { font-size: 1.05rem; font-weight: 800; color: #fff; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
   @media(max-width:560px){ .topnav-clock { display: none; } }
 
   /* ── PAGE CONTENT ── */
@@ -87,50 +87,50 @@
   }
 
   .hero-eyebrow {
-    font-size: .82rem; font-weight: 800; letter-spacing: .18em;
+    font-size: 1rem; font-weight: 800; letter-spacing: .18em;
     text-transform: uppercase; color: #ffd700;
     background: transparent; padding: 0;
     border-radius: 0; margin-bottom: 14px; display: block;
     text-shadow: 0 1px 6px rgba(0,0,0,.4);
   }
   .hero-title {
-    font-size: clamp(1.9rem, 5vw, 3rem);
+    font-size: clamp(2.4rem, 6vw, 3.8rem);
     font-weight: 900; line-height: 1.1; color: #ffffff;
     margin-bottom: 8px;
     text-shadow: 0 2px 12px rgba(0,0,0,.3);
   }
   .hero-title .accent { color: #ffd700; }
   .hero-sub {
-    font-size: 1rem; color: rgba(255,255,255,.8);
-    margin-bottom: 32px; font-weight: 500;
+    font-size: 1.3rem; color: rgba(255,255,255,.9);
+    margin-bottom: 32px; font-weight: 600;
   }
 
   /* ── TRACK BOX ── */
   .track-box {
     background: rgba(255,255,255,.97);
     border: none;
-    border-radius: 16px;
-    padding: 32px 36px;
-    max-width: 580px; width: 100%;
+    border-radius: 18px;
+    padding: 44px 52px;
+    max-width: 700px; width: 100%;
     box-shadow: 0 12px 48px rgba(0,0,0,.3);
     margin-bottom: 28px;
   }
-  .track-box h2 { font-size: 1rem; font-weight: 800; color: var(--dark); margin-bottom: 4px; }
-  .track-box > p { font-size: .82rem; color: var(--muted); margin-bottom: 18px; }
+  .track-box h2 { font-size: 1.15rem; font-weight: 800; color: var(--dark); margin-bottom: 4px; }
+  .track-box > p { font-size: .95rem; color: var(--muted); margin-bottom: 18px; }
   .track-input-row { display: flex; gap: 10px; }
   .track-input {
-    flex: 1; padding: 13px 16px;
+    flex: 1; padding: 14px 16px;
     border: 1.5px solid #c5d0e6; border-radius: 8px;
-    font-size: .92rem; font-family: 'Inter', sans-serif;
+    font-size: 1rem; font-family: 'Inter', sans-serif;
     color: var(--dark); outline: none; transition: border-color .2s;
   }
   .track-input:focus { border-color: var(--blue-mid); }
   .track-input::placeholder { color: #9aa8c0; }
   .btn-track {
     display: flex; align-items: center; gap: 7px;
-    padding: 13px 22px; border-radius: 8px;
+    padding: 14px 24px; border-radius: 8px;
     background: var(--blue); color: #fff;
-    font-size: .88rem; font-weight: 800;
+    font-size: .95rem; font-weight: 800;
     border: none; cursor: pointer; transition: .2s;
     font-family: 'Inter', sans-serif;
     white-space: nowrap; text-transform: uppercase; letter-spacing: .04em;
@@ -143,16 +143,16 @@
     width: 100%; max-width: 900px; margin: 48px auto 0;
     padding: 0 24px; text-align: center;
   }
-  .contact-place { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 28px; letter-spacing: .01em; }
-  .contact-title { font-size: .95rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 4px; }
-  .contact-subtitle { font-size: .85rem; font-weight: 700; color: #fff; margin-bottom: 28px; }
+  .contact-place { font-size: 1.2rem; font-weight: 800; color: #fff; margin-bottom: 28px; letter-spacing: .01em; }
+  .contact-title { font-size: 1.1rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.7); margin-bottom: 4px; }
+  .contact-subtitle { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 28px; }
   .contact-grid { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-bottom: 36px; }
   .contact-item { flex: 1; min-width: 160px; max-width: 240px; }
-  .contact-item i { font-size: 1.6rem; color: #ffd700; margin-bottom: 8px; display: block; }
-  .contact-item .contact-label { font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #fff; margin-bottom: 6px; }
-  .contact-item .contact-value { font-size: .8rem; color: rgba(255,255,255,.75); line-height: 1.5; }
-  .location-block i { font-size: 1.8rem; color: #ffd700; margin-bottom: 6px; display: block; }
-  .location-label { font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #fff; margin-bottom: 16px; }
+  .contact-item i { font-size: 1.9rem; color: #ffd700; margin-bottom: 8px; display: block; }
+  .contact-item .contact-label { font-size: .92rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #fff; margin-bottom: 6px; }
+  .contact-item .contact-value { font-size: .95rem; color: rgba(255,255,255,.85); line-height: 1.6; }
+  .location-block i { font-size: 2.1rem; color: #ffd700; margin-bottom: 6px; display: block; }
+  .location-label { font-size: .92rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #fff; margin-bottom: 16px; }
   .location-map { display: inline-block; width: 100%; max-width: 520px; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,.2); box-shadow: 0 4px 24px rgba(0,0,0,.3); }
   .location-map iframe { width: 100%; height: 320px; border: 0; display: block; }
 
@@ -185,7 +185,7 @@
   .footer-icon-link.fb { background: #1877f2; }
   .footer-icon-link.email { background: var(--red); }
   .footer-copy {
-    font-size: .7rem; color: rgba(255,255,255,.65);
+    font-size: .82rem; color: rgba(255,255,255,.7);
     letter-spacing: .06em; text-transform: uppercase;
   }
 

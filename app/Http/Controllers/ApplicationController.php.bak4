@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Application;
 use App\Models\JobPosting;
-use App\Notifications\ApplicationRejectedNotification;
 use App\Notifications\QualificationResultNotification;
 use App\Notifications\QualifiedPendingScheduleNotification;
 use App\Notifications\QualifiedScheduleNotification;
@@ -39,11 +38,11 @@ class ApplicationController extends Controller
      * Export applicants to Excel from the Applications page.
      *
      * Always uses the official CAR template file (resources/templates/
-     * car-school-admin-elem.xlsx â€” the real CSC/DepEd form, letterhead and
+     * car-school-admin-elem.xlsx — the real CSC/DepEd form, letterhead and
      * all) and fills in "Application Code" (col D) and "Name of Applicant"
      * (col C) starting at row 16 on every sheet in the file, for whichever
      * applications are currently filtered (status and/or job posting, same
-     * filters as index() above). Score columns (Eâ€“M) stay blank for the
+     * filters as index() above). Score columns (E–M) stay blank for the
      * committee to fill in by hand and re-upload via "Import scores from
      * Excel" on the Assessment & ranking page.
      */
@@ -71,7 +70,7 @@ class ApplicationController extends Controller
 
         $spreadsheet = IOFactory::load($templatePath);
 
-        // First data row in the template; rows 16â€“25 are pre-numbered 1â€“10.
+        // First data row in the template; rows 16–25 are pre-numbered 1–10.
         // If there are more than 10 applicants, extend past row 25 by
         // copying that row's style so borders/formatting continue.
         $firstDataRow = 16;
@@ -133,18 +132,14 @@ class ApplicationController extends Controller
         // When an applicant is marked hired:
         //   1. Reject other applicants competing for the SAME place of
         //      assignment only -- a different place under the same
-        //      posting is unaffected and stays open. Each rejected
-        //      applicant is emailed their result (mirrors the qualification
-        //      result notice pattern), so this is the only place besides
-        //      sendAllQualificationNotices() that sends applicant mail.
+        //      posting is unaffected and stays open.
         //   2. Close the job posting itself only once EVERY place of
         //      assignment (or, for a legacy posting with no location
         //      rows, the single vacancies count) has no open slots left.
         if ($validated['status'] === 'hired') {
             $posting = JobPosting::with('locations')->find($application->job_posting_id);
             if ($posting) {
-                $toReject = Application::with('candidate')
-                    ->where('job_posting_id', $posting->id)
+                Application::where('job_posting_id', $posting->id)
                     ->where('id', '!=', $application->id)
                     ->where('status', '!=', 'hired')
                     ->when(
@@ -152,26 +147,7 @@ class ApplicationController extends Controller
                         fn ($q) => $q->where('job_posting_location_id', $application->job_posting_location_id),
                         fn ($q) => $q->whereNull('job_posting_location_id')
                     )
-                    ->get();
-
-                $first = true;
-                foreach ($toReject as $reject) {
-                    if (!$first) {
-                        // Same Mailtrap sandbox rate-limit workaround used
-                        // for bulk qualification notices -- a rolling
-                        // 10-second window, 12s clears it with margin.
-                        sleep(12);
-                    }
-                    $first = false;
-
-                    $reject->update(['status' => 'rejected']);
-
-                    try {
-                        $reject->candidate->notify(new ApplicationRejectedNotification($reject));
-                    } catch (\Throwable $e) {
-                        \Illuminate\Support\Facades\Log::error('Rejection notice failed for application ' . $reject->id . ': ' . $e->getMessage());
-                    }
-                }
+                    ->update(['status' => 'rejected']);
 
                 if (!$posting->fresh('locations')->hasAnyOpenVacancy()) {
                     $posting->update(['status' => 'closed']);
@@ -193,7 +169,7 @@ class ApplicationController extends Controller
      * "qualified" only if every criterion passes.
      *
      * item_number and chair_name are typed fresh each time (per the current
-     * workflow â€” not stored on the job posting), so they're saved into the
+     * workflow — not stored on the job posting), so they're saved into the
      * qualification_check JSON blob alongside the criteria for the record.
      */
     public function saveQualificationCheck(Request $request, $id)
@@ -205,7 +181,7 @@ class ApplicationController extends Controller
             'chair_name' => ['nullable', 'string', 'max:255'],
             'evaluation_date' => ['nullable', 'date'],
             'education_actual' => ['nullable', 'string', 'max:500'],
-            // Each *_passed decision is REQUIRED â€” leaving a row unmarked
+            // Each *_passed decision is REQUIRED — leaving a row unmarked
             // must not silently count as "Not qualified". Previously these
             // were 'nullable', so a row HR forgot to click defaulted to
             // false via `?? false` below, which could disqualify an
@@ -340,6 +316,7 @@ class ApplicationController extends Controller
             ->route('job-postings.show', ['id' => $jobPostingId, 'step' => 2])
             ->with('success', "Emailed qualification result to {$sent} {$label} applicant(s).");
     }
+
     /**
      * Step 3 "Send all emails" bulk action, triggered from the Interview /
      * exam schedules panel. For every applicant on this posting who has a
@@ -393,16 +370,10 @@ class ApplicationController extends Controller
             try {
                 if ($isQualified && $schedule) {
                     $application->candidate->notify(new QualifiedScheduleNotification($application, $schedule));
-                } elseif ($isQualified && !$schedule) {
-                    // Qualified but no schedule yet -- honest, distinct
-                    // notice. Previously this forced the DISQUALIFIED
-                    // template via $overridePassed = false, which
-                    // contradicted the qualification_result (and the
-                    // criteria table) that same email displayed.
-                    $application->candidate->notify(new QualifiedPendingScheduleNotification($application));
                 } else {
-                    // Genuinely not qualified.
-                    $application->candidate->notify(new QualificationResultNotification($application));
+                    // Not qualified, or qualified but never scheduled -> disqualification letter.
+                    $forcePassedFalse = ($isQualified && !$schedule) ? false : null;
+                    $application->candidate->notify(new QualificationResultNotification($application, $forcePassedFalse));
                 }
 
                 $application->update(['schedule_notice_sent_at' => now()]);

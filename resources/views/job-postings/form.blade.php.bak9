@@ -408,14 +408,9 @@
             }
         });
 
-        // A typed title that ISN'T already in the list is now allowed
-        // through -- the backend auto-registers genuinely new titles on
-        // submit (see JobPostingController::autoRegisterTitle()). Only
-        // block submission if the field is empty.
+        // Block submission if the typed text doesn't match an exact, valid title.
         searchInput.closest('form').addEventListener('submit', function (event) {
-            const value = searchInput.value.trim();
-
-            if (value === '') {
+            if (!titles.includes(searchInput.value.trim())) {
                 event.preventDefault();
                 searchInput.classList.add('is-invalid');
                 searchInput.focus();
@@ -425,12 +420,11 @@
                 if (!feedback) {
                     feedback = document.createElement('div');
                     feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = 'Please select a valid position title from the list.';
                     wrapper.appendChild(feedback);
                 }
-                feedback.textContent = 'Please enter a position title.';
             } else {
-                hiddenInput.value = value;
-                searchInput.classList.remove('is-invalid');
+                hiddenInput.value = searchInput.value.trim();
             }
         });
     })();

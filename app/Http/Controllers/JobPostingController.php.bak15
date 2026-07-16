@@ -8,7 +8,6 @@ use App\Models\InterviewSchedule;
 use App\Models\JobPosting;
 use App\Models\JobPostingLocation;
 use App\Models\Panelist;
-use App\Services\JobTitleRegistrar;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -81,24 +80,6 @@ class JobPostingController extends Controller
      * Validation rules shared by store() and update(), matching the
      * job_postings migration exactly.
      */
-    /**
-     * Registers a brand-new title (typed in, not picked from the
-     * dropdown) into config/job_titles.php on disk, so it passes
-     * Rule::in() validation and becomes a real permanent option for
-     * every future posting -- same registrar the PDF import pipeline
-     * already uses for this exact purpose.
-     */
-    private function autoRegisterTitle(\Illuminate\Http\Request $request): void
-    {
-        $title = trim((string) $request->input('title', ''));
-
-        if ($title === '') {
-            return;
-        }
-
-        app(JobTitleRegistrar::class)->register($title);
-    }
-
     private function rules(bool $forCreate = false): array
     {
         return [
@@ -180,13 +161,6 @@ class JobPostingController extends Controller
 
     public function store(Request $request)
     {
-        // A title typed in that isn't already in config/job_titles.php
-        // would otherwise fail Rule::in() below. Register it first (same
-        // registrar the PDF import pipeline already uses) so a genuinely
-        // new title is accepted and permanently added to the dropdown,
-        // instead of being rejected.
-        $this->autoRegisterTitle($request);
-
         $validated = $request->validate($this->rules(forCreate: true));
 
         // Don't create a duplicate posting for a title that already

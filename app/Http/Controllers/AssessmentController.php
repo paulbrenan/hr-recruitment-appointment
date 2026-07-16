@@ -364,8 +364,13 @@ class AssessmentController extends Controller
             return back()->with('error', 'Add assessment criteria for this posting before downloading a template.');
         }
 
+        // Disqualified/rejected applicants are never scored or ranked (see
+        // JobPostingController::show, $rankableApplications) -- exclude
+        // them here too, or the template would let HR type in CAR scores
+        // for someone who already failed qualification checking.
         $applications = Application::with('candidate')
             ->where('job_posting_id', $jobPostingId)
+            ->whereNotIn('status', ['not_qualified', 'rejected'])
             ->get();
 
         $spreadsheet = new Spreadsheet();

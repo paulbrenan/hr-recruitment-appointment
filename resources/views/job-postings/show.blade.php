@@ -382,6 +382,8 @@
 
                             @if ($allChecked)
                             <a href="{{ route('job-postings.export-qualifications', $posting->id) }}"
+                               id="export-qualifications-btn"
+                               data-no-loader
                                class="btn btn-sm btn-outline-success">
                                 <i class="bi bi-file-earmark-excel me-1"></i> Export qualifications
                             </a>
@@ -664,9 +666,12 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importScoresModal">
                     <i class="bi bi-upload me-1"></i> Import scores from Excel
                 </button>
-                <a href="{{ route('assessments.template') }}?job_posting_id={{ $posting->id }}"
+                                <a href="{{ route('assessments.template') }}?job_posting_id={{ $posting->id }}"
+                   id="download-template-btn"
+                   data-no-loader
                    class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-download me-1"></i> Download template
+                    <i class="bi bi-download me-1"></i>
+                    <span class="btn-label">Download template</span>
                 </a>
                 @endif
                 @if ($rankedCandidates->isNotEmpty())
@@ -1239,7 +1244,7 @@ function advanceStep() {
     const msgs = {
         2: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
         3: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
-        4: 'Close this posting? All remaining applicants will be rejected.',
+        4: 'Close this posting? The top-ranked passing candidate(s) for each place of assignment will be hired automatically; remaining applicants will be rejected.',
     };
     if (!confirm(msgs[currentStep] || 'Advance to next stage?')) return;
 
@@ -1365,8 +1370,133 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
     if (checkedCount === 0) {
         e.preventDefault();
         alert('Please select at least one schedule type.');
+        return;
+    }
+
+    // Prevent duplicate schedules from a double-click or a slow request:
+    // disable the submit button right away so a second click can't fire
+    // the form again before the page navigates away.
+    const submitBtn = this.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Scheduling...';
     }
 });
+
+// Export qualifications: fetch as blob so the button never stays stuck
+// in "Exporting..." -- no dependency on a page navigation event to
+// reset it (a plain <a> download never actually navigates the page).
+// The anchor has data-no-loader, so page-loader.js's global click
+// listener skips it and never shows the full-screen loading overlay
+// for this button in the first place.
+(function () {
+    var btn = document.getElementById('export-qualifications-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        // No safety net needed here: the button has data-no-loader,
+        // so page-loader.js's own click listener skips it and the
+        // global overlay never gets shown for this click at all.
+
+        var url = btn.getAttribute('href');
+        var originalHtml = btn.innerHTML;
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Exporting…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) {
+                        throw new Error('Export failed (HTTP ' + response.status + '). ' + text.slice(0, 200));
+                    });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename="?([^";]+)"?/);
+                var filename = match ? match[1] : 'qualifications.xlsx';
+                return response.blob().then(function (blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function (result) {
+                var blobUrl = window.URL.createObjectURL(result.blob);
+                var tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = result.filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                window.URL.revokeObjectURL(blobUrl);
+            })
+            .catch(function (err) {
+                alert('Could not export: ' + err.message);
+            })
+            .finally(function () {
+                btn.classList.remove('disabled');
+                btn.innerHTML = originalHtml;
+            });
+    });
+})();
+
+// Download template: same problem as the export button above -- a plain
+// <a> file download never navigates the page, so the global page-loader's
+// full-screen overlay (shown on every internal link click) would never
+// get hidden again. data-no-loader stops that overlay from appearing at
+// all; this handler swaps in a small inline spinner on the button itself
+// instead, so there's always visible feedback that something is happening
+// without freezing the whole screen.
+(function () {
+    var btn = document.getElementById('download-template-btn');
+    if (!btn) return;
+
+    var label = btn.querySelector('.btn-label');
+    var icon = btn.querySelector('i.bi-download');
+    var originalIconClass = icon ? icon.className : '';
+    var originalLabel = label ? label.textContent : '';
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var url = btn.getAttribute('href');
+        btn.classList.add('disabled');
+        if (icon) icon.className = 'spinner-border spinner-border-sm me-1';
+        if (label) label.textContent = 'Downloading…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) {
+                        throw new Error('Download failed (HTTP ' + response.status + '). ' + text.slice(0, 200));
+                    });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename="?([^";]+)"?/);
+                var filename = match ? match[1] : 'template.xlsx';
+                return response.blob().then(function (blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function (result) {
+                var blobUrl = window.URL.createObjectURL(result.blob);
+                var tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = result.filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                window.URL.revokeObjectURL(blobUrl);
+            })
+            .catch(function (err) {
+                alert('Could not download template: ' + err.message);
+            })
+            .finally(function () {
+                btn.classList.remove('disabled');
+                if (icon) icon.className = originalIconClass;
+                if (label) label.textContent = originalLabel;
+            });
+    });
+})();
 </script>
 @endpush
 @endsection

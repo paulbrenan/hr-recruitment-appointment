@@ -182,42 +182,100 @@ class InterviewScheduleController extends Controller
         }
 
         $created = 0;
+        $schedulesByApplication = [];     // application_id => ['application' => Application, 'schedules' => []]
+        $assignmentsByPanelistEmail = []; // panelist email => array of assignment rows
+        $hasNewByApplication = [];        // application_id => bool, true if at least one schedule was newly created
+
         foreach ($applications as $application) {
             foreach ($validated['type'] as $type) {
-                $schedule = InterviewSchedule::create([
-                    'application_id' => $application->id,
-                    'type'           => $type,
-                    'scheduled_at'   => $validated['scheduled_at'],
-                    'location'       => $validated['location'] ?? null,
-                    'status'         => 'scheduled',
-                ]);
+                // Guard against duplicate submissions (e.g. a double-click
+                // or resubmitted form): if this applicant already has an
+                // identical schedule -- same type, date/time, and location
+                // -- reuse it instead of creating another one.
+                $schedule = $application->interviewSchedules()
+                    ->where('type', $type)
+                    ->where('scheduled_at', $validated['scheduled_at'])
+                    ->where('location', $validated['location'] ?? null)
+                    ->first();
+
+                $isNew = ! $schedule;
+
+                if ($isNew) {
+                    $schedule = InterviewSchedule::create([
+                        'application_id' => $application->id,
+                        'type'           => $type,
+                        'scheduled_at'   => $validated['scheduled_at'],
+                        'location'       => $validated['location'] ?? null,
+                        'status'         => 'scheduled',
+                    ]);
+                    $created++;
+                    $hasNewByApplication[$application->id] = true;
+                }
 
                 if (!empty($panelistIds)) {
                     $schedule->panelists()->sync($panelistIds);
+                }
+                $schedule->load('panelists');
 
-                    // Email every panelist selected on the checklist (1-6).
-                    // Skipped silently if a panelist has no email on file.
-                    foreach ($schedule->panelists as $panelist) {
-                        if (empty($panelist->email)) {
-                            continue;
-                        }
-                        try {
-                            \Illuminate\Support\Facades\Notification::route('mail', $panelist->email)
-                                ->notify(new \App\Notifications\InterviewerInvitationNotification($schedule));
-                        } catch (\Throwable $e) {
-                            \Illuminate\Support\Facades\Log::warning("Failed to send panelist schedule invitation to {$panelist->email}: " . $e->getMessage());
-                        }
+                if (!isset($schedulesByApplication[$application->id])) {
+                    $schedulesByApplication[$application->id] = [
+                        'application' => $application,
+                        'schedules'   => [],
+                    ];
+                }
+                $schedulesByApplication[$application->id]['schedules'][] = $schedule;
+
+                // Don't re-notify panelists about a schedule that already
+                // existed -- only newly created schedules get an email.
+                if (! $isNew) {
+                    continue;
+                }
+
+                // Collect one assignment row per panelist -- emailed once
+                // per panelist below instead of once per schedule type.
+                foreach ($schedule->panelists as $panelist) {
+                    if (empty($panelist->email)) {
+                        continue;
                     }
+                    if (!isset($assignmentsByPanelistEmail[$panelist->email])) {
+                        $assignmentsByPanelistEmail[$panelist->email] = [];
+                    }
+                    $assignmentsByPanelistEmail[$panelist->email][] = [
+                        'schedule'   => $schedule,
+                        'candidate'  => $application->candidate,
+                        'jobPosting' => $application->jobPosting,
+                    ];
                 }
+            }
+        }
 
-                // Send invitation to candidate (one per selected type)
-                try {
-                    $application->candidate->notify(new \App\Notifications\ScheduleInvitationNotification($schedule));
-                } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::warning('Failed to send schedule invitation: ' . $e->getMessage());
-                }
+        // One combined email per candidate listing every schedule type
+        // just created for them (Open Ranking / Exam / Interview, etc.),
+        // instead of one separate "You're Invited" email per type.
+        foreach ($schedulesByApplication as $applicationId => $entry) {
+            if (empty($hasNewByApplication[$applicationId])) {
+                continue;
+            }
+            try {
+                $application = $entry['application'];
+                $allSchedules = $application->interviewSchedules()->orderBy('scheduled_at')->get();
+                $application->candidate->notify(
+                    new \App\Notifications\QualifiedScheduleBundleNotification($application, $allSchedules)
+                );
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send candidate schedule bundle: ' . $e->getMessage());
+            }
+        }
 
-                $created++;
+        // One combined email per panelist listing every assignment they
+        // received in this batch (possibly across multiple candidates
+        // and schedule types), instead of one email per schedule.
+        foreach ($assignmentsByPanelistEmail as $email => $assignments) {
+            try {
+                \Illuminate\Support\Facades\Notification::route('mail', $email)
+                    ->notify(new \App\Notifications\PanelistScheduleBundleNotification(collect($assignments)));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Failed to send panelist schedule bundle to {$email}: " . $e->getMessage());
             }
         }
 

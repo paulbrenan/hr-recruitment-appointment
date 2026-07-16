@@ -149,8 +149,32 @@ class JobPostingController extends Controller
         ];
     }
 
+    /**
+     * Auto-close postings whose closing date has passed. Runs lazily on
+     * every index() and show() load (no scheduler needed) -- any posting
+     * still in the active pipeline (open / interview_scheduled / ranking)
+     * with a closes_at strictly before today gets flipped to 'closed',
+     * cascading to applications the same way the manual "Close Posting"
+     * advance button does.
+     */
+    private function autoCloseExpiredPostings(): void
+    {
+        $expired = JobPosting::whereIn('status', ['open', 'interview_scheduled', 'ranking'])
+            ->whereNotNull('closes_at')
+            ->whereDate('closes_at', '<', now()->toDateString())
+            ->get();
+
+        foreach ($expired as $posting) {
+            $posting->update(['status' => 'closed']);
+            $this->autoHireTopRankedCandidates($posting);
+            $this->cascadeStatusToApplications($posting, 'closed');
+        }
+    }
+
     public function index(Request $request)
     {
+        $this->autoCloseExpiredPostings();
+
         // Archived postings are terminal/out-of-pipeline -- keep them out
         // of the default list, toggle-able via ?archived=1.
         $showArchived = $request->boolean('archived');
@@ -292,6 +316,81 @@ class JobPostingController extends Controller
         return redirect()
             ->route('job-postings.index')
             ->with('success', 'Job posting updated successfully.');
+    }
+
+    /**
+     * When a posting closes, hire the top-ranked PASSING candidate(s)
+     * (total_score >= 75, same threshold as the "passed" flag shown on
+     * the ranking table) for each place of assignment, up to that
+     * location's open vacancy count -- before the close cascade rejects
+     * everyone else. For legacy postings with no location rows, uses the
+     * single `vacancies` column against applicants with no location set.
+     * Applicants who never got scored (or scored below 75) are left
+     * alone here; the cascade right after this will reject them.
+     */
+    private function autoHireTopRankedCandidates(JobPosting $posting): void
+    {
+        $criteria = $posting->assessmentCriteria()->get();
+
+        if ($criteria->isEmpty()) {
+            return;
+        }
+
+        $candidates = Application::where('job_posting_id', $posting->id)
+            ->whereNotIn('status', ['not_qualified', 'rejected', 'hired'])
+            ->with('assessments')
+            ->get()
+            ->map(function ($app) use ($criteria) {
+                $total = 0;
+                foreach ($criteria as $c) {
+                    $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
+                    if ($assessment) {
+                        $total += (float) $assessment->score;
+                    }
+                }
+                $app->setAttribute('auto_hire_total_score', $total);
+                return $app;
+            })
+            ->filter(fn ($app) => $app->auto_hire_total_score >= 75)
+            ->sortByDesc('auto_hire_total_score')
+            ->values();
+
+        if ($candidates->isEmpty()) {
+            return;
+        }
+
+        $locations = $posting->locations;
+
+        if ($locations->isNotEmpty()) {
+            foreach ($locations as $loc) {
+                $alreadyHired = Application::where('job_posting_id', $posting->id)
+                    ->where('job_posting_location_id', $loc->id)
+                    ->where('status', 'hired')
+                    ->count();
+                $openSlots = max(0, $loc->vacancies - $alreadyHired);
+                if ($openSlots < 1) {
+                    continue;
+                }
+
+                $pool = $candidates->where('job_posting_location_id', $loc->id)->values();
+                foreach ($pool->take($openSlots) as $winner) {
+                    $winner->update(['status' => 'hired']);
+                }
+            }
+        } else {
+            $alreadyHired = Application::where('job_posting_id', $posting->id)
+                ->where('status', 'hired')
+                ->count();
+            $openSlots = max(0, ((int) $posting->vacancies ?: 1) - $alreadyHired);
+            if ($openSlots < 1) {
+                return;
+            }
+
+            $pool = $candidates->whereNull('job_posting_location_id')->values();
+            foreach ($pool->take($openSlots) as $winner) {
+                $winner->update(['status' => 'hired']);
+            }
+        }
     }
 
     /**
@@ -475,6 +574,8 @@ class JobPostingController extends Controller
 
     public function show($id, \Illuminate\Http\Request $request)
     {
+        $this->autoCloseExpiredPostings();
+
         $posting   = JobPosting::with(['locations', 'panelists', 'assessmentCriteria'])->findOrFail($id);
         $locations = $posting->locations;
         $panelists = $posting->panelists;
@@ -577,6 +678,11 @@ class JobPostingController extends Controller
         if ($nextStatus) {
             $oldStatus = $posting->status;
             $posting->update(['status' => $nextStatus]);
+
+            if ($nextStatus === 'closed') {
+                $this->autoHireTopRankedCandidates($posting);
+            }
+
             $this->cascadeStatusToApplications($posting, $nextStatus);
         }
 

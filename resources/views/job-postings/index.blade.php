@@ -140,8 +140,19 @@
                         @endif
                     </td>
                     {{-- Vacancies shown per-location --}}
-                    <td class="ps-4">{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</td>
-                    <td>{{ $posting->closes_at ? \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') : '—' }}</td>
+                    <td>{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</td>
+                    <td>
+                        @php
+                            $closingSoon = $posting->closes_at
+                                && !in_array($posting->status, ['closed', 'archived'])
+                                && \Carbon\Carbon::parse($posting->closes_at)->isFuture()
+                                && now()->diffInDays(\Carbon\Carbon::parse($posting->closes_at), false) <= 3;
+                        @endphp
+                        {{ $posting->closes_at ? \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') : '—' }}
+                        @if ($closingSoon)
+                            <br><span class="badge text-bg-warning" style="font-size:0.65rem;">Closing soon</span>
+                        @endif
+                    </td>
                     <td>
                         @php
                             $statusColors = [

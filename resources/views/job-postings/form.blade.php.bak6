@@ -256,41 +256,22 @@
                                             id="panelist{{ $panelist->id }}"
                                             {{ $assigned ? 'checked' : '' }}
                                         >
-                                        {{-- Name + email — click either to edit both inline --}}
-                                        <div class="flex-grow-1" style="min-width: 0;">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span
-                                                    class="panelist-name-display small fw-medium"
-                                                    data-panelist-id="{{ $panelist->id }}"
-                                                    title="Click to edit"
-                                                    style="cursor: pointer; border-bottom: 1px dashed #adb5bd;"
-                                                >{{ $panelist->name }}</span>
-                                                <input
-                                                    type="text"
-                                                    class="form-control form-control-sm panelist-name-input d-none"
-                                                    data-panelist-id="{{ $panelist->id }}"
-                                                    value="{{ $panelist->name }}"
-                                                    placeholder="Name"
-                                                    style="max-width: 200px;"
-                                                >
-                                                <span class="panelist-save-status small ms-1" data-panelist-id="{{ $panelist->id }}"></span>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2 mt-1">
-                                                <span
-                                                    class="panelist-email-display text-muted"
-                                                    data-panelist-id="{{ $panelist->id }}"
-                                                    title="Click to edit"
-                                                    style="cursor: pointer; font-size: 0.72rem; border-bottom: 1px dashed #adb5bd;"
-                                                >{{ $panelist->email ?: 'No email set — click to add' }}</span>
-                                                <input
-                                                    type="email"
-                                                    class="form-control form-control-sm panelist-email-input d-none"
-                                                    data-panelist-id="{{ $panelist->id }}"
-                                                    value="{{ $panelist->email }}"
-                                                    placeholder="Email"
-                                                    style="max-width: 200px; font-size: 0.78rem;"
-                                                >
-                                            </div>
+                                        {{-- Name — click to edit inline --}}
+                                        <div class="flex-grow-1 d-flex align-items-center gap-2" style="min-width: 0;">
+                                            <span
+                                                class="panelist-name-display small fw-medium"
+                                                data-panelist-id="{{ $panelist->id }}"
+                                                title="Click to rename"
+                                                style="cursor: pointer; border-bottom: 1px dashed #adb5bd;"
+                                            >{{ $panelist->name }}</span>
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm panelist-name-input d-none"
+                                                data-panelist-id="{{ $panelist->id }}"
+                                                value="{{ $panelist->name }}"
+                                                style="max-width: 220px;"
+                                            >
+                                            <span class="panelist-save-status small ms-1" data-panelist-id="{{ $panelist->id }}"></span>
                                         </div>
                                         {{-- Delete button (calls a JS confirm; uses a hidden form) --}}
                                         <button
@@ -408,14 +389,9 @@
             }
         });
 
-        // A typed title that ISN'T already in the list is now allowed
-        // through -- the backend auto-registers genuinely new titles on
-        // submit (see JobPostingController::autoRegisterTitle()). Only
-        // block submission if the field is empty.
+        // Block submission if the typed text doesn't match an exact, valid title.
         searchInput.closest('form').addEventListener('submit', function (event) {
-            const value = searchInput.value.trim();
-
-            if (value === '') {
+            if (!titles.includes(searchInput.value.trim())) {
                 event.preventDefault();
                 searchInput.classList.add('is-invalid');
                 searchInput.focus();
@@ -425,12 +401,11 @@
                 if (!feedback) {
                     feedback = document.createElement('div');
                     feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = 'Please select a valid position title from the list.';
                     wrapper.appendChild(feedback);
                 }
-                feedback.textContent = 'Please enter a position title.';
             } else {
-                hiddenInput.value = value;
-                searchInput.classList.remove('is-invalid');
+                hiddenInput.value = searchInput.value.trim();
             }
         });
     })();
@@ -614,8 +589,7 @@
         div.className = 'input-group input-group-sm mb-2';
         div.innerHTML = `
             <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
-            <input type="text" class="form-control" name="new_panelist_names[]" placeholder="New panelist name..." autocomplete="off" style="flex:1 1 45%;">
-            <input type="email" class="form-control" name="new_panelist_emails[]" placeholder="Email (optional)" autocomplete="off" style="flex:1 1 45%;">
+            <input type="text" class="form-control" name="new_panelist_names[]" placeholder="New panelist name..." autocomplete="off">
             <button type="button" class="btn btn-outline-danger" onclick="this.closest('.input-group').remove()">
                 <i class="bi bi-x-lg"></i>
             </button>
@@ -648,28 +622,11 @@
         ? document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         : '{{ csrf_token() }}';
 
-    function savePanelist(id, statusEl) {
-        const nameInput  = document.querySelector('.panelist-name-input[data-panelist-id="' + id + '"]');
-        const nameDisplay = document.querySelector('.panelist-name-display[data-panelist-id="' + id + '"]');
-        const emailInput  = document.querySelector('.panelist-email-input[data-panelist-id="' + id + '"]');
-        const emailDisplay = document.querySelector('.panelist-email-display[data-panelist-id="' + id + '"]');
-
-        const newName  = nameInput.value.trim();
-        const newEmail = emailInput.value.trim();
-
-        if (!newName) {
-            nameInput.focus();
-            return;
-        }
-
-        const unchanged = newName === nameDisplay.textContent.trim()
-            && newEmail === (emailDisplay.textContent.trim() === 'No email set — click to add' ? '' : emailDisplay.textContent.trim());
-
-        if (unchanged) {
-            nameInput.classList.add('d-none');
-            nameDisplay.classList.remove('d-none');
-            emailInput.classList.add('d-none');
-            emailDisplay.classList.remove('d-none');
+    function savePanelistName(id, newName, statusEl, displayEl, inputEl) {
+        if (!newName.trim() || newName.trim() === displayEl.textContent.trim()) {
+            // Nothing changed — just switch back to display mode
+            inputEl.classList.add('d-none');
+            displayEl.classList.remove('d-none');
             statusEl.textContent = '';
             return;
         }
@@ -683,89 +640,70 @@
                 'X-CSRF-TOKEN': csrfToken,
                 'Accept': 'application/json',
             },
-            body: JSON.stringify({ name: newName, email: newEmail }),
+            body: JSON.stringify({ name: newName.trim() }),
         })
         .then(function (res) {
             if (!res.ok) throw new Error('Server error ' + res.status);
             return res.json();
         })
         .then(function () {
-            nameDisplay.textContent = newName;
-            emailDisplay.textContent = newEmail || 'No email set — click to add';
-            const row = nameDisplay.closest('li');
+            displayEl.textContent = newName.trim();
+            // Update the delete button's data-panelist-name too
+            const row = displayEl.closest('li');
             if (row) {
                 const deleteBtn = row.querySelector('.panelist-delete-btn');
-                if (deleteBtn) deleteBtn.dataset.panelistName = newName;
+                if (deleteBtn) deleteBtn.dataset.panelistName = newName.trim();
             }
-            nameInput.classList.add('d-none');
-            nameDisplay.classList.remove('d-none');
-            emailInput.classList.add('d-none');
-            emailDisplay.classList.remove('d-none');
+            inputEl.classList.add('d-none');
+            displayEl.classList.remove('d-none');
             statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-lg"></i></span>';
             setTimeout(() => { statusEl.textContent = ''; }, 2000);
         })
         .catch(function () {
             statusEl.innerHTML = '<span class="text-danger small">Save failed</span>';
+            inputEl.focus();
         });
     }
 
-    function enterEditMode(id) {
-        const nameDisplay  = document.querySelector('.panelist-name-display[data-panelist-id="' + id + '"]');
-        const nameInput    = document.querySelector('.panelist-name-input[data-panelist-id="' + id + '"]');
-        const emailDisplay = document.querySelector('.panelist-email-display[data-panelist-id="' + id + '"]');
-        const emailInput   = document.querySelector('.panelist-email-input[data-panelist-id="' + id + '"]');
-        if (!nameInput || !emailInput) return;
-
-        nameDisplay.classList.add('d-none');
-        nameInput.classList.remove('d-none');
-        nameInput.value = nameDisplay.textContent.trim();
-
-        emailDisplay.classList.add('d-none');
-        emailInput.classList.remove('d-none');
-        emailInput.value = emailDisplay.textContent.trim() === 'No email set — click to add' ? '' : emailDisplay.textContent.trim();
-
-        nameInput.focus();
-        nameInput.select();
-    }
-
-    // Click on name OR email display → switch both to edit mode
-    document.querySelectorAll('.panelist-name-display, .panelist-email-display').forEach(function (display) {
+    // Click on name display → switch to input
+    document.querySelectorAll('.panelist-name-display').forEach(function (display) {
         display.addEventListener('click', function () {
-            enterEditMode(this.dataset.panelistId);
+            const id     = this.dataset.panelistId;
+            const input  = document.querySelector('.panelist-name-input[data-panelist-id="' + id + '"]');
+            const status = document.querySelector('.panelist-save-status[data-panelist-id="' + id + '"]');
+            if (!input) return;
+
+            display.classList.add('d-none');
+            input.classList.remove('d-none');
+            input.value = display.textContent.trim();
+            input.focus();
+            input.select();
         });
     });
 
-    // Enter → save; Escape → cancel; Tab between name/email is native
-    document.querySelectorAll('.panelist-name-input, .panelist-email-input').forEach(function (input) {
-        const id     = input.dataset.panelistId;
-        const status = document.querySelector('.panelist-save-status[data-panelist-id="' + id + '"]');
+    // Enter → save; Escape → cancel
+    document.querySelectorAll('.panelist-name-input').forEach(function (input) {
+        const id      = input.dataset.panelistId;
+        const display = document.querySelector('.panelist-name-display[data-panelist-id="' + id + '"]');
+        const status  = document.querySelector('.panelist-save-status[data-panelist-id="' + id + '"]');
 
         input.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                savePanelist(id, status);
+                savePanelistName(id, input.value, status, display, input);
             }
             if (e.key === 'Escape') {
-                const nameDisplay  = document.querySelector('.panelist-name-display[data-panelist-id="' + id + '"]');
-                const nameInput    = document.querySelector('.panelist-name-input[data-panelist-id="' + id + '"]');
-                const emailDisplay = document.querySelector('.panelist-email-display[data-panelist-id="' + id + '"]');
-                const emailInput   = document.querySelector('.panelist-email-input[data-panelist-id="' + id + '"]');
-                nameInput.classList.add('d-none');
-                nameDisplay.classList.remove('d-none');
-                emailInput.classList.add('d-none');
-                emailDisplay.classList.remove('d-none');
+                input.classList.add('d-none');
+                display.classList.remove('d-none');
                 status.textContent = '';
             }
         });
 
         input.addEventListener('blur', function () {
-            // Small delay so Enter keydown / focus-to-sibling-field fires first
+            // Small delay so Enter keydown fires first and doesn't double-save
             setTimeout(function () {
-                const nameInput  = document.querySelector('.panelist-name-input[data-panelist-id="' + id + '"]');
-                const emailInput = document.querySelector('.panelist-email-input[data-panelist-id="' + id + '"]');
-                const stillEditing = document.activeElement === nameInput || document.activeElement === emailInput;
-                if (!stillEditing && !nameInput.classList.contains('d-none')) {
-                    savePanelist(id, status);
+                if (!input.classList.contains('d-none')) {
+                    savePanelistName(id, input.value, status, display, input);
                 }
             }, 150);
         });

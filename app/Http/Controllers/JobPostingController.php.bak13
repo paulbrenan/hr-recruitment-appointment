@@ -8,7 +8,6 @@ use App\Models\InterviewSchedule;
 use App\Models\JobPosting;
 use App\Models\JobPostingLocation;
 use App\Models\Panelist;
-use App\Services\JobTitleRegistrar;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -32,73 +31,26 @@ class JobPostingController extends Controller
         'Checklist of Requirements and Omnibus Sworn Statement on the Certification on the Authenticity and Veracity (CAV) of the documents submitted and Data Privacy Consent Form, signed by authorized official (e.g., Brgy. Captain)',
     ];
 
-    // Full DepEd "Means of Verification" checklist. The widget only
-    // stores a flat newline-delimited list, so numbering/lettering
-    // ("1.", "a.", "-") is kept as part of each line's own text --
-    // that's what keeps the category hierarchy visually readable once
-    // rendered as a flat list.
+    // Flattened to one line per category (the widget stores a flat
+    // newline-delimited list, same convention as Mandatory above) --
+    // matches the standard DepEd "Means of Verification showing
+    // Outstanding Accomplishments" categories used on the official
+    // registration confirmation notice.
     private const DEFAULT_ADDITIONAL_REQUIREMENTS = [
-        'A. Means of Verification showing Outstanding Accomplishments, Application of Education, and Application of Learning and Development, reckoned from the date of last issuance of appointment (if any):',
-        '1. Awards and Recognition',
-        'a. Citation or Commendation',
-        '- Letter of Citation or Commendation from previous employer',
-        'b. Academic or Inter-School Awards',
-        '- Academic or inter-school award; or',
-        '- Ten Outstanding Students of the Philippines (TOSP) Award; or',
-        '- Certification of any document that the applicant belongs to the Top 10 in the Board or Civil Service Eligibility Examination.',
-        'c. Outstanding Employee Award',
-        '- Any issuance, memorandum or document showing the Criteria for the Search; and',
-        '- Certificate of Recognition/Merit',
-        '2. Research and Innovation',
-        'a. Proposal duly approved by the Head of Office or the designated Research Committee per DepEd Order No. 16, s. 2017',
-        'b. Accomplishment Report verified by the Head of Office',
-        'c. Certification of utilization of the innovation or research, within the school/office duly signed by the Head of Office',
-        'd. Certification of adoption of the innovation or research by another school/office duly signed by the Head of Office',
-        'e. Proof of citation by other researchers (whose study/research, whether published or unpublished, is likewise approved by authorized body) of the concept/s developed in the research',
-        '3. Subject Matter Expert / Membership in National Technical Working Groups or Committees',
-        'a. Issuance/Memorandum showing the membership in NTWG or Committees',
-        'b. Certificate of Participation or Attendance',
-        'c. Output/Adoption by the organization/DepEd',
-        '4. Resource Speakership / Learning Facilitation',
-        'a. Issuance/Memorandum/Invitation/Training Matrix',
-        'b. Certificate of Recognition/Merit/Commendation/Appreciation',
-        'c. Slide deck/s used and/or Session guide/s',
-        '5. NEAP Accredited Learning Facilitator',
-        'a. Certificate of Recognition as Learning Facilitator issued by NEAP Central or Regional Office',
-        '6. Application of Education',
-        'a. Action Plan approved by the Head of Office',
-        'b. Accomplishment Report verified by the Head of Office',
-        'c. Certification of the utilization/adoption signed by the Head of Office',
-        '7. Application of Learning and Development',
-        'a. Certificate of Training or Certification on any applicable L&D intervention acquired that is aligned with the Individual Development Plan (IDP); for external applicants, a certification from HR stating that the L&D intervention is aligned with the core tasks of the applicant in their current or previous position shall be required',
-        'b. Action Plan/Re-entry Action Plan (REAP), Job Embedded Learning (JEL)/Impact Project applying the learnings from the L&D intervention done/attended, duly approved by the Head of Office',
-        'c. Accomplishment Report together with a General Certification that the L&D intervention was used/adopted by the office at the local level',
-        'd. Accomplishment Report together with a General Certification that the L&D intervention was used/adopted by a different office at the local/higher level',
-        '8. Photocopy of the Performance Rating obtained from the relevant work experience if latest performance rating is not relevant to the position applying for',
+        'Awards and Recognition — Letter of Citation/Commendation, Academic or Inter-School Award, TOSP Award, or Top 10 Board/CSC Eligibility certification, if applicable',
+        'Research and Innovation — DepEd-approved research/innovation proposal, accomplishment report, and certification of utilization or adoption, if applicable',
+        'Subject Matter Expert / Membership in National Technical Working Groups or Committees — issuance/memorandum of membership, certificate of participation, and proof of output/adoption, if applicable',
+        'Resource Speakership / Learning Facilitation — issuance/memorandum/invitation, certificate of recognition, and materials used, if applicable',
+        'NEAP Accredited Learning Facilitator — Certificate of Recognition issued by NEAP Central or Regional Office, if applicable',
+        'Application of Education — approved action plan, accomplishment report, and certification of utilization/adoption, if applicable',
+        'Application of Learning and Development — certificate of training, action plan/REAP/JEL/impact project, and accomplishment report with certification of use, if applicable',
+        'Performance Rating — photocopy of Performance Rating from relevant work experience, if the latest rating is not relevant to the position applied for',
     ];
 
     /**
      * Validation rules shared by store() and update(), matching the
      * job_postings migration exactly.
      */
-    /**
-     * Registers a brand-new title (typed in, not picked from the
-     * dropdown) into config/job_titles.php on disk, so it passes
-     * Rule::in() validation and becomes a real permanent option for
-     * every future posting -- same registrar the PDF import pipeline
-     * already uses for this exact purpose.
-     */
-    private function autoRegisterTitle(\Illuminate\Http\Request $request): void
-    {
-        $title = trim((string) $request->input('title', ''));
-
-        if ($title === '') {
-            return;
-        }
-
-        app(JobTitleRegistrar::class)->register($title);
-    }
-
     private function rules(bool $forCreate = false): array
     {
         return [
@@ -149,32 +101,8 @@ class JobPostingController extends Controller
         ];
     }
 
-    /**
-     * Auto-close postings whose closing date has passed. Runs lazily on
-     * every index() and show() load (no scheduler needed) -- any posting
-     * still in the active pipeline (open / interview_scheduled / ranking)
-     * with a closes_at strictly before today gets flipped to 'closed',
-     * cascading to applications the same way the manual "Close Posting"
-     * advance button does.
-     */
-    private function autoCloseExpiredPostings(): void
-    {
-        $expired = JobPosting::whereIn('status', ['open', 'interview_scheduled', 'ranking'])
-            ->whereNotNull('closes_at')
-            ->whereDate('closes_at', '<', now()->toDateString())
-            ->get();
-
-        foreach ($expired as $posting) {
-            $posting->update(['status' => 'closed']);
-            $this->autoHireTopRankedCandidates($posting);
-            $this->cascadeStatusToApplications($posting, 'closed');
-        }
-    }
-
     public function index(Request $request)
     {
-        $this->autoCloseExpiredPostings();
-
         // Archived postings are terminal/out-of-pipeline -- keep them out
         // of the default list, toggle-able via ?archived=1.
         $showArchived = $request->boolean('archived');
@@ -204,13 +132,6 @@ class JobPostingController extends Controller
 
     public function store(Request $request)
     {
-        // A title typed in that isn't already in config/job_titles.php
-        // would otherwise fail Rule::in() below. Register it first (same
-        // registrar the PDF import pipeline already uses) so a genuinely
-        // new title is accepted and permanently added to the dropdown,
-        // instead of being rejected.
-        $this->autoRegisterTitle($request);
-
         $validated = $request->validate($this->rules(forCreate: true));
 
         // Don't create a duplicate posting for a title that already
@@ -319,81 +240,6 @@ class JobPostingController extends Controller
     }
 
     /**
-     * When a posting closes, hire the top-ranked PASSING candidate(s)
-     * (total_score >= 75, same threshold as the "passed" flag shown on
-     * the ranking table) for each place of assignment, up to that
-     * location's open vacancy count -- before the close cascade rejects
-     * everyone else. For legacy postings with no location rows, uses the
-     * single `vacancies` column against applicants with no location set.
-     * Applicants who never got scored (or scored below 75) are left
-     * alone here; the cascade right after this will reject them.
-     */
-    private function autoHireTopRankedCandidates(JobPosting $posting): void
-    {
-        $criteria = $posting->assessmentCriteria()->get();
-
-        if ($criteria->isEmpty()) {
-            return;
-        }
-
-        $candidates = Application::where('job_posting_id', $posting->id)
-            ->whereNotIn('status', ['not_qualified', 'rejected', 'hired'])
-            ->with('assessments')
-            ->get()
-            ->map(function ($app) use ($criteria) {
-                $total = 0;
-                foreach ($criteria as $c) {
-                    $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
-                    if ($assessment) {
-                        $total += (float) $assessment->score;
-                    }
-                }
-                $app->setAttribute('auto_hire_total_score', $total);
-                return $app;
-            })
-            ->filter(fn ($app) => $app->auto_hire_total_score >= 75)
-            ->sortByDesc('auto_hire_total_score')
-            ->values();
-
-        if ($candidates->isEmpty()) {
-            return;
-        }
-
-        $locations = $posting->locations;
-
-        if ($locations->isNotEmpty()) {
-            foreach ($locations as $loc) {
-                $alreadyHired = Application::where('job_posting_id', $posting->id)
-                    ->where('job_posting_location_id', $loc->id)
-                    ->where('status', 'hired')
-                    ->count();
-                $openSlots = max(0, $loc->vacancies - $alreadyHired);
-                if ($openSlots < 1) {
-                    continue;
-                }
-
-                $pool = $candidates->where('job_posting_location_id', $loc->id)->values();
-                foreach ($pool->take($openSlots) as $winner) {
-                    $winner->update(['status' => 'hired']);
-                }
-            }
-        } else {
-            $alreadyHired = Application::where('job_posting_id', $posting->id)
-                ->where('status', 'hired')
-                ->count();
-            $openSlots = max(0, ((int) $posting->vacancies ?: 1) - $alreadyHired);
-            if ($openSlots < 1) {
-                return;
-            }
-
-            $pool = $candidates->whereNull('job_posting_location_id')->values();
-            foreach ($pool->take($openSlots) as $winner) {
-                $winner->update(['status' => 'hired']);
-            }
-        }
-    }
-
-    /**
      * Map job posting pipeline stage → application status, then bulk-update.
      *
      * Mapping:
@@ -489,25 +335,16 @@ class JobPostingController extends Controller
      */
     private function syncPanelists(JobPosting $posting, \Illuminate\Http\Request $request): void
     {
-        // Create any newly added panelists (name is required, email is
-        // optional but needed for that panelist to actually receive
-        // schedule invitation emails -- see InterviewScheduleController).
-        $newNames  = $request->input('new_panelist_names', []);
-        $newEmails = $request->input('new_panelist_emails', []);
-        foreach ($newNames as $i => $name) {
-            $name = trim($name);
-            if ($name === '') {
-                continue;
+        // Create any newly added panelists
+        $newNames = array_filter(array_map('trim', $request->input('new_panelist_names', [])));
+        foreach ($newNames as $name) {
+            if ($name !== '') {
+                $new = Panelist::create(['name' => $name]);
+                // Add to assigned list so they get synced below
+                $request->merge([
+                    'panelist_ids' => array_merge($request->input('panelist_ids', []), [$new->id]),
+                ]);
             }
-            $email = trim($newEmails[$i] ?? '');
-            $new = Panelist::create([
-                'name'  => $name,
-                'email' => $email !== '' ? $email : null,
-            ]);
-            // Add to assigned list so they get synced below
-            $request->merge([
-                'panelist_ids' => array_merge($request->input('panelist_ids', []), [$new->id]),
-            ]);
         }
 
         $assignedIds = array_map('intval', $request->input('panelist_ids', []));
@@ -574,8 +411,6 @@ class JobPostingController extends Controller
 
     public function show($id, \Illuminate\Http\Request $request)
     {
-        $this->autoCloseExpiredPostings();
-
         $posting   = JobPosting::with(['locations', 'panelists', 'assessmentCriteria'])->findOrFail($id);
         $locations = $posting->locations;
         $panelists = $posting->panelists;
@@ -678,11 +513,6 @@ class JobPostingController extends Controller
         if ($nextStatus) {
             $oldStatus = $posting->status;
             $posting->update(['status' => $nextStatus]);
-
-            if ($nextStatus === 'closed') {
-                $this->autoHireTopRankedCandidates($posting);
-            }
-
             $this->cascadeStatusToApplications($posting, $nextStatus);
         }
 

@@ -21,8 +21,11 @@ class JobOfferController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        // 'ranked' applicants get auto-promoted to 'hired' when the
+        // posting closes -- check for that instead, so the actual
+        // hired applicant shows up as eligible for an offer.
         $eligibleApplications = Application::with(['candidate', 'jobPosting'])
-            ->whereIn('status', ['shortlisted', 'assessed', 'ranked'])
+            ->whereIn('status', ['shortlisted', 'assessed', 'hired'])
             ->whereDoesntHave('jobOffer')
             ->orderByDesc('applied_at')
             ->get();
@@ -80,15 +83,27 @@ class JobOfferController extends Controller
         // available without extra queries inside the Notification class.
         $offer->load(['application.candidate', 'application.jobPosting']);
 
-        // Deliver the formal offer letter to the candidate.
-        $offer->application->candidate->notify(new OfferLetterNotification($offer));
+        // Deliver the formal offer letter to the candidate. Wrapped like
+        // every other notification call in this app -- status is already
+        // 'sent' above, so a mail failure here must not turn into an
+        // uncaught 500 that leaves the page looking completely broken
+        // (the Accept/Decline buttons are gated on status === 'sent' and
+        // would still be reachable on the next page load either way, but
+        // an uncaught exception here means the user never SEES that).
+        try {
+            $offer->application->candidate->notify(new OfferLetterNotification($offer));
 
-        // Stamp separately from offer_sent_at (which tracks the business
-        // status) so this column reflects actual email dispatch, matching
-        // the reminder_sent_at guard pattern used in interview schedules.
-        $offer->update(['email_sent_at' => now()]);
+            // Stamp separately from offer_sent_at (which tracks the business
+            // status) so this column reflects actual email dispatch, matching
+            // the reminder_sent_at guard pattern used in interview schedules.
+            $offer->update(['email_sent_at' => now()]);
 
-        return redirect()->route('offers.index')->with('success', 'Offer sent to candidate. Offer letter emailed.');
+            return redirect()->route('offers.index')->with('success', 'Offer sent to candidate. Offer letter emailed.');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Offer letter email failed for offer ' . $offer->id . ': ' . $e->getMessage());
+
+            return redirect()->route('offers.index')->with('error', 'Offer marked as sent, but the offer letter email failed to send. Check the mail configuration and try resending.');
+        }
     }
 
     public function respond(Request $request, $id)

@@ -54,14 +54,14 @@
     </p>
 
     <div style="text-align:center; margin:20px 0;">
-      <a href="{{ url('/portal/my-applications') }}"
+      <a href="{{ url('/?txn=' . $transactionNumber) }}"
          style="background:#003087; color:#fff; text-decoration:none; padding:12px 32px;
                 border-radius:6px; font-weight:700; font-size:.9rem; display:inline-block;">
         View My Application Status
       </a>
     </div>
     <p style="text-align:center; font-size:.78rem; color:#888; margin-top:-8px;">
-      Or copy this link: {{ url('/portal/my-applications') }}
+      Or copy this link: {{ url('/?txn=' . $transactionNumber) }}
     </p>
 
     @if (isset($jobPosting) && $jobPosting->memoPdfUrl())

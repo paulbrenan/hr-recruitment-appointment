@@ -29,34 +29,22 @@ class OfferLetterNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $candidate     = $this->offer->application->candidate;
-        $firstName     = $candidate->first_name;
-        $title         = $this->offer->application->jobPosting->title ?? 'the position';
-        $compensation  = number_format($this->offer->compensation, 2);
+        $candidate    = $this->offer->application->candidate;
+        $jobTitle     = $this->offer->application->jobPosting->title ?? 'the position';
+        $compensation = number_format($this->offer->compensation, 2);
+        $deadline     = $this->offer->response_deadline
+            ? \Carbon\Carbon::parse($this->offer->response_deadline)->format('F d, Y')
+            : null;
 
-        $mail = (new MailMessage)
-            ->subject("Official Job Offer — {$title}")
-            ->greeting("Congratulations, {$firstName}!")
-            ->line("We are pleased to formally offer you the position of **{$title}**.")
-            ->line("**Compensation:** ₱{$compensation}");
-
-        if ($this->offer->benefits) {
-            $mail->line("**Benefits:** {$this->offer->benefits}");
-        }
-
-        if ($this->offer->terms) {
-            $mail->line("**Terms:** {$this->offer->terms}");
-        }
-
-        if ($this->offer->response_deadline) {
-            $deadline = \Carbon\Carbon::parse($this->offer->response_deadline)->format('F d, Y');
-            $mail->line("Please respond by **{$deadline}**.");
-        }
-
-        $mail->line("Please review the details above and reply to confirm your acceptance, or reach out to our HR team with any questions.")
-             ->salutation("Best regards,\nHR Recruitment Team");
-
-        return $mail;
+        return (new MailMessage)
+            ->subject("Official Job Offer — {$jobTitle}")
+            ->view('mail.offer-letter', [
+                'candidate'    => $candidate,
+                'offer'        => $this->offer,
+                'jobTitle'     => $jobTitle,
+                'compensation' => $compensation,
+                'deadline'     => $deadline,
+            ]);
     }
 
     public function toArray(object $notifiable): array

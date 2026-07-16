@@ -32,6 +32,7 @@ return [
         'Assistant School Principal II',
         'Attorney III',
         'Chief Education Program Supervisor',
+        'Cloud Engineer',
         'Contract of Service (COS)',
         'Dental Aide',
         'Dentist II',

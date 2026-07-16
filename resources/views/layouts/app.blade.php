@@ -173,7 +173,7 @@
                     <i class="bi bi-grid-1x2"></i> <span class="nav-label">Dashboard</span>
                 </a>
                 <a href="{{ route('job-postings.index') }}" class="nav-link {{ request()->routeIs('job-postings.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Job postings">
-                    <i class="bi bi-briefcase"></i> <span class="nav-label">Job postings</span>
+                    <i class="bi bi-briefcase"></i> <span class="nav-label">Vacancy</span>
                 </a>
                 <a href="{{ route('applications.index') }}" class="nav-link {{ request()->routeIs('applications.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Applications">
                     <i class="bi bi-person-lines-fill"></i> <span class="nav-label">Applications</span>

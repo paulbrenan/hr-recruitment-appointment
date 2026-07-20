@@ -72,9 +72,14 @@
                 @if ($sg)
                 <div class="text-muted small mb-1">{{ $sg }} &middot; {{ $posting->employment_type }}</div>
                 @endif
-                <span class="badge text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }} mb-3">
-                    {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
-                </span>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="badge text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }}">
+                        {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
+                    </span>
+                    <span class="text-muted small">
+                        <i class="bi bi-person-lines-fill"></i> {{ $applications->count() }} {{ Str::plural('applicant', $applications->count()) }}
+                    </span>
+                </div>
 
                 {{-- Steps --}}
                 <div class="d-flex flex-column" id="stepTracker">
@@ -229,17 +234,21 @@
 
                     <h6 class="mb-3">Posting details</h6>
                     <div class="row g-3 mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="text-muted small">Posted</div>
                             <div class="fw-medium">{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="text-muted small">Closes</div>
                             <div class="fw-medium">{{ $posting->closes_at ? \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') : '—' }}</div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="text-muted small">Total vacancies</div>
                             <div class="fw-medium">{{ $locations->sum('vacancies') ?: ($posting->vacancies ?? '—') }}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-muted small">Total applicants</div>
+                            <div class="fw-medium">{{ $applications->count() }}</div>
                         </div>
                     </div>
 

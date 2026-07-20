@@ -190,6 +190,18 @@ class JobPostingController extends Controller
             ->orderByDesc('id')
             ->get();
 
+        // Applicant counts for all listed postings in a single grouped
+        // query, then attach as a dynamic property -- avoids an N+1
+        // query per row on the list page.
+        $applicantCounts = Application::whereIn('job_posting_id', $postings->pluck('id'))
+            ->selectRaw('job_posting_id, count(*) as total')
+            ->groupBy('job_posting_id')
+            ->pluck('total', 'job_posting_id');
+
+        $postings->each(function ($posting) use ($applicantCounts) {
+            $posting->applicant_count = $applicantCounts->get($posting->id, 0);
+        });
+
         return view('job-postings.index', compact('postings', 'showArchived'));
     }
 

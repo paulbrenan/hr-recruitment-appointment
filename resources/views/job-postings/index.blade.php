@@ -102,7 +102,12 @@
             <tbody>
                 @foreach ($postings as $posting)
                 <tr class="posting-row" style="cursor: pointer; vertical-align: top;" data-href="{{ route('job-postings.show', $posting->id) }}">
-                    <td class="fw-medium" style="word-break: break-word;">{{ $posting->title }}</td>
+                    <td class="fw-medium" style="word-break: break-word;">
+                        {{ $posting->title }}
+                        <div class="text-muted fw-normal" style="font-size: 0.75rem;">
+                            <i class="bi bi-person-lines-fill"></i> {{ $posting->applicant_count }} {{ Str::plural('applicant', $posting->applicant_count) }}
+                        </div>
+                    </td>
                     <td>
                         @if ($posting->locations->isNotEmpty())
                             @php $locs = $posting->locations; $extra = $locs->count() - 2; @endphp

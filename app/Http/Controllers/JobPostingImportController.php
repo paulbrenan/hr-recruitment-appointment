@@ -190,17 +190,15 @@ class JobPostingImportController extends Controller
         $selectedIndexes = array_flip($validated['selected'] ?? []);
         $editedRows = $validated['rows'];
 
-        // Mandatory/additional requirements are NOT copied onto each
-        // created posting here anymore. RequirementsExtractor always
-        // returns the same static DepEd-standard text regardless of which
-        // PDF was uploaded, so duplicating that block into every single
-        // imported JobPosting row's mandatory_requirements/
-        // additional_requirements columns just bloats storage for no
-        // benefit. These columns stay null on import (same as a manual
-        // posting HR hasn't filled them in for yet) — JobPosting::
-        // mandatoryRequirementsList()/additionalRequirementsList() fall
-        // back to the same static defaults at display time instead, from
-        // one source of truth.
+        // Mandatory/additional requirements, parsed by RequirementsExtractor
+        // during OCR (see ProcessPdfImportJob) and stored on the batch.
+        // No model-level fallback exists for these columns anywhere in
+        // this app -- the manual posting form
+        // (JobPostingController::create()) stores this same text
+        // directly on the column, so imported postings need to do the
+        // same or they're left with nothing.
+        $mandatoryRequirementsText = implode("\n", $batch->requirements['mandatory'] ?? []);
+        $additionalRequirementsText = $batch->requirements['additional'] ?? '';
 
         $created = 0;
         $skipped = 0;
@@ -278,6 +276,8 @@ class JobPostingImportController extends Controller
                 'qualification_experience' => $rowData['qualification_experience'] ?? null,
                 'qualification_eligibility' => $rowData['qualification_eligibility'] ?? null,
                 'duties_responsibilities' => $rowData['duties_responsibilities'] ?? null,
+                'mandatory_requirements' => $mandatoryRequirementsText,
+                'additional_requirements' => $additionalRequirementsText,
                 // Legacy single-location columns, kept in sync from the
                 // first entered location -- same convention as
                 // syncLocations() uses on the manual job posting form.

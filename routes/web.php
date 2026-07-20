@@ -16,6 +16,8 @@ use App\Http\Controllers\TalentPoolController;
 use App\Http\Controllers\PipelineController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\RankingController;
+use App\Http\Controllers\SuperAdminAuthController;
+use App\Http\Controllers\SuperAdminController;
 
 // Admin (HR staff) authentication
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -34,6 +36,20 @@ Route::middleware('auth:candidate')->prefix('portal')->name('portal.')->group(fu
     Route::get('/jobs/{id}', [PortalController::class, 'showJob'])->name('jobs.show');
     Route::post('/jobs/{id}/apply', [PortalController::class, 'apply'])->name('apply');
     Route::get('/my-applications', [PortalController::class, 'myApplications'])->name('my-applications');
+});
+
+// Superadmin authentication
+Route::get('/superadmin/login', [SuperAdminAuthController::class, 'showLogin'])->name('superadmin.login');
+Route::post('/superadmin/login', [SuperAdminAuthController::class, 'login'])->name('superadmin.login.attempt');
+Route::post('/superadmin/logout', [SuperAdminAuthController::class, 'logout'])->name('superadmin.logout');
+
+Route::middleware('auth:superadmin')->prefix('superadmin')->name('superadmin.')->group(function () {
+    Route::get('/dashboard', [SuperAdminAuthController::class, 'dashboard'])->name('dashboard');
+
+    Route::get('/users', [SuperAdminController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [SuperAdminController::class, 'create'])->name('users.create');
+    Route::post('/users', [SuperAdminController::class, 'store'])->name('users.store');
+    Route::delete('/users/{user}', [SuperAdminController::class, 'destroy'])->name('users.destroy');
 });
 
 // Public landing page

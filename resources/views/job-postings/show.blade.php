@@ -37,6 +37,7 @@
         2 => ['label' => 'Qualification Checking',  'icon' => 'bi-clipboard-check'],
         3 => ['label' => 'Open Ranking & Scheduling','icon' => 'bi-calendar-event'],
         4 => ['label' => 'Assessment & Results',     'icon' => 'bi-bar-chart-line'],
+        5 => ['label' => 'Offer Management',         'icon' => 'bi-envelope-paper'],
     ];
 
     $statusColors = [
@@ -72,9 +73,14 @@
                 @if ($sg)
                 <div class="text-muted small mb-1">{{ $sg }} &middot; {{ $posting->employment_type }}</div>
                 @endif
-                <span class="badge text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }} mb-3">
-                    {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
-                </span>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="badge text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }}">
+                        {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
+                    </span>
+                    <span class="text-muted small">
+                        <i class="bi bi-person-lines-fill"></i> {{ $applications->count() }} {{ Str::plural('applicant', $applications->count()) }}
+                    </span>
+                </div>
 
                 {{-- Steps --}}
                 <div class="d-flex flex-column" id="stepTracker">
@@ -117,7 +123,7 @@
                             {{ $step['label'] }}
                         </div>
                     </div>
-                    @if ($num < 4)
+                    @if ($num < count($steps))
                     <div class="step-connector" id="step-connector-{{ $num }}"
                          style="width:3px;height:14px;margin-left:calc(0.5rem + 10px);
                                 background:{{ $currentStep > $num ? '#198754' : '#dee2e6' }};"></div>
@@ -154,7 +160,7 @@
                         @if ($posting->status === 'interview_scheduled')
                             <i class="bi bi-arrow-right me-1"></i> Move to Assessment
                         @elseif ($posting->status === 'ranking')
-                            <i class="bi bi-check-lg me-1"></i> Close Posting
+                            <i class="bi bi-arrow-right me-1"></i> Move to Offer Management
                         @endif
                     </button>
                 </div>
@@ -229,17 +235,21 @@
 
                     <h6 class="mb-3">Posting details</h6>
                     <div class="row g-3 mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="text-muted small">Posted</div>
                             <div class="fw-medium">{{ $posting->posted_at ? \Carbon\Carbon::parse($posting->posted_at)->format('M d, Y') : '—' }}</div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="text-muted small">Closes</div>
                             <div class="fw-medium">{{ $posting->closes_at ? \Carbon\Carbon::parse($posting->closes_at)->format('M d, Y') : '—' }}</div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="text-muted small">Total vacancies</div>
                             <div class="fw-medium">{{ $locations->sum('vacancies') ?: ($posting->vacancies ?? '—') }}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-muted small">Total applicants</div>
+                            <div class="fw-medium">{{ $applications->count() }}</div>
                         </div>
                     </div>
 
@@ -498,8 +508,53 @@
                             ];
                         @endphp
                         <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;" data-location-id="{{ $app->job_posting_location_id }}">
+                            @php
+                                $appPlace = optional($app->jobPostingLocation)->place_of_assignment
+                                    ?? $posting->place_of_assignment
+                                    ?? null;
+                                $appCheckData = $app->qualification_check ?? [];
+                                $appCriteria = [];
+                                foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ck => $cl) {
+                                    if (isset($appCheckData['criteria'][$ck])) {
+                                        $appCriteria[] = [
+                                            'label' => $cl,
+                                            'actual' => $appCheckData['criteria'][$ck]['actual'] ?? null,
+                                            'passed' => (bool) ($appCheckData['criteria'][$ck]['passed'] ?? false),
+                                        ];
+                                    }
+                                }
+                                $appInfoData = [
+                                    'name' => $app->candidate->full_name,
+                                    'email' => $app->candidate->email,
+                                    'phone' => $app->candidate->phone,
+                                    'address' => $app->candidate->address,
+                                    'age' => $app->candidate->age,
+                                    'sex' => $app->candidate->sex,
+                                    'civil_status' => $app->candidate->civil_status,
+                                    'religion' => $app->candidate->religion,
+                                    'disability' => $app->candidate->disability,
+                                    'ethnic_group' => $app->candidate->ethnic_group,
+                                    'education' => $app->candidate->education,
+                                    'training_hours' => $app->candidate->training_hours,
+                                    'years_experience' => $app->candidate->years_experience,
+                                    'eligibility' => $app->candidate->eligibility,
+                                    'transaction_number' => $app->transaction_number,
+                                    'applied_at' => $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : null,
+                                    'status' => str_replace('_', ' ', ucfirst($app->status)),
+                                    'place_of_assignment' => $appPlace,
+                                    'notes' => $app->notes,
+                                    'qualification_result' => $app->qualification_result ? ucfirst(str_replace('_', ' ', $app->qualification_result)) : null,
+                                    'criteria' => $appCriteria,
+                                ];
+                            @endphp
                             <div>
-                                <div class="fw-medium">{{ $app->candidate->full_name }}</div>
+                                <span class="fw-medium" role="button"
+                                      style="border-bottom: 1px dashed #adb5bd;"
+                                      title="View applicant information"
+                                      onclick="event.stopPropagation(); showApplicantInfo(this)"
+                                      data-info="{{ json_encode($appInfoData) }}">
+                                    {{ $app->candidate->full_name }}
+                                </span>
                                 <div class="text-muted small">
                                     Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
                                 </div>
@@ -582,58 +637,63 @@
                     @if ($schedules->isEmpty())
                         <p class="text-muted small mb-0 text-center py-3">No schedules yet.</p>
                     @else
-                    @php $groupedSchedules = $schedules->groupBy('application_id'); @endphp
+                    @php
+                        $sc = ['scheduled'=>'primary','completed'=>'success','cancelled'=>'danger','no_show'=>'secondary'];
+                        // One "session" = everything created together in a single
+                        // bulk "New schedule" action, which always shares the same
+                        // date/time + venue across every applicant included.
+                        $sessionGroups = $schedules->groupBy(function ($s) {
+                            return $s->scheduled_at . '|' . $s->location;
+                        })->values();
+                    @endphp
                     <table class="table align-middle mb-0" style="font-size:0.875rem;">
                         <thead>
                             <tr>
-                                <th>Candidate</th>
                                 <th>Type</th>
                                 <th class="text-nowrap">Date &amp; time</th>
+                                <th>Venue</th>
                                 <th>Panelists</th>
+                                <th>Applicants</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($groupedSchedules as $appId => $group)
+                            @foreach ($sessionGroups as $sessIdx => $sessionSchedules)
                             @php
-                                $first = $group->first();
-                                $sc = ['scheduled'=>'primary','completed'=>'success','cancelled'=>'danger','no_show'=>'secondary'];
-                                $statuses = $group->pluck('status')->unique();
+                                $sessFirst    = $sessionSchedules->first();
+                                $sessTypes    = $sessionSchedules->pluck('type')->unique();
+                                $sessAppCount = $sessionSchedules->pluck('application_id')->unique()->count();
+                                $sessStatuses = $sessionSchedules->pluck('status')->unique();
                             @endphp
                             <tr>
-                                <td class="fw-medium">{{ $first->application->candidate->full_name }}</td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
-                                        @foreach ($group as $s)
-                                        <span class="badge text-bg-light text-dark border d-inline-flex align-items-center gap-1" style="font-size:0.75rem;">
-                                            {{ str_replace('_',' ',ucfirst($s->type)) }}
-                                            @if ($currentStep < 4)
-                                            <form action="{{ route('interviews.destroy', $s->id) }}" method="POST" class="d-inline m-0 p-0"
-                                                  onsubmit="return confirm('Remove the {{ str_replace('_',' ',ucfirst($s->type)) }} schedule for {{ addslashes($first->application->candidate->full_name) }}?')">
-                                                @csrf @method('DELETE')
-                                                <button type="submit" class="btn btn-link btn-sm p-0 text-danger" style="line-height:1;" title="Remove">
-                                                    <i class="bi bi-x-lg" style="font-size:0.65rem;"></i>
-                                                </button>
-                                            </form>
-                                            @endif
-                                        </span>
+                                        @foreach ($sessTypes as $t)
+                                        <span class="badge text-bg-light text-dark border" style="font-size:0.75rem;">{{ str_replace('_',' ',ucfirst($t)) }}</span>
                                         @endforeach
                                     </div>
                                 </td>
-                                <td>{{ $first->scheduled_at ? \Carbon\Carbon::parse($first->scheduled_at)->format('M d, Y h:i A') : '—' }}</td>
+                                <td>{{ $sessFirst->scheduled_at ? \Carbon\Carbon::parse($sessFirst->scheduled_at)->format('M d, Y h:i A') : '—' }}</td>
+                                <td>{{ $sessFirst->location ?: '—' }}</td>
                                 <td class="small">
-                                    @if ($first->panelists->isNotEmpty())
-                                        {{ $first->panelists->pluck('name')->implode(', ') }}
-                                    @elseif ($first->interviewer_name)
-                                        {{ $first->interviewer_name }}
+                                    @if ($sessFirst->panelists->isNotEmpty())
+                                        {{ $sessFirst->panelists->pluck('name')->implode(', ') }}
+                                    @elseif ($sessFirst->interviewer_name)
+                                        {{ $sessFirst->interviewer_name }}
                                     @else —
                                     @endif
                                 </td>
                                 <td>
-                                    @if ($statuses->count() === 1)
-                                        <span class="badge text-bg-{{ $sc[$statuses->first()] ?? 'secondary' }}">{{ str_replace('_',' ',ucfirst($statuses->first())) }}</span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="modal" data-bs-target="#sessionApplicantsModal{{ $sessIdx }}">
+                                        <i class="bi bi-people me-1"></i> {{ $sessAppCount }} {{ Str::plural('applicant', $sessAppCount) }}
+                                    </button>
+                                </td>
+                                <td>
+                                    @if ($sessStatuses->count() === 1)
+                                        <span class="badge text-bg-{{ $sc[$sessStatuses->first()] ?? 'secondary' }}">{{ str_replace('_',' ',ucfirst($sessStatuses->first())) }}</span>
                                     @else
-                                        @foreach ($statuses as $st)
+                                        @foreach ($sessStatuses as $st)
                                             <span class="badge text-bg-{{ $sc[$st] ?? 'secondary' }} me-1">{{ str_replace('_',' ',ucfirst($st)) }}</span>
                                         @endforeach
                                     @endif
@@ -642,6 +702,121 @@
                             @endforeach
                         </tbody>
                     </table>
+
+                    {{-- One modal per session, listing the individual applicants
+                         it covers -- same per-applicant detail (info popover,
+                         per-type remove, per-type status) that used to live
+                         directly in the main table. --}}
+                    @foreach ($sessionGroups as $sessIdx => $sessionSchedules)
+                    @php $sessByApp = $sessionSchedules->groupBy('application_id'); @endphp
+                    <div class="modal fade" id="sessionApplicantsModal{{ $sessIdx }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h6 class="modal-title">Scheduled applicants</h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <table class="table align-middle mb-0" style="font-size:0.875rem;">
+                                        <thead>
+                                            <tr>
+                                                <th>Candidate</th>
+                                                <th>Type</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($sessByApp as $appId => $group)
+                                            @php
+                                                $first = $group->first();
+                                                $statuses = $group->pluck('status')->unique();
+                                                $schedCand = $first->application->candidate;
+                                                $schedPlace = optional($first->application->jobPostingLocation)->place_of_assignment
+                                                    ?? $posting->place_of_assignment
+                                                    ?? null;
+                                                $schedCheckData = $first->application->qualification_check ?? [];
+                                                $schedCriteria = [];
+                                                foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ck => $cl) {
+                                                    if (isset($schedCheckData['criteria'][$ck])) {
+                                                        $schedCriteria[] = [
+                                                            'label' => $cl,
+                                                            'actual' => $schedCheckData['criteria'][$ck]['actual'] ?? null,
+                                                            'passed' => (bool) ($schedCheckData['criteria'][$ck]['passed'] ?? false),
+                                                        ];
+                                                    }
+                                                }
+                                                $schedInfoData = [
+                                                    'name' => $schedCand->full_name,
+                                                    'email' => $schedCand->email,
+                                                    'phone' => $schedCand->phone,
+                                                    'address' => $schedCand->address,
+                                                    'age' => $schedCand->age,
+                                                    'sex' => $schedCand->sex,
+                                                    'civil_status' => $schedCand->civil_status,
+                                                    'religion' => $schedCand->religion,
+                                                    'disability' => $schedCand->disability,
+                                                    'ethnic_group' => $schedCand->ethnic_group,
+                                                    'education' => $schedCand->education,
+                                                    'training_hours' => $schedCand->training_hours,
+                                                    'years_experience' => $schedCand->years_experience,
+                                                    'eligibility' => $schedCand->eligibility,
+                                                    'transaction_number' => $first->application->transaction_number,
+                                                    'applied_at' => $first->application->applied_at ? \Carbon\Carbon::parse($first->application->applied_at)->format('M d, Y') : null,
+                                                    'status' => str_replace('_', ' ', ucfirst($first->application->status)),
+                                                    'place_of_assignment' => $schedPlace,
+                                                    'notes' => $first->application->notes,
+                                                    'qualification_result' => $first->application->qualification_result ? ucfirst(str_replace('_', ' ', $first->application->qualification_result)) : null,
+                                                    'criteria' => $schedCriteria,
+                                                ];
+                                            @endphp
+                                            <tr>
+                                                <td class="fw-medium">
+                                                    <span role="button" style="border-bottom: 1px dashed #adb5bd;"
+                                                          title="View applicant information"
+                                                          onclick="showApplicantInfo(this)"
+                                                          data-info="{{ json_encode($schedInfoData) }}">
+                                                        {{ $schedCand->full_name }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        @foreach ($group as $s)
+                                                        <span class="badge text-bg-light text-dark border d-inline-flex align-items-center gap-1" style="font-size:0.75rem;">
+                                                            {{ str_replace('_',' ',ucfirst($s->type)) }}
+                                                            @if ($currentStep < 4)
+                                                            <form action="{{ route('interviews.destroy', $s->id) }}" method="POST" class="d-inline m-0 p-0"
+                                                                  onsubmit="return confirm('Remove the {{ str_replace('_',' ',ucfirst($s->type)) }} schedule for {{ addslashes($first->application->candidate->full_name) }}?')">
+                                                                @csrf @method('DELETE')
+                                                                <button type="submit" class="btn btn-link btn-sm p-0 text-danger" style="line-height:1;" title="Remove">
+                                                                    <i class="bi bi-x-lg" style="font-size:0.65rem;"></i>
+                                                                </button>
+                                                            </form>
+                                                            @endif
+                                                        </span>
+                                                        @endforeach
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    @if ($statuses->count() === 1)
+                                                        <span class="badge text-bg-{{ $sc[$statuses->first()] ?? 'secondary' }}">{{ str_replace('_',' ',ucfirst($statuses->first())) }}</span>
+                                                    @else
+                                                        @foreach ($statuses as $st)
+                                                            <span class="badge text-bg-{{ $sc[$st] ?? 'secondary' }} me-1">{{ str_replace('_',' ',ucfirst($st)) }}</span>
+                                                        @endforeach
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
                     @endif
                 </div>
             </div>
@@ -714,7 +889,53 @@
                                         <span class="text-muted">#{{ $i + 1 }}</span>
                                     @endif
                                 </td>
-                                <td class="fw-medium">{{ $cand->candidate_name }}</td>
+                                @php
+                                    $rankCand = $cand->candidate;
+                                    $rankApp = $applications->firstWhere('id', $cand->application_id);
+                                    $rankPlace = $rankApp ? (optional($rankApp->jobPostingLocation)->place_of_assignment ?? $posting->place_of_assignment ?? null) : null;
+                                    $rankCheckData = $rankApp->qualification_check ?? [];
+                                    $rankCriteria = [];
+                                    foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ck => $cl) {
+                                        if (isset($rankCheckData['criteria'][$ck])) {
+                                            $rankCriteria[] = [
+                                                'label' => $cl,
+                                                'actual' => $rankCheckData['criteria'][$ck]['actual'] ?? null,
+                                                'passed' => (bool) ($rankCheckData['criteria'][$ck]['passed'] ?? false),
+                                            ];
+                                        }
+                                    }
+                                    $rankInfoData = [
+                                        'name' => $cand->candidate_name,
+                                        'email' => $rankCand->email ?? null,
+                                        'phone' => $rankCand->phone ?? null,
+                                        'address' => $rankCand->address ?? null,
+                                        'age' => $rankCand->age ?? null,
+                                        'sex' => $rankCand->sex ?? null,
+                                        'civil_status' => $rankCand->civil_status ?? null,
+                                        'religion' => $rankCand->religion ?? null,
+                                        'disability' => $rankCand->disability ?? null,
+                                        'ethnic_group' => $rankCand->ethnic_group ?? null,
+                                        'education' => $rankCand->education ?? null,
+                                        'training_hours' => $rankCand->training_hours ?? null,
+                                        'years_experience' => $rankCand->years_experience ?? null,
+                                        'eligibility' => $rankCand->eligibility ?? null,
+                                        'transaction_number' => $rankApp->transaction_number ?? null,
+                                        'applied_at' => $rankApp && $rankApp->applied_at ? \Carbon\Carbon::parse($rankApp->applied_at)->format('M d, Y') : null,
+                                        'status' => $rankApp ? str_replace('_', ' ', ucfirst($rankApp->status)) : null,
+                                        'place_of_assignment' => $rankPlace,
+                                        'notes' => $rankApp->notes ?? null,
+                                        'qualification_result' => ($rankApp && $rankApp->qualification_result) ? ucfirst(str_replace('_', ' ', $rankApp->qualification_result)) : null,
+                                        'criteria' => $rankCriteria,
+                                    ];
+                                @endphp
+                                <td class="fw-medium">
+                                    <span role="button" style="border-bottom: 1px dashed #adb5bd;"
+                                          title="View applicant information"
+                                          onclick="showApplicantInfo(this)"
+                                          data-info="{{ json_encode($rankInfoData) }}">
+                                        {{ $cand->candidate_name }}
+                                    </span>
+                                </td>
                                 @foreach ($criteria as $c)
                                     <td>{{ $cand->scores[$c->id] ?? '—' }}</td>
                                 @endforeach
@@ -823,6 +1044,199 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#importCriteriaModal">
                         <i class="bi bi-upload me-1"></i> Scan file for criteria
                     </button>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- ══ STEP 5 ══════════════════════════════════════════════════════ --}}
+        <div class="step-panel d-none" id="panel-5">
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <h6 class="mb-3">Job offers</h6>
+                    @if ($offers->isEmpty())
+                        <p class="text-muted small mb-0 text-center py-3">No offers yet.</p>
+                    @else
+                    <div class="table-responsive mb-4">
+                        <table class="table align-middle mb-0" style="font-size:0.875rem;">
+                            <thead>
+                                <tr>
+                                    <th>Candidate</th>
+                                    <th>Compensation</th>
+                                    <th>Sent</th>
+                                    <th>Email delivery</th>
+                                    <th>Response by</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($offers as $o)
+                                @php
+                                    $offerColors = ['draft' => 'secondary', 'sent' => 'primary', 'accepted' => 'success', 'declined' => 'danger', 'expired' => 'dark'];
+                                @endphp
+                                <tr>
+                                    <td class="fw-medium">{{ $o->application->candidate->full_name ?? 'Unknown' }}</td>
+                                    <td>&#8369;{{ number_format($o->compensation, 2) }}</td>
+                                    <td>{{ $o->offer_sent_at ? \Carbon\Carbon::parse($o->offer_sent_at)->format('M d, Y') : '—' }}</td>
+                                    <td>
+                                        @if ($o->email_sent_at)
+                                            <span class="badge text-bg-success">Sent</span>
+                                            <div class="text-muted" style="font-size:0.72rem;">{{ \Carbon\Carbon::parse($o->email_sent_at)->format('M d, Y g:i A') }}</div>
+                                        @else
+                                            <span class="badge text-bg-secondary">Not sent</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $o->response_deadline ? \Carbon\Carbon::parse($o->response_deadline)->format('M d, Y') : '—' }}</td>
+                                    <td>
+                                        <span class="badge badge-status text-bg-{{ $offerColors[$o->status] ?? 'secondary' }}">{{ ucfirst($o->status) }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex gap-1 justify-content-end">
+                                            @if ($o->status === 'draft')
+                                            <form method="POST" action="{{ route('offers.send', $o->id) }}" class="d-inline">
+                                                @csrf @method('PUT')
+                                                <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Send</button>
+                                            </form>
+                                            @elseif ($o->status === 'sent')
+                                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
+                                                  onsubmit="return confirm('Mark this offer as accepted?')">
+                                                @csrf @method('PUT')
+                                                <input type="hidden" name="response" value="accepted">
+                                                <button type="submit" class="btn btn-sm btn-outline-success">Accept</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
+                                                  onsubmit="return confirm('Mark this offer as declined?')">
+                                                @csrf @method('PUT')
+                                                <input type="hidden" name="response" value="declined">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
+                                            </form>
+                                            @else
+                                            <span class="text-muted small">No actions</span>
+                                            @endif
+                                            <form method="POST" action="{{ route('offers.destroy', $o->id) }}" class="d-inline" onsubmit="return confirm('Delete this offer? This cannot be undone.');">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @endif
+
+                    <h6 class="mb-3">Generate new offer{{ $offerVacancyLimit > 1 ? 's' : '' }}</h6>
+                    @if ($eligibleOfferApplications->isEmpty())
+                        <p class="text-muted small mb-0">No candidates on this posting are currently eligible for an offer. Candidates become eligible once shortlisted, assessed, or hired, and don't already have an offer.</p>
+                    @elseif ($offerVacancyLimit < 1)
+                        <p class="text-muted small mb-0">All {{ $posting->vacancies }} vacanc{{ $posting->vacancies == 1 ? 'y' : 'ies' }} for this posting already have an active offer.</p>
+                    @else
+                    @if ($errors->has('application_ids') || $errors->has('compensation_override'))
+                    <div class="alert alert-danger small py-2">{{ $errors->first('application_ids') ?: $errors->first('compensation_override') }}</div>
+                    @endif
+                    <p class="text-muted small mb-2">
+                        Select up to <strong>{{ $offerVacancyLimit }}</strong> candidate{{ $offerVacancyLimit == 1 ? '' : 's' }} (this posting's remaining vacancy slots). Compensation defaults to SG {{ $posting->salary_grade }} Step 1 &mdash; override below if needed.
+                    </p>
+                    <form method="POST" action="{{ route('offers.store') }}" id="generateOfferForm">
+                        @csrf
+                        <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                        <div class="table-responsive mb-3">
+                        <table class="table align-middle mb-0" style="font-size:0.875rem;">
+                            <thead>
+                                <tr>
+                                    <th style="width:2.5rem;"></th>
+                                    <th>Rank</th>
+                                    <th>Candidate</th>
+                                    <th>Education</th>
+                                    <th>Experience</th>
+                                    <th>Eligibility</th>
+                                </tr>
+                            </thead>
+                            <tbody id="offerCandidateRows">
+                                @foreach ($eligibleOfferApplications as $cand)
+                                <tr>
+                                    <td>
+                                        <input class="form-check-input offer-candidate-checkbox" type="checkbox"
+                                               name="application_ids[]" value="{{ $cand->application_id }}"
+                                               {{ in_array($cand->application_id, old('application_ids', [])) ? 'checked' : '' }}>
+                                    </td>
+                                    <td>
+                                        @if ($cand->rank === 1)
+                                            <span class="badge text-bg-warning">#1</span>
+                                        @else
+                                            <span class="text-muted">#{{ $cand->rank }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="fw-medium">{{ $cand->candidate_name }}</td>
+                                    <td>{{ $cand->candidate->education ?? '—' }}</td>
+                                    <td>{{ $cand->candidate->years_experience ?? '—' }}{{ $cand->candidate->years_experience ? ' yrs' : '' }}</td>
+                                    <td>{{ $cand->candidate->eligibility ?? '—' }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        </div>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted mb-1">Override SG (optional)</label>
+                                <select name="sg_override" id="offerSgOverrideSelect" class="form-select form-select-sm">
+                                    <option value="">Inherit: SG {{ $posting->salary_grade }}</option>
+                                    @for ($sgOpt = 1; $sgOpt <= 33; $sgOpt++)
+                                        <option value="{{ $sgOpt }}" {{ old('sg_override') == $sgOpt ? 'selected' : '' }}>SG {{ $sgOpt }}</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1">Override compensation (optional)</label>
+                                <input type="number" step="0.01" min="0" name="compensation_override" id="offerCompensationOverride" class="form-control form-control-sm"
+                                       placeholder="Default: SG {{ $posting->salary_grade }} Step 1" value="{{ old('compensation_override') }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1">Response deadline</label>
+                                <input type="date" name="response_deadline" class="form-control form-control-sm" min="{{ now()->toDateString() }}" value="{{ old('response_deadline') }}">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-sm w-100" style="background-color:var(--hr-primary);color:#fff;">
+                                    Generate offer<span id="offerSelectedCountLabel"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <script>
+                    (function () {
+                        const limit = {{ (int) $offerVacancyLimit }};
+                        const boxes = document.querySelectorAll('.offer-candidate-checkbox');
+                        const countLabel = document.getElementById('offerSelectedCountLabel');
+
+                        function refresh() {
+                            const checked = document.querySelectorAll('.offer-candidate-checkbox:checked');
+                            if (countLabel) countLabel.textContent = checked.length ? ' (' + checked.length + ')' : '';
+                            const atLimit = checked.length >= limit;
+                            boxes.forEach(function (b) {
+                                if (!b.checked) b.disabled = atLimit;
+                            });
+                        }
+
+                        boxes.forEach(function (b) { b.addEventListener('change', refresh); });
+                        refresh();
+
+                        // SG override -> auto-fill the peso field with that
+                        // grade's Step 1 amount. Still just a starting
+                        // point -- HR can edit the peso field afterward and
+                        // that typed value always wins on submit.
+                        const sgTable = @json(config('salary_grades.table'));
+                        const sgOverrideSel = document.getElementById('offerSgOverrideSelect');
+                        const compInput = document.getElementById('offerCompensationOverride');
+                        sgOverrideSel?.addEventListener('change', function () {
+                            const grade = parseInt(this.value, 10);
+                            if (grade && sgTable[grade] && sgTable[grade][0] !== undefined) {
+                                compInput.value = sgTable[grade][0];
+                            }
+                        });
+                    })();
+                    </script>
                     @endif
                 </div>
             </div>
@@ -983,6 +1397,107 @@
 </div>
 
 {{-- Qualification Check --}}
+<div class="modal fade" id="applicantInfoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-lg">
+        <div class="modal-content" style="border: none; border-radius: 12px; overflow: hidden;">
+
+            {{-- Header: avatar initial + name + status pill --}}
+            <div class="modal-header" style="background: var(--hr-primary); color: #fff; border: none; padding: 20px 24px;">
+                <div style="min-width: 0;">
+                    <h5 class="modal-title mb-0" id="applicantInfoName" style="font-weight: 700;">Applicant Information</h5>
+                    <span id="ai-status" class="badge mt-1" style="background: rgba(255,255,255,.22); font-weight: 600; font-size: .72rem;">—</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-0" style="background: #f8f9fb;">
+
+                {{-- Qualification Check Breakdown --}}
+                <div class="p-3 pb-2" id="ai-criteria-wrap">
+                    <div class="bg-white rounded-3 p-3 border">
+                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
+                            <i class="bi bi-clipboard-check me-1"></i> Qualification Check Breakdown
+                        </div>
+                        <table class="table table-sm mb-0" id="ai-criteria-table" style="font-size: .82rem;">
+                            <thead>
+                                <tr>
+                                    <th class="text-muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Criterion</th>
+                                    <th class="text-muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Candidate's Qualification</th>
+                                    <th class="text-muted text-end" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Result</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ai-criteria-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Position & Application --}}
+                <div class="px-3 pb-2" id="ai-app-meta-wrap">
+                    <div class="bg-white rounded-3 p-3 border">
+                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
+                            <i class="bi bi-briefcase me-1"></i> Position &amp; Application
+                        </div>
+                        <div class="row g-3 small">
+                            <div class="col-md-6" id="ai-txn-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Transaction No.</span><div id="ai-transaction_number" class="fw-medium font-monospace">—</div></div>
+                            <div class="col-md-6" id="ai-applied-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Applied</span><div id="ai-applied_at" class="fw-medium">—</div></div>
+                            <div class="col-md-6" id="ai-place-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Place of Assignment</span><div id="ai-place_of_assignment" class="fw-medium">—</div></div>
+                            <div class="col-md-6" id="ai-qualresult-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Qualification Result</span><div id="ai-qualification_result" class="fw-medium">—</div></div>
+                            <div class="col-12" id="ai-notes-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Notes</span><div id="ai-notes" class="fw-medium">—</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Qualifications (self-reported) --}}
+                <div class="px-3 pb-2">
+                    <div class="bg-white rounded-3 p-3 border">
+                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
+                            <i class="bi bi-mortarboard me-1"></i> Qualifications
+                        </div>
+                        <div class="row g-3 small">
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Highest Education</span><div id="ai-education" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Eligibility</span><div id="ai-eligibility" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Training Hours</span><div id="ai-training_hours" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Years of Experience</span><div id="ai-years_experience" class="fw-medium">—</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Contact --}}
+                <div class="px-3 pb-2">
+                    <div class="bg-white rounded-3 p-3 border">
+                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
+                            <i class="bi bi-person-lines-fill me-1"></i> Contact
+                        </div>
+                        <div class="row g-3 small">
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Email</span><div id="ai-email" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Phone</span><div id="ai-phone" class="fw-medium">—</div></div>
+                            <div class="col-12"><span class="text-muted d-block" style="font-size:.72rem;">Address</span><div id="ai-address" class="fw-medium">—</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Personal Details --}}
+                <div class="px-3 pb-3">
+                    <div class="bg-white rounded-3 p-3 border">
+                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
+                            <i class="bi bi-card-list me-1"></i> Personal Details
+                        </div>
+                        <div class="row g-3 small">
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Age</span><div id="ai-age" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Sex</span><div id="ai-sex" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Civil Status</span><div id="ai-civil_status" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Religion</span><div id="ai-religion" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Disability</span><div id="ai-disability" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Ethnic Group</span><div id="ai-ethnic_group" class="fw-medium">—</div></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="qualCheckModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -1177,6 +1692,63 @@
 
 @push('scripts')
 <script>
+// ── Applicant Info modal ─────────────────────────────────────────────────
+function showApplicantInfo(el) {
+    const data = JSON.parse(el.dataset.info || '{}');
+    const set = (id, val) => {
+        const target = document.getElementById(id);
+        if (target) target.textContent = (val === null || val === undefined || val === '') ? '—' : val;
+    };
+
+    document.getElementById('applicantInfoName').textContent = data.name || 'Applicant Information';
+    set('ai-email', data.email);
+    set('ai-phone', data.phone);
+    set('ai-address', data.address);
+    set('ai-age', data.age);
+    set('ai-sex', data.sex);
+    set('ai-civil_status', data.civil_status);
+    set('ai-religion', data.religion);
+    set('ai-disability', data.disability);
+    set('ai-ethnic_group', data.ethnic_group);
+    set('ai-education', data.education);
+    set('ai-training_hours', data.training_hours);
+    set('ai-years_experience', data.years_experience);
+    set('ai-eligibility', data.eligibility);
+
+    const hasAppMeta = data.transaction_number || data.applied_at || data.status;
+    document.getElementById('ai-app-meta-wrap').style.display = hasAppMeta ? '' : 'none';
+    document.getElementById('ai-txn-wrap').style.display = data.transaction_number ? '' : 'none';
+    document.getElementById('ai-applied-wrap').style.display = data.applied_at ? '' : 'none';
+    set('ai-transaction_number', data.transaction_number);
+    set('ai-applied_at', data.applied_at);
+    set('ai-status', data.status);
+
+    document.getElementById('ai-place-wrap').style.display = data.place_of_assignment ? '' : 'none';
+    set('ai-place_of_assignment', data.place_of_assignment);
+
+    document.getElementById('ai-qualresult-wrap').style.display = data.qualification_result ? '' : 'none';
+    set('ai-qualification_result', data.qualification_result);
+
+    document.getElementById('ai-notes-wrap').style.display = data.notes ? '' : 'none';
+    set('ai-notes', data.notes);
+
+    const criteria = data.criteria || [];
+    const tbody = document.getElementById('ai-criteria-tbody');
+    document.getElementById('ai-criteria-wrap').style.display = criteria.length ? '' : 'none';
+    tbody.innerHTML = '';
+    criteria.forEach(row => {
+        const tr = document.createElement('tr');
+        const badgeClass = row.passed ? 'text-bg-success' : 'text-bg-danger';
+        const badgeText  = row.passed ? 'Qualified' : 'Not qualified';
+        tr.innerHTML = '<td>' + row.label + '</td>'
+            + '<td>' + (row.actual || '—') + '</td>'
+            + '<td class="text-end"><span class="badge ' + badgeClass + '">' + badgeText + '</span></td>';
+        tbody.appendChild(tr);
+    });
+
+    new bootstrap.Modal(document.getElementById('applicantInfoModal')).show();
+}
+
 // ── Step switching ──────────────────────────────────────────────────────────
 const currentStep = {{ $currentStep }};
 const activeStep  = {{ $activeStep }};
@@ -1240,11 +1812,35 @@ function switchStep(n) {
 switchStep(activeStep);
 
 // ── Advance pipeline ────────────────────────────────────────────────────────
+// ── Step 5: SG/step -> compensation live preview ────────────────────────
+(function () {
+    const sgTable = @json(config('salary_grades.table'));
+    const sgSel   = document.getElementById('offerSgSelect');
+    const stepSel = document.getElementById('offerStepSelect');
+    const hint    = document.getElementById('offerSgAmountHint');
+    if (!sgSel || !stepSel || !hint) return;
+
+    function updateOfferAmountHint() {
+        const sg   = parseInt(sgSel.value, 10);
+        const step = parseInt(stepSel.value, 10);
+        if (sg && step && sgTable[sg] && sgTable[sg][step - 1]) {
+            hint.textContent = '₱' + Number(sgTable[sg][step - 1]).toLocaleString('en-PH');
+            hint.style.color = 'var(--hr-primary)';
+        } else {
+            hint.textContent = '\u00a0';
+        }
+    }
+
+    sgSel.addEventListener('change', updateOfferAmountHint);
+    stepSel.addEventListener('change', updateOfferAmountHint);
+    updateOfferAmountHint();
+})();
+
 function advanceStep() {
     const msgs = {
         2: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
         3: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
-        4: 'Close this posting? The top-ranked passing candidate(s) for each place of assignment will be hired automatically; remaining applicants will be rejected.',
+        4: 'Move this posting to Offer Management? The top-ranked passing candidate(s) for each place of assignment will be hired automatically; remaining applicants will be rejected.',
     };
     if (!confirm(msgs[currentStep] || 'Advance to next stage?')) return;
 

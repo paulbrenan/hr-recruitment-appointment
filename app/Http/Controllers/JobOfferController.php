@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\JobOffer;
 use App\Models\Application;
+use App\Models\JobPosting;
 use App\Notifications\OfferLetterNotification;
 use Illuminate\Http\Request;
 
@@ -37,31 +38,74 @@ class JobOfferController extends Controller
 
     public function store(Request $request)
     {
+        // SG is now inherited from the job posting -- no more manual
+        // SG/Step selects. Step defaults to 1; HR can still override the
+        // resulting peso amount directly via compensation_override for
+        // edge cases (e.g. negotiated pay) instead of picking a step.
         $validated = $request->validate([
-            'application_id'  => 'required|exists:applications,id|unique:job_offers,application_id',
-            'salary_grade'    => 'required|integer|min:1|max:33',
-            'salary_step'     => 'required|integer|min:1|max:8',
-            'response_deadline' => 'nullable|date|after_or_equal:today',
-            'benefits'        => 'nullable|string',
-            'terms'           => 'nullable|string',
+            'job_posting_id'         => 'required|exists:job_postings,id',
+            'application_ids'        => 'required|array|min:1',
+            'application_ids.*'      => 'exists:applications,id|distinct',
+            'sg_override'            => 'nullable|integer|min:1|max:33',
+            'compensation_override'  => 'nullable|numeric|min:0',
+            'response_deadline'      => 'nullable|date|after_or_equal:today',
+            'benefits'                => 'nullable|string',
+            'terms'                   => 'nullable|string',
         ]);
 
-        // Resolve the exact compensation from the official SG table
-        $grade        = (int) $validated['salary_grade'];
-        $step         = (int) $validated['salary_step'];
-        $sgTable      = config('salary_grades.table');
-        $compensation = $sgTable[$grade][$step - 1] ?? $this->minCompensation();
+        $posting = JobPosting::findOrFail($validated['job_posting_id']);
 
-        JobOffer::create([
-            'application_id'    => $validated['application_id'],
-            'compensation'      => $compensation,
-            'response_deadline' => $validated['response_deadline'] ?? null,
-            'benefits'          => $validated['benefits'] ?? null,
-            'terms'             => $validated['terms'] ?? null,
-            'status'            => 'draft',
-        ]);
+        // Re-enforce the vacancy cap server-side. The checkbox UI already
+        // disables extra boxes past this limit, but that's client-side
+        // only -- never trust it alone.
+        $alreadyOffered = JobOffer::whereHas('application', fn ($q) => $q->where('job_posting_id', $posting->id))
+            ->whereIn('status', ['draft', 'sent', 'accepted'])
+            ->count();
+        $limit = max(0, ((int) $posting->vacancies ?: 1) - $alreadyOffered);
 
-        return redirect()->route('offers.index')->with('success', "Offer generated as draft — SG {$grade} Step {$step} (₱" . number_format($compensation, 2) . ').');
+        $applicationIds = array_slice($validated['application_ids'], 0, $limit);
+        if (empty($applicationIds)) {
+            return back()->with('error', 'No open offer slots remain for this posting\'s vacancy count.');
+        }
+
+        // sg_override, if given, replaces the job's inherited SG as the
+        // basis for the Step 1 default -- a typed compensation_override
+        // still wins over both when present.
+        $grade   = (int) ($validated['sg_override'] ?? $posting->salary_grade);
+        $sgTable = config('salary_grades.table');
+        $defaultCompensation = $sgTable[$grade][0] ?? $this->minCompensation(); // SG {grade} Step 1
+        $compensation = $validated['compensation_override'] ?? $defaultCompensation;
+
+        $created = 0;
+        foreach ($applicationIds as $applicationId) {
+            // Skip an application that already picked up an offer between
+            // this page loading and the form being submitted (the
+            // eligible list already excludes these, but a stale page is
+            // still possible with two HR staff on the same posting).
+            if (JobOffer::where('application_id', $applicationId)->exists()) {
+                continue;
+            }
+
+            JobOffer::create([
+                'application_id'    => $applicationId,
+                'compensation'      => $compensation,
+                'response_deadline' => $validated['response_deadline'] ?? null,
+                'benefits'          => $validated['benefits'] ?? null,
+                'terms'             => $validated['terms'] ?? null,
+                'status'            => 'draft',
+            ]);
+            $created++;
+        }
+
+        if ($created === 0) {
+            return back()->with('error', 'Selected candidate(s) already have an offer -- nothing new was generated.');
+        }
+
+        $overrideNote = isset($validated['compensation_override'])
+            ? ', manually overridden (SG ' . $grade . ')'
+            : ', SG ' . $grade . ' Step 1' . (isset($validated['sg_override']) ? ' (override)' : '');
+
+        return back()->with('success', "Generated {$created} draft offer(s) at ₱" . number_format($compensation, 2) . $overrideNote . '.');
     }
 
     public function send($id)
@@ -69,7 +113,7 @@ class JobOfferController extends Controller
         $offer = JobOffer::findOrFail($id);
 
         if ($offer->status !== 'draft') {
-            return redirect()->route('offers.index')->with('error', 'Only draft offers can be sent.');
+            return back()->with('error', 'Only draft offers can be sent.');
         }
 
         $offer->update([
@@ -98,11 +142,11 @@ class JobOfferController extends Controller
             // the reminder_sent_at guard pattern used in interview schedules.
             $offer->update(['email_sent_at' => now()]);
 
-            return redirect()->route('offers.index')->with('success', 'Offer sent to candidate. Offer letter emailed.');
+            return back()->with('success', 'Offer sent to candidate. Offer letter emailed.');
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Offer letter email failed for offer ' . $offer->id . ': ' . $e->getMessage());
 
-            return redirect()->route('offers.index')->with('error', 'Offer marked as sent, but the offer letter email failed to send. Check the mail configuration and try resending.');
+            return back()->with('error', 'Offer marked as sent, but the offer letter email failed to send. Check the mail configuration and try resending.');
         }
     }
 
@@ -115,7 +159,7 @@ class JobOfferController extends Controller
         $offer = JobOffer::findOrFail($id);
 
         if ($offer->status !== 'sent') {
-            return redirect()->route('offers.index')->with('error', 'Only sent offers can be marked accepted or declined.');
+            return back()->with('error', 'Only sent offers can be marked accepted or declined.');
         }
 
         $offer->update(['status' => $validated['response']]);
@@ -124,7 +168,7 @@ class JobOfferController extends Controller
             'status' => $validated['response'] === 'accepted' ? 'offer_accepted' : 'offer_declined',
         ]);
 
-        return redirect()->route('offers.index')->with('success', 'Offer marked as ' . $validated['response'] . '.');
+        return back()->with('success', 'Offer marked as ' . $validated['response'] . '.');
     }
 
     public function destroy($id)
@@ -132,6 +176,6 @@ class JobOfferController extends Controller
         $offer = JobOffer::findOrFail($id);
         $offer->delete();
 
-        return redirect()->route('offers.index')->with('success', 'Offer deleted.');
+        return back()->with('success', 'Offer deleted.');
     }
 }

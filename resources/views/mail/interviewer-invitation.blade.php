@@ -32,7 +32,7 @@
     <span class="check-icon">&#128203;</span>
     <h1>Schedule Assignment: {{ $typeLabel }}</h1>
     <p class="brand">Department of Education &ndash; Schools Division Office of Cavite Province</p>
-    <p>Region IV-A &bull; Online Recruitment Form</p>
+    <p>Online Recruitment Form</p>
   </div>
 
   <div class="body">

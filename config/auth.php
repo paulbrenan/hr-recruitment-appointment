@@ -42,10 +42,15 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
-
+ 
         'candidate' => [
             'driver' => 'session',
             'provider' => 'candidates',
+        ],
+ 
+        'superadmin' => [
+            'driver' => 'session',
+            'provider' => 'superadmins',
         ],
     ],
 
@@ -77,11 +82,16 @@ return [
             'model' => \App\Models\Candidate::class,
         ],
 
+        'superadmins' => [
+            'driver' => 'eloquent',
+            'model' => \App\Models\SuperAdmin::class,
+        ],
+    ],
+
         // 'users' => [
         //     'driver' => 'database',
         //     'table' => 'users',
         // ],
-    ],
 
     /*
     |--------------------------------------------------------------------------

@@ -14,7 +14,8 @@
     background: #0b1e4d;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.12s ease;
+    transition: opacity 0.01s ease;
+    will-change: opacity;
 }
 
 #deped-page-loader::before {
@@ -22,8 +23,8 @@
     position: absolute;
     inset: 0;
     background: url('/matatag-bg.png') center center / cover no-repeat;
-    filter: blur(6px) brightness(0.4) saturate(0.7);
-    transform: scale(1.06);
+    filter: blur(4px) brightness(0.4) saturate(0.7);
+    transform: scale(1.06) translateZ(0);
     z-index: 0;
 }
 
@@ -51,7 +52,7 @@
     background: linear-gradient(160deg, rgba(20, 45, 107, 0.65), rgba(8, 20, 55, 0.65));
     border: 1px solid rgba(255, 209, 102, 0.3);
     box-shadow: 0 25px 70px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 209, 102, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(14px);
+    backdrop-filter: blur(8px);
     overflow: hidden;
 }
 
@@ -95,7 +96,7 @@
 
 #deped-page-loader.is-active .loader-progress-bar {
     width: 85%;
-    transition: width 0.6s cubic-bezier(0.1, 0.7, 0.3, 1);
+    transition: width 0.35s cubic-bezier(0.1, 0.7, 0.3, 1);
 }
 
 #deped-page-loader.is-active {
@@ -125,8 +126,9 @@
     width: 7px;
     border-radius: 4px;
     background: linear-gradient(180deg, #FFD166, #CE1126, #003087);
-    animation: deped-wave 0.7s ease-in-out infinite;
+    animation: deped-wave 0.45s ease-in-out infinite;
     transform-origin: center;
+    will-change: transform;
 }
 
 #deped-page-loader .loader-logo-circle {
@@ -137,7 +139,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: deped-logo-pulse 0.7s ease-in-out infinite;
+    animation: deped-logo-pulse 0.45s ease-in-out infinite;
 }
 
 #deped-page-loader .loader-logo-circle::before {
@@ -166,13 +168,13 @@
 }
 
 #deped-page-loader .loader-text .dots span {
-    animation: deped-dots 0.7s infinite;
+    animation: deped-dots 0.45s infinite;
     opacity: 0;
 }
 
 #deped-page-loader .loader-text .dots span:nth-child(1) { animation-delay: 0s; }
-#deped-page-loader .loader-text .dots span:nth-child(2) { animation-delay: 0.12s; }
-#deped-page-loader .loader-text .dots span:nth-child(3) { animation-delay: 0.24s; }
+#deped-page-loader .loader-text .dots span:nth-child(2) { animation-delay: 0.08s; }
+#deped-page-loader .loader-text .dots span:nth-child(3) { animation-delay: 0.16s; }
 
 @keyframes deped-wave {
     0%, 100% { transform: scaleY(0.25); opacity: 0.6; }
@@ -185,16 +187,16 @@
 }
 
 #deped-page-loader .wave-bar:nth-child(1)  { height: 26px; animation-delay: 0.00s; }
-#deped-page-loader .wave-bar:nth-child(2)  { height: 42px; animation-delay: 0.05s; }
-#deped-page-loader .wave-bar:nth-child(3)  { height: 60px; animation-delay: 0.10s; }
-#deped-page-loader .wave-bar:nth-child(4)  { height: 80px; animation-delay: 0.15s; }
-#deped-page-loader .wave-bar:nth-child(5)  { height: 104px; animation-delay: 0.20s; }
-#deped-page-loader .wave-bar:nth-child(6)  { height: 130px; animation-delay: 0.25s; }
-#deped-page-loader .wave-bar:nth-child(7)  { height: 130px; animation-delay: 0.25s; }
-#deped-page-loader .wave-bar:nth-child(8)  { height: 104px; animation-delay: 0.20s; }
-#deped-page-loader .wave-bar:nth-child(9)  { height: 80px; animation-delay: 0.15s; }
-#deped-page-loader .wave-bar:nth-child(10) { height: 60px; animation-delay: 0.10s; }
-#deped-page-loader .wave-bar:nth-child(11) { height: 42px; animation-delay: 0.05s; }
+#deped-page-loader .wave-bar:nth-child(2)  { height: 42px; animation-delay: 0.03s; }
+#deped-page-loader .wave-bar:nth-child(3)  { height: 60px; animation-delay: 0.06s; }
+#deped-page-loader .wave-bar:nth-child(4)  { height: 80px; animation-delay: 0.10s; }
+#deped-page-loader .wave-bar:nth-child(5)  { height: 104px; animation-delay: 0.13s; }
+#deped-page-loader .wave-bar:nth-child(6)  { height: 130px; animation-delay: 0.16s; }
+#deped-page-loader .wave-bar:nth-child(7)  { height: 130px; animation-delay: 0.16s; }
+#deped-page-loader .wave-bar:nth-child(8)  { height: 104px; animation-delay: 0.13s; }
+#deped-page-loader .wave-bar:nth-child(9)  { height: 80px; animation-delay: 0.10s; }
+#deped-page-loader .wave-bar:nth-child(10) { height: 60px; animation-delay: 0.06s; }
+#deped-page-loader .wave-bar:nth-child(11) { height: 42px; animation-delay: 0.03s; }
 #deped-page-loader .wave-bar:nth-child(12) { height: 26px; animation-delay: 0.00s; }
 
 @keyframes deped-dots {

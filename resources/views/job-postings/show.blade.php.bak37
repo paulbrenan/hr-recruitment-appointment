@@ -947,6 +947,9 @@
                                     @endif
                                 </td>
                                 <td class="text-end">
+                                    @php
+                                        $rankAlreadyOffered = $offers->firstWhere('application_id', $cand->application_id);
+                                    @endphp
                                     <div class="d-flex gap-1 justify-content-end">
                                         @if ($posting->status !== 'closed')
                                         <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -957,10 +960,19 @@
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         @endif
-                                        <button type="button" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;"
-                                                onclick="switchStep(5)" title="Go to Offer Management">
-                                            <i class="bi bi-envelope-paper me-1"></i> Offer
-                                        </button>
+                                        @if ($rankAlreadyOffered)
+                                        <span class="badge text-bg-light text-dark border align-self-center" style="font-size:.68rem;">Offer sent</span>
+                                        @else
+                                        <form method="POST" action="{{ route('offers.store') }}" class="d-inline"
+                                              onsubmit="return confirm('Generate a draft offer for {{ addslashes($cand->candidate_name) }} at SG {{ $posting->salary_grade }} Step 1?')">
+                                            @csrf
+                                            <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                                            <input type="hidden" name="application_ids[]" value="{{ $cand->application_id }}">
+                                            <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
+                                                <i class="bi bi-envelope-paper me-1"></i> Offer
+                                            </button>
+                                        </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

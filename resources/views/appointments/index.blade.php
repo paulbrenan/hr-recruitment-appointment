@@ -339,6 +339,7 @@
     .status-appt-provisional { background: rgba(13, 202, 240, 0.12); color: #0aa2c0; border-color: rgba(13, 202, 240, 0.25); }
     .status-appt-casual      { background: rgba(108, 117, 125, 0.12); color: #495057; border-color: rgba(108, 117, 125, 0.22); }
     .status-appt-job_order   { background: rgba(206, 17, 38, 0.1); color: #ce1126; border-color: rgba(206, 17, 38, 0.2); }
+    .status-appt-ojt         { background: rgba(111, 66, 193, 0.12); color: #6f42c1; border-color: rgba(111, 66, 193, 0.25); }
 
     @media print {
         body * {

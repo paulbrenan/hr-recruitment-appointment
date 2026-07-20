@@ -182,9 +182,10 @@
                      (assessments.*) removed from the sidebar per request.
                      Routes/controllers/views are untouched -- only these
                      nav links are hidden. --}}
-                <a href="{{ route('offers.index') }}" class="nav-link {{ request()->routeIs('offers.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Offer management">
-                    <i class="bi bi-envelope-paper"></i> <span class="nav-label">Offer management</span>
-                </a>
+                {{-- "Offer management" (offers.*) removed from the sidebar --
+                     being moved into the job-postings pipeline as Step 5,
+                     after Assessment & Results. Routes/controllers/views are
+                     untouched -- only this nav link is hidden. --}}
                 {{-- "Talent pool" (talent-pool.*) and "Pipelines" (pipelines.*)
                      removed from the sidebar per request. Routes/controllers/
                      views are untouched -- only these nav links are hidden. --}}

@@ -37,6 +37,7 @@
         2 => ['label' => 'Qualification Checking',  'icon' => 'bi-clipboard-check'],
         3 => ['label' => 'Open Ranking & Scheduling','icon' => 'bi-calendar-event'],
         4 => ['label' => 'Assessment & Results',     'icon' => 'bi-bar-chart-line'],
+        5 => ['label' => 'Offer Management',         'icon' => 'bi-envelope-paper'],
     ];
 
     $statusColors = [
@@ -122,7 +123,7 @@
                             {{ $step['label'] }}
                         </div>
                     </div>
-                    @if ($num < 4)
+                    @if ($num < count($steps))
                     <div class="step-connector" id="step-connector-{{ $num }}"
                          style="width:3px;height:14px;margin-left:calc(0.5rem + 10px);
                                 background:{{ $currentStep > $num ? '#198754' : '#dee2e6' }};"></div>
@@ -159,7 +160,7 @@
                         @if ($posting->status === 'interview_scheduled')
                             <i class="bi bi-arrow-right me-1"></i> Move to Assessment
                         @elseif ($posting->status === 'ranking')
-                            <i class="bi bi-check-lg me-1"></i> Close Posting
+                            <i class="bi bi-arrow-right me-1"></i> Move to Offer Management
                         @endif
                     </button>
                 </div>
@@ -1029,6 +1030,199 @@
             </div>
         </div>
 
+        {{-- ══ STEP 5 ══════════════════════════════════════════════════════ --}}
+        <div class="step-panel d-none" id="panel-5">
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <h6 class="mb-3">Job offers</h6>
+                    @if ($offers->isEmpty())
+                        <p class="text-muted small mb-0 text-center py-3">No offers yet.</p>
+                    @else
+                    <div class="table-responsive mb-4">
+                        <table class="table align-middle mb-0" style="font-size:0.875rem;">
+                            <thead>
+                                <tr>
+                                    <th>Candidate</th>
+                                    <th>Compensation</th>
+                                    <th>Sent</th>
+                                    <th>Email delivery</th>
+                                    <th>Response by</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($offers as $o)
+                                @php
+                                    $offerColors = ['draft' => 'secondary', 'sent' => 'primary', 'accepted' => 'success', 'declined' => 'danger', 'expired' => 'dark'];
+                                @endphp
+                                <tr>
+                                    <td class="fw-medium">{{ $o->application->candidate->full_name ?? 'Unknown' }}</td>
+                                    <td>&#8369;{{ number_format($o->compensation, 2) }}</td>
+                                    <td>{{ $o->offer_sent_at ? \Carbon\Carbon::parse($o->offer_sent_at)->format('M d, Y') : '—' }}</td>
+                                    <td>
+                                        @if ($o->email_sent_at)
+                                            <span class="badge text-bg-success">Sent</span>
+                                            <div class="text-muted" style="font-size:0.72rem;">{{ \Carbon\Carbon::parse($o->email_sent_at)->format('M d, Y g:i A') }}</div>
+                                        @else
+                                            <span class="badge text-bg-secondary">Not sent</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $o->response_deadline ? \Carbon\Carbon::parse($o->response_deadline)->format('M d, Y') : '—' }}</td>
+                                    <td>
+                                        <span class="badge badge-status text-bg-{{ $offerColors[$o->status] ?? 'secondary' }}">{{ ucfirst($o->status) }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex gap-1 justify-content-end">
+                                            @if ($o->status === 'draft')
+                                            <form method="POST" action="{{ route('offers.send', $o->id) }}" class="d-inline">
+                                                @csrf @method('PUT')
+                                                <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Send</button>
+                                            </form>
+                                            @elseif ($o->status === 'sent')
+                                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
+                                                  onsubmit="return confirm('Mark this offer as accepted?')">
+                                                @csrf @method('PUT')
+                                                <input type="hidden" name="response" value="accepted">
+                                                <button type="submit" class="btn btn-sm btn-outline-success">Accept</button>
+                                            </form>
+                                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
+                                                  onsubmit="return confirm('Mark this offer as declined?')">
+                                                @csrf @method('PUT')
+                                                <input type="hidden" name="response" value="declined">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
+                                            </form>
+                                            @else
+                                            <span class="text-muted small">No actions</span>
+                                            @endif
+                                            <form method="POST" action="{{ route('offers.destroy', $o->id) }}" class="d-inline" onsubmit="return confirm('Delete this offer? This cannot be undone.');">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @endif
+
+                    <h6 class="mb-3">Generate new offer{{ $offerVacancyLimit > 1 ? 's' : '' }}</h6>
+                    @if ($eligibleOfferApplications->isEmpty())
+                        <p class="text-muted small mb-0">No candidates on this posting are currently eligible for an offer. Candidates become eligible once shortlisted, assessed, or hired, and don't already have an offer.</p>
+                    @elseif ($offerVacancyLimit < 1)
+                        <p class="text-muted small mb-0">All {{ $posting->vacancies }} vacanc{{ $posting->vacancies == 1 ? 'y' : 'ies' }} for this posting already have an active offer.</p>
+                    @else
+                    @if ($errors->has('application_ids') || $errors->has('compensation_override'))
+                    <div class="alert alert-danger small py-2">{{ $errors->first('application_ids') ?: $errors->first('compensation_override') }}</div>
+                    @endif
+                    <p class="text-muted small mb-2">
+                        Select up to <strong>{{ $offerVacancyLimit }}</strong> candidate{{ $offerVacancyLimit == 1 ? '' : 's' }} (this posting's remaining vacancy slots). Compensation defaults to SG {{ $posting->salary_grade }} Step 1 &mdash; override below if needed.
+                    </p>
+                    <form method="POST" action="{{ route('offers.store') }}" id="generateOfferForm">
+                        @csrf
+                        <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                        <div class="table-responsive mb-3">
+                        <table class="table align-middle mb-0" style="font-size:0.875rem;">
+                            <thead>
+                                <tr>
+                                    <th style="width:2.5rem;"></th>
+                                    <th>Rank</th>
+                                    <th>Candidate</th>
+                                    <th>Education</th>
+                                    <th>Experience</th>
+                                    <th>Eligibility</th>
+                                </tr>
+                            </thead>
+                            <tbody id="offerCandidateRows">
+                                @foreach ($eligibleOfferApplications as $cand)
+                                <tr>
+                                    <td>
+                                        <input class="form-check-input offer-candidate-checkbox" type="checkbox"
+                                               name="application_ids[]" value="{{ $cand->application_id }}"
+                                               {{ in_array($cand->application_id, old('application_ids', [])) ? 'checked' : '' }}>
+                                    </td>
+                                    <td>
+                                        @if ($cand->rank === 1)
+                                            <span class="badge text-bg-warning">#1</span>
+                                        @else
+                                            <span class="text-muted">#{{ $cand->rank }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="fw-medium">{{ $cand->candidate_name }}</td>
+                                    <td>{{ $cand->candidate->education ?? '—' }}</td>
+                                    <td>{{ $cand->candidate->years_experience ?? '—' }}{{ $cand->candidate->years_experience ? ' yrs' : '' }}</td>
+                                    <td>{{ $cand->candidate->eligibility ?? '—' }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        </div>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted mb-1">Override SG (optional)</label>
+                                <select name="sg_override" id="offerSgOverrideSelect" class="form-select form-select-sm">
+                                    <option value="">Inherit: SG {{ $posting->salary_grade }}</option>
+                                    @for ($sgOpt = 1; $sgOpt <= 33; $sgOpt++)
+                                        <option value="{{ $sgOpt }}" {{ old('sg_override') == $sgOpt ? 'selected' : '' }}>SG {{ $sgOpt }}</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1">Override compensation (optional)</label>
+                                <input type="number" step="0.01" min="0" name="compensation_override" id="offerCompensationOverride" class="form-control form-control-sm"
+                                       placeholder="Default: SG {{ $posting->salary_grade }} Step 1" value="{{ old('compensation_override') }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1">Response deadline</label>
+                                <input type="date" name="response_deadline" class="form-control form-control-sm" min="{{ now()->toDateString() }}" value="{{ old('response_deadline') }}">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-sm w-100" style="background-color:var(--hr-primary);color:#fff;">
+                                    Generate offer<span id="offerSelectedCountLabel"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <script>
+                    (function () {
+                        const limit = {{ (int) $offerVacancyLimit }};
+                        const boxes = document.querySelectorAll('.offer-candidate-checkbox');
+                        const countLabel = document.getElementById('offerSelectedCountLabel');
+
+                        function refresh() {
+                            const checked = document.querySelectorAll('.offer-candidate-checkbox:checked');
+                            if (countLabel) countLabel.textContent = checked.length ? ' (' + checked.length + ')' : '';
+                            const atLimit = checked.length >= limit;
+                            boxes.forEach(function (b) {
+                                if (!b.checked) b.disabled = atLimit;
+                            });
+                        }
+
+                        boxes.forEach(function (b) { b.addEventListener('change', refresh); });
+                        refresh();
+
+                        // SG override -> auto-fill the peso field with that
+                        // grade's Step 1 amount. Still just a starting
+                        // point -- HR can edit the peso field afterward and
+                        // that typed value always wins on submit.
+                        const sgTable = @json(config('salary_grades.table'));
+                        const sgOverrideSel = document.getElementById('offerSgOverrideSelect');
+                        const compInput = document.getElementById('offerCompensationOverride');
+                        sgOverrideSel?.addEventListener('change', function () {
+                            const grade = parseInt(this.value, 10);
+                            if (grade && sgTable[grade] && sgTable[grade][0] !== undefined) {
+                                compInput.value = sgTable[grade][0];
+                            }
+                        });
+                    })();
+                    </script>
+                    @endif
+                </div>
+            </div>
+        </div>
+
     </div>{{-- col-md-9 --}}
 </div>{{-- row --}}
 
@@ -1599,11 +1793,35 @@ function switchStep(n) {
 switchStep(activeStep);
 
 // ── Advance pipeline ────────────────────────────────────────────────────────
+// ── Step 5: SG/step -> compensation live preview ────────────────────────
+(function () {
+    const sgTable = @json(config('salary_grades.table'));
+    const sgSel   = document.getElementById('offerSgSelect');
+    const stepSel = document.getElementById('offerStepSelect');
+    const hint    = document.getElementById('offerSgAmountHint');
+    if (!sgSel || !stepSel || !hint) return;
+
+    function updateOfferAmountHint() {
+        const sg   = parseInt(sgSel.value, 10);
+        const step = parseInt(stepSel.value, 10);
+        if (sg && step && sgTable[sg] && sgTable[sg][step - 1]) {
+            hint.textContent = '₱' + Number(sgTable[sg][step - 1]).toLocaleString('en-PH');
+            hint.style.color = 'var(--hr-primary)';
+        } else {
+            hint.textContent = '\u00a0';
+        }
+    }
+
+    sgSel.addEventListener('change', updateOfferAmountHint);
+    stepSel.addEventListener('change', updateOfferAmountHint);
+    updateOfferAmountHint();
+})();
+
 function advanceStep() {
     const msgs = {
         2: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
         3: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
-        4: 'Close this posting? The top-ranked passing candidate(s) for each place of assignment will be hired automatically; remaining applicants will be rejected.',
+        4: 'Move this posting to Offer Management? The top-ranked passing candidate(s) for each place of assignment will be hired automatically; remaining applicants will be rejected.',
     };
     if (!confirm(msgs[currentStep] || 'Advance to next stage?')) return;
 

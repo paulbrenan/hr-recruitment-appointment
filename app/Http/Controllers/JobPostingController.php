@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\AssessmentCriterion;
 use App\Models\InterviewSchedule;
+use App\Models\JobOffer;
 use App\Models\JobPosting;
 use App\Models\JobPostingLocation;
 use App\Models\Panelist;
@@ -179,11 +180,28 @@ class JobPostingController extends Controller
         // of the default list, toggle-able via ?archived=1.
         $showArchived = $request->boolean('archived');
 
+        // Sort by id, not created_at -- not every insert path (PDF
+        // import, one-off scripts run directly against the DB, etc.)
+        // reliably sets created_at, which let new postings show up
+        // out of order. id is guaranteed to increase with every new
+        // row regardless of how it was inserted.
         $postings = JobPosting::with('locations')
             ->when($showArchived, fn ($q) => $q->where('status', 'archived'))
             ->when(!$showArchived, fn ($q) => $q->where('status', '!=', 'archived'))
-            ->latest()
+            ->orderByDesc('id')
             ->get();
+
+        // Applicant counts for all listed postings in a single grouped
+        // query, then attach as a dynamic property -- avoids an N+1
+        // query per row on the list page.
+        $applicantCounts = Application::whereIn('job_posting_id', $postings->pluck('id'))
+            ->selectRaw('job_posting_id, count(*) as total')
+            ->groupBy('job_posting_id')
+            ->pluck('total', 'job_posting_id');
+
+        $postings->each(function ($posting) use ($applicantCounts) {
+            $posting->applicant_count = $applicantCounts->get($posting->id, 0);
+        });
 
         return view('job-postings.index', compact('postings', 'showArchived'));
     }
@@ -318,80 +336,6 @@ class JobPostingController extends Controller
             ->with('success', 'Job posting updated successfully.');
     }
 
-    /**
-     * When a posting closes, hire the top-ranked PASSING candidate(s)
-     * (total_score >= 75, same threshold as the "passed" flag shown on
-     * the ranking table) for each place of assignment, up to that
-     * location's open vacancy count -- before the close cascade rejects
-     * everyone else. For legacy postings with no location rows, uses the
-     * single `vacancies` column against applicants with no location set.
-     * Applicants who never got scored (or scored below 75) are left
-     * alone here; the cascade right after this will reject them.
-     */
-    private function autoHireTopRankedCandidates(JobPosting $posting): void
-    {
-        $criteria = $posting->assessmentCriteria()->get();
-
-        if ($criteria->isEmpty()) {
-            return;
-        }
-
-        $candidates = Application::where('job_posting_id', $posting->id)
-            ->whereNotIn('status', ['not_qualified', 'rejected', 'hired'])
-            ->with('assessments')
-            ->get()
-            ->map(function ($app) use ($criteria) {
-                $total = 0;
-                foreach ($criteria as $c) {
-                    $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
-                    if ($assessment) {
-                        $total += (float) $assessment->score;
-                    }
-                }
-                $app->setAttribute('auto_hire_total_score', $total);
-                return $app;
-            })
-            ->filter(fn ($app) => $app->auto_hire_total_score >= 75)
-            ->sortByDesc('auto_hire_total_score')
-            ->values();
-
-        if ($candidates->isEmpty()) {
-            return;
-        }
-
-        $locations = $posting->locations;
-
-        if ($locations->isNotEmpty()) {
-            foreach ($locations as $loc) {
-                $alreadyHired = Application::where('job_posting_id', $posting->id)
-                    ->where('job_posting_location_id', $loc->id)
-                    ->where('status', 'hired')
-                    ->count();
-                $openSlots = max(0, $loc->vacancies - $alreadyHired);
-                if ($openSlots < 1) {
-                    continue;
-                }
-
-                $pool = $candidates->where('job_posting_location_id', $loc->id)->values();
-                foreach ($pool->take($openSlots) as $winner) {
-                    $winner->update(['status' => 'hired']);
-                }
-            }
-        } else {
-            $alreadyHired = Application::where('job_posting_id', $posting->id)
-                ->where('status', 'hired')
-                ->count();
-            $openSlots = max(0, ((int) $posting->vacancies ?: 1) - $alreadyHired);
-            if ($openSlots < 1) {
-                return;
-            }
-
-            $pool = $candidates->whereNull('job_posting_location_id')->values();
-            foreach ($pool->take($openSlots) as $winner) {
-                $winner->update(['status' => 'hired']);
-            }
-        }
-    }
 
     /**
      * Map job posting pipeline stage → application status, then bulk-update.
@@ -400,10 +344,15 @@ class JobPostingController extends Controller
      *   open                → submitted
      *   interview_scheduled → interview_scheduled
      *   ranking             → ranked
-     *   closed              → rejected  (for all non-hired applicants)
+     *   closed              → ranked  (Step 5 / Offer Management -- HR
+     *                                  hasn't picked anyone yet, so
+     *                                  candidates stay ranked/selectable
+     *                                  instead of being auto-rejected;
+     *                                  real rejection now only happens
+     *                                  via the manual hire/offer flow)
      *
      * Special rule: if any applicant on this posting is already 'hired',
-     * closing the posting will NOT override their status (hired stays hired).
+     * this cascade will NOT override their status (hired stays hired).
      */
     private function cascadeStatusToApplications(JobPosting $posting, string $postingStatus): void
     {
@@ -411,7 +360,7 @@ class JobPostingController extends Controller
             'open'                => 'submitted',
             'interview_scheduled' => 'interview_scheduled',
             'ranking'             => 'ranked',
-            'closed'              => 'rejected',
+            'closed'              => 'ranked',
         ];
 
         if (!isset($map[$postingStatus])) {
@@ -423,14 +372,12 @@ class JobPostingController extends Controller
         // Applicants already disqualified ('not_qualified') or already
         // 'rejected' are NEVER touched by this cascade, at any stage --
         // otherwise advancing the posting silently overwrites their real
-        // status (e.g. to 'ranked'), erasing the disqualification.
+        // status (e.g. to 'ranked'), erasing the disqualification/rejection.
         $query = Application::where('job_posting_id', $posting->id)
             ->whereNotIn('status', ['not_qualified', 'rejected']);
 
         // Never override an applicant who has already been hired
-        if ($applicationStatus === 'rejected') {
-            $query->where('status', '!=', 'hired');
-        }
+        $query->where('status', '!=', 'hired');
 
         $query->update(['status' => $applicationStatus]);
     }
@@ -638,7 +585,7 @@ class JobPostingController extends Controller
             'open'                => 2,
             'interview_scheduled' => 3,
             'ranking'             => 4,
-            'closed'              => 4,
+            'closed'              => 5,
         ];
         $currentStep = $stepMap[$posting->status] ?? 1;
 
@@ -652,10 +599,46 @@ class JobPostingController extends Controller
             ? min($requestedStep, $currentStep)
             : ($posting->status === 'open' ? 1 : $currentStep);
 
+        // Step 5 -- offers, scoped to this posting only (the old
+        // standalone page showed offers for every posting; here we only
+        // want this posting's).
+        $offers = JobOffer::whereHas('application', function ($q) use ($id) {
+                $q->where('job_posting_id', $id);
+            })
+            ->with(['application.candidate', 'application.jobPosting'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        // Built from $rankedCandidates (not $applications) so the offer
+        // list already carries rank number, total_score, and the full
+        // candidate record (education/years_experience/eligibility) --
+        // needed now that Step 5 shows rank + those fields instead of a
+        // bare candidate-name dropdown.
+        $eligibleOfferApplications = $rankedCandidates
+            ->filter(function ($cand) use ($applications) {
+                $app = $applications->firstWhere('id', $cand->application_id);
+                return $app
+                    && in_array($app->status, ['ranked', 'shortlisted', 'assessed', 'hired'])
+                    && $app->jobOffer === null;
+            })
+            ->values();
+
+        // Remaining open offer slots for this posting. SG is now
+        // inherited from the job (no more manual SG/Step selection), so
+        // the only thing capping how many offers HR can generate at once
+        // is how many vacancy slots aren't already spoken for by an
+        // active (draft/sent/accepted) offer.
+        $alreadyOfferedCount = $offers->whereIn('status', ['draft', 'sent', 'accepted'])->count();
+        $offerVacancyLimit = max(0, ((int) $posting->vacancies ?: 1) - $alreadyOfferedCount);
+
+        $minCompensation = config('salary_grades.table.1.0', 14634); // SG 1 Step 1
+
         return view('job-postings.show', compact(
             'posting', 'locations', 'panelists', 'applications',
             'schedules', 'criteria', 'usedWeight', 'remainingWeight',
-            'rankedCandidates', 'currentStep', 'activeStep'
+            'rankedCandidates', 'currentStep', 'activeStep',
+            'offers', 'eligibleOfferApplications', 'minCompensation',
+            'offerVacancyLimit'
         ));
     }
 
@@ -679,10 +662,9 @@ class JobPostingController extends Controller
             $oldStatus = $posting->status;
             $posting->update(['status' => $nextStatus]);
 
-            if ($nextStatus === 'closed') {
-                $this->autoHireTopRankedCandidates($posting);
-            }
-
+            // No more auto-hiring on arrival at Offer Management -- HR
+            // picks who gets an offer via the Step 5 checkbox list, and
+            // hiring now follows from an accepted offer instead.
             $this->cascadeStatusToApplications($posting, $nextStatus);
         }
 

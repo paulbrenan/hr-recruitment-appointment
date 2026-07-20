@@ -32,7 +32,7 @@
     <span class="check-icon">&#127942;</span>
     <h1>Congratulations, {{ $candidate->first_name }}!</h1>
     <p class="brand">Department of Education &ndash; Schools Division Office of Cavite Province</p>
-    <p>Region IV-A &bull; Official Job Offer</p>
+    <p>Official Job Offer</p>
   </div>
 
   <div class="body">

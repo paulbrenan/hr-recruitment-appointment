@@ -185,12 +185,9 @@
                 <a href="{{ route('offers.index') }}" class="nav-link {{ request()->routeIs('offers.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Offer management">
                     <i class="bi bi-envelope-paper"></i> <span class="nav-label">Offer management</span>
                 </a>
-                <a href="{{ route('talent-pool.index') }}" class="nav-link {{ request()->routeIs('talent-pool.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Talent pool">
-                    <i class="bi bi-people"></i> <span class="nav-label">Talent pool</span>
-                </a>
-                <a href="{{ route('pipelines.index') }}" class="nav-link {{ request()->routeIs('pipelines.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Pipelines">
-                    <i class="bi bi-diagram-3"></i> <span class="nav-label">Pipelines</span>
-                </a>
+                {{-- "Talent pool" (talent-pool.*) and "Pipelines" (pipelines.*)
+                     removed from the sidebar per request. Routes/controllers/
+                     views are untouched -- only these nav links are hidden. --}}
                 <a href="{{ route('appointments.index') }}" class="nav-link {{ request()->routeIs('appointments.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Appointment & onboarding">
                     <i class="bi bi-file-earmark-check"></i> <span class="nav-label">Appointment &amp; onboarding</span>
                 </a>

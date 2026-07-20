@@ -1117,37 +1117,16 @@
 
             <div class="modal-body p-0" style="background: #f8f9fb;">
 
-                {{-- Qualification Check Breakdown --}}
-                <div class="p-3 pb-2" id="ai-criteria-wrap">
+                {{-- Contact --}}
+                <div class="p-3 pb-2">
                     <div class="bg-white rounded-3 p-3 border">
                         <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-clipboard-check me-1"></i> Qualification Check Breakdown
-                        </div>
-                        <table class="table table-sm mb-0" id="ai-criteria-table" style="font-size: .82rem;">
-                            <thead>
-                                <tr>
-                                    <th class="text-muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Criterion</th>
-                                    <th class="text-muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Candidate's Qualification</th>
-                                    <th class="text-muted text-end" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Result</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ai-criteria-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {{-- Position & Application --}}
-                <div class="px-3 pb-2" id="ai-app-meta-wrap">
-                    <div class="bg-white rounded-3 p-3 border">
-                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-briefcase me-1"></i> Position &amp; Application
+                            <i class="bi bi-person-lines-fill me-1"></i> Contact
                         </div>
                         <div class="row g-3 small">
-                            <div class="col-md-6" id="ai-txn-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Transaction No.</span><div id="ai-transaction_number" class="fw-medium font-monospace">—</div></div>
-                            <div class="col-md-6" id="ai-applied-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Applied</span><div id="ai-applied_at" class="fw-medium">—</div></div>
-                            <div class="col-md-6" id="ai-place-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Place of Assignment</span><div id="ai-place_of_assignment" class="fw-medium">—</div></div>
-                            <div class="col-md-6" id="ai-qualresult-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Qualification Result</span><div id="ai-qualification_result" class="fw-medium">—</div></div>
-                            <div class="col-12" id="ai-notes-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Notes</span><div id="ai-notes" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Email</span><div id="ai-email" class="fw-medium">—</div></div>
+                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Phone</span><div id="ai-phone" class="fw-medium">—</div></div>
+                            <div class="col-12"><span class="text-muted d-block" style="font-size:.72rem;">Address</span><div id="ai-address" class="fw-medium">—</div></div>
                         </div>
                     </div>
                 </div>
@@ -1167,25 +1146,11 @@
                     </div>
                 </div>
 
-                {{-- Contact --}}
+                {{-- Personal Details --}}
                 <div class="px-3 pb-2">
                     <div class="bg-white rounded-3 p-3 border">
                         <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-person-lines-fill me-1"></i> Contact
-                        </div>
-                        <div class="row g-3 small">
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Email</span><div id="ai-email" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Phone</span><div id="ai-phone" class="fw-medium">—</div></div>
-                            <div class="col-12"><span class="text-muted d-block" style="font-size:.72rem;">Address</span><div id="ai-address" class="fw-medium">—</div></div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Personal Details --}}
-                <div class="px-3 pb-3">
-                    <div class="bg-white rounded-3 p-3 border">
-                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-card-list me-1"></i> Personal Details
+                            Personal Details
                         </div>
                         <div class="row g-3 small">
                             <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Age</span><div id="ai-age" class="fw-medium">—</div></div>
@@ -1195,6 +1160,41 @@
                             <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Disability</span><div id="ai-disability" class="fw-medium">—</div></div>
                             <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Ethnic Group</span><div id="ai-ethnic_group" class="fw-medium">—</div></div>
                         </div>
+                    </div>
+                </div>
+
+                {{-- Position & Application --}}
+                <div class="px-3 pb-2" id="ai-app-meta-wrap">
+                    <div class="bg-white rounded-3 p-3 border">
+                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
+                            Position &amp; Application
+                        </div>
+                        <div class="row g-3 small">
+                            <div class="col-md-6" id="ai-txn-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Transaction No.</span><div id="ai-transaction_number" class="fw-medium font-monospace">—</div></div>
+                            <div class="col-md-6" id="ai-applied-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Applied</span><div id="ai-applied_at" class="fw-medium">—</div></div>
+                            <div class="col-md-6" id="ai-place-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Place of Assignment</span><div id="ai-place_of_assignment" class="fw-medium">—</div></div>
+                            <div class="col-md-6" id="ai-qualresult-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Qualification Result</span><div id="ai-qualification_result" class="fw-medium">—</div></div>
+                            <div class="col-12" id="ai-notes-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Notes</span><div id="ai-notes" class="fw-medium">—</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Qualification Check Breakdown --}}
+                <div class="px-3 pb-3" id="ai-criteria-wrap">
+                    <div class="bg-white rounded-3 p-3 border">
+                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
+                            Qualification Check Breakdown
+                        </div>
+                        <table class="table table-sm mb-0" id="ai-criteria-table" style="font-size: .82rem;">
+                            <thead>
+                                <tr>
+                                    <th class="text-muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Criterion</th>
+                                    <th class="text-muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Candidate's Qualification</th>
+                                    <th class="text-muted text-end" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Result</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ai-criteria-tbody"></tbody>
+                        </table>
                     </div>
                 </div>
 

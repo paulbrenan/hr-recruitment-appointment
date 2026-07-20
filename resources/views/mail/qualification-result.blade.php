@@ -44,7 +44,7 @@
     <span class="check-icon {{ $passed ? 'pass' : 'fail' }}">{{ $passed ? '&#10003;' : '&#10007;' }}</span>
     <h1>{{ $passed ? 'You Are Qualified' : 'Qualification Result' }}</h1>
     <p class="brand">Department of Education &ndash; Schools Division Office of Cavite Province</p>
-    <p>Region IV-A &bull; Online Recruitment Form</p>
+    <p>Online Recruitment Form</p>
   </div>
 
   <div class="body">

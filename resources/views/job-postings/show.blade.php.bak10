@@ -498,53 +498,12 @@
                             ];
                         @endphp
                         <div class="border rounded p-3 mb-2 d-flex justify-content-between align-items-center flex-wrap gap-2" style="font-size:0.875rem;" data-location-id="{{ $app->job_posting_location_id }}">
-                            @php
-                                $appPlace = optional($app->jobPostingLocation)->place_of_assignment
-                                    ?? $posting->place_of_assignment
-                                    ?? null;
-                                $appCheckData = $app->qualification_check ?? [];
-                                $appCriteria = [];
-                                foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ck => $cl) {
-                                    if (isset($appCheckData['criteria'][$ck])) {
-                                        $appCriteria[] = [
-                                            'label' => $cl,
-                                            'actual' => $appCheckData['criteria'][$ck]['actual'] ?? null,
-                                            'passed' => (bool) ($appCheckData['criteria'][$ck]['passed'] ?? false),
-                                        ];
-                                    }
-                                }
-                                $appInfoData = [
-                                    'name' => $app->candidate->full_name,
-                                    'email' => $app->candidate->email,
-                                    'phone' => $app->candidate->phone,
-                                    'address' => $app->candidate->address,
-                                    'age' => $app->candidate->age,
-                                    'sex' => $app->candidate->sex,
-                                    'civil_status' => $app->candidate->civil_status,
-                                    'religion' => $app->candidate->religion,
-                                    'disability' => $app->candidate->disability,
-                                    'ethnic_group' => $app->candidate->ethnic_group,
-                                    'education' => $app->candidate->education,
-                                    'training_hours' => $app->candidate->training_hours,
-                                    'years_experience' => $app->candidate->years_experience,
-                                    'eligibility' => $app->candidate->eligibility,
-                                    'transaction_number' => $app->transaction_number,
-                                    'applied_at' => $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : null,
-                                    'status' => str_replace('_', ' ', ucfirst($app->status)),
-                                    'place_of_assignment' => $appPlace,
-                                    'notes' => $app->notes,
-                                    'qualification_result' => $app->qualification_result ? ucfirst(str_replace('_', ' ', $app->qualification_result)) : null,
-                                    'criteria' => $appCriteria,
-                                ];
-                            @endphp
                             <div>
-                                <span class="fw-medium" role="button"
-                                      style="border-bottom: 1px dashed #adb5bd;"
-                                      title="View applicant information"
-                                      onclick="event.stopPropagation(); showApplicantInfo(this)"
-                                      data-info="{{ json_encode($appInfoData) }}">
+                                <a href="{{ route('applications.show', $app->id) }}" target="_blank" rel="noopener"
+                                   class="fw-medium text-decoration-none" style="color: inherit; border-bottom: 1px dashed #adb5bd;"
+                                   title="View applicant information" onclick="event.stopPropagation()">
                                     {{ $app->candidate->full_name }}
-                                </span>
+                                </a>
                                 <div class="text-muted small">
                                     Applied {{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}
                                 </div>
@@ -646,53 +605,12 @@
                                 $statuses = $group->pluck('status')->unique();
                             @endphp
                             <tr>
-                                @php
-                                    $schedCand = $first->application->candidate;
-                                    $schedPlace = optional($first->application->jobPostingLocation)->place_of_assignment
-                                        ?? $posting->place_of_assignment
-                                        ?? null;
-                                    $schedCheckData = $first->application->qualification_check ?? [];
-                                    $schedCriteria = [];
-                                    foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ck => $cl) {
-                                        if (isset($schedCheckData['criteria'][$ck])) {
-                                            $schedCriteria[] = [
-                                                'label' => $cl,
-                                                'actual' => $schedCheckData['criteria'][$ck]['actual'] ?? null,
-                                                'passed' => (bool) ($schedCheckData['criteria'][$ck]['passed'] ?? false),
-                                            ];
-                                        }
-                                    }
-                                    $schedInfoData = [
-                                        'name' => $schedCand->full_name,
-                                        'email' => $schedCand->email,
-                                        'phone' => $schedCand->phone,
-                                        'address' => $schedCand->address,
-                                        'age' => $schedCand->age,
-                                        'sex' => $schedCand->sex,
-                                        'civil_status' => $schedCand->civil_status,
-                                        'religion' => $schedCand->religion,
-                                        'disability' => $schedCand->disability,
-                                        'ethnic_group' => $schedCand->ethnic_group,
-                                        'education' => $schedCand->education,
-                                        'training_hours' => $schedCand->training_hours,
-                                        'years_experience' => $schedCand->years_experience,
-                                        'eligibility' => $schedCand->eligibility,
-                                        'transaction_number' => $first->application->transaction_number,
-                                        'applied_at' => $first->application->applied_at ? \Carbon\Carbon::parse($first->application->applied_at)->format('M d, Y') : null,
-                                        'status' => str_replace('_', ' ', ucfirst($first->application->status)),
-                                        'place_of_assignment' => $schedPlace,
-                                        'notes' => $first->application->notes,
-                                        'qualification_result' => $first->application->qualification_result ? ucfirst(str_replace('_', ' ', $first->application->qualification_result)) : null,
-                                        'criteria' => $schedCriteria,
-                                    ];
-                                @endphp
                                 <td class="fw-medium">
-                                    <span role="button" style="border-bottom: 1px dashed #adb5bd;"
-                                          title="View applicant information"
-                                          onclick="showApplicantInfo(this)"
-                                          data-info="{{ json_encode($schedInfoData) }}">
-                                        {{ $schedCand->full_name }}
-                                    </span>
+                                    <a href="{{ route('applications.show', $first->application_id) }}" target="_blank" rel="noopener"
+                                       class="text-decoration-none" style="color: inherit; border-bottom: 1px dashed #adb5bd;"
+                                       title="View applicant information">
+                                        {{ $first->application->candidate->full_name }}
+                                    </a>
                                 </td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
@@ -806,53 +724,7 @@
                                         <span class="text-muted">#{{ $i + 1 }}</span>
                                     @endif
                                 </td>
-                                @php
-                                    $rankCand = $cand->candidate;
-                                    $rankApp = $applications->firstWhere('id', $cand->application_id);
-                                    $rankPlace = $rankApp ? (optional($rankApp->jobPostingLocation)->place_of_assignment ?? $posting->place_of_assignment ?? null) : null;
-                                    $rankCheckData = $rankApp->qualification_check ?? [];
-                                    $rankCriteria = [];
-                                    foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ck => $cl) {
-                                        if (isset($rankCheckData['criteria'][$ck])) {
-                                            $rankCriteria[] = [
-                                                'label' => $cl,
-                                                'actual' => $rankCheckData['criteria'][$ck]['actual'] ?? null,
-                                                'passed' => (bool) ($rankCheckData['criteria'][$ck]['passed'] ?? false),
-                                            ];
-                                        }
-                                    }
-                                    $rankInfoData = [
-                                        'name' => $cand->candidate_name,
-                                        'email' => $rankCand->email ?? null,
-                                        'phone' => $rankCand->phone ?? null,
-                                        'address' => $rankCand->address ?? null,
-                                        'age' => $rankCand->age ?? null,
-                                        'sex' => $rankCand->sex ?? null,
-                                        'civil_status' => $rankCand->civil_status ?? null,
-                                        'religion' => $rankCand->religion ?? null,
-                                        'disability' => $rankCand->disability ?? null,
-                                        'ethnic_group' => $rankCand->ethnic_group ?? null,
-                                        'education' => $rankCand->education ?? null,
-                                        'training_hours' => $rankCand->training_hours ?? null,
-                                        'years_experience' => $rankCand->years_experience ?? null,
-                                        'eligibility' => $rankCand->eligibility ?? null,
-                                        'transaction_number' => $rankApp->transaction_number ?? null,
-                                        'applied_at' => $rankApp && $rankApp->applied_at ? \Carbon\Carbon::parse($rankApp->applied_at)->format('M d, Y') : null,
-                                        'status' => $rankApp ? str_replace('_', ' ', ucfirst($rankApp->status)) : null,
-                                        'place_of_assignment' => $rankPlace,
-                                        'notes' => $rankApp->notes ?? null,
-                                        'qualification_result' => ($rankApp && $rankApp->qualification_result) ? ucfirst(str_replace('_', ' ', $rankApp->qualification_result)) : null,
-                                        'criteria' => $rankCriteria,
-                                    ];
-                                @endphp
-                                <td class="fw-medium">
-                                    <span role="button" style="border-bottom: 1px dashed #adb5bd;"
-                                          title="View applicant information"
-                                          onclick="showApplicantInfo(this)"
-                                          data-info="{{ json_encode($rankInfoData) }}">
-                                        {{ $cand->candidate_name }}
-                                    </span>
-                                </td>
+                                <td class="fw-medium">{{ $cand->candidate_name }}</td>
                                 @foreach ($criteria as $c)
                                     <td>{{ $cand->scores[$c->id] ?? '—' }}</td>
                                 @endforeach
@@ -1102,107 +974,6 @@
 </div>
 
 {{-- Qualification Check --}}
-<div class="modal fade" id="applicantInfoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable modal-lg">
-        <div class="modal-content" style="border: none; border-radius: 12px; overflow: hidden;">
-
-            {{-- Header: avatar initial + name + status pill --}}
-            <div class="modal-header" style="background: var(--hr-primary); color: #fff; border: none; padding: 20px 24px;">
-                <div style="min-width: 0;">
-                    <h5 class="modal-title mb-0" id="applicantInfoName" style="font-weight: 700;">Applicant Information</h5>
-                    <span id="ai-status" class="badge mt-1" style="background: rgba(255,255,255,.22); font-weight: 600; font-size: .72rem;">—</span>
-                </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body p-0" style="background: #f8f9fb;">
-
-                {{-- Qualification Check Breakdown --}}
-                <div class="p-3 pb-2" id="ai-criteria-wrap">
-                    <div class="bg-white rounded-3 p-3 border">
-                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-clipboard-check me-1"></i> Qualification Check Breakdown
-                        </div>
-                        <table class="table table-sm mb-0" id="ai-criteria-table" style="font-size: .82rem;">
-                            <thead>
-                                <tr>
-                                    <th class="text-muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Criterion</th>
-                                    <th class="text-muted" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Candidate's Qualification</th>
-                                    <th class="text-muted text-end" style="font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; border-top:0;">Result</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ai-criteria-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {{-- Position & Application --}}
-                <div class="px-3 pb-2" id="ai-app-meta-wrap">
-                    <div class="bg-white rounded-3 p-3 border">
-                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-briefcase me-1"></i> Position &amp; Application
-                        </div>
-                        <div class="row g-3 small">
-                            <div class="col-md-6" id="ai-txn-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Transaction No.</span><div id="ai-transaction_number" class="fw-medium font-monospace">—</div></div>
-                            <div class="col-md-6" id="ai-applied-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Applied</span><div id="ai-applied_at" class="fw-medium">—</div></div>
-                            <div class="col-md-6" id="ai-place-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Place of Assignment</span><div id="ai-place_of_assignment" class="fw-medium">—</div></div>
-                            <div class="col-md-6" id="ai-qualresult-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Qualification Result</span><div id="ai-qualification_result" class="fw-medium">—</div></div>
-                            <div class="col-12" id="ai-notes-wrap"><span class="text-muted d-block" style="font-size:.72rem;">Notes</span><div id="ai-notes" class="fw-medium">—</div></div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Qualifications (self-reported) --}}
-                <div class="px-3 pb-2">
-                    <div class="bg-white rounded-3 p-3 border">
-                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-mortarboard me-1"></i> Qualifications
-                        </div>
-                        <div class="row g-3 small">
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Highest Education</span><div id="ai-education" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Eligibility</span><div id="ai-eligibility" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Training Hours</span><div id="ai-training_hours" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Years of Experience</span><div id="ai-years_experience" class="fw-medium">—</div></div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Contact --}}
-                <div class="px-3 pb-2">
-                    <div class="bg-white rounded-3 p-3 border">
-                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-person-lines-fill me-1"></i> Contact
-                        </div>
-                        <div class="row g-3 small">
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Email</span><div id="ai-email" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Phone</span><div id="ai-phone" class="fw-medium">—</div></div>
-                            <div class="col-12"><span class="text-muted d-block" style="font-size:.72rem;">Address</span><div id="ai-address" class="fw-medium">—</div></div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Personal Details --}}
-                <div class="px-3 pb-3">
-                    <div class="bg-white rounded-3 p-3 border">
-                        <div class="text-uppercase text-muted fw-semibold mb-2" style="font-size: .7rem; letter-spacing: .04em;">
-                            <i class="bi bi-card-list me-1"></i> Personal Details
-                        </div>
-                        <div class="row g-3 small">
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Age</span><div id="ai-age" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Sex</span><div id="ai-sex" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Civil Status</span><div id="ai-civil_status" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Religion</span><div id="ai-religion" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Disability</span><div id="ai-disability" class="fw-medium">—</div></div>
-                            <div class="col-md-6"><span class="text-muted d-block" style="font-size:.72rem;">Ethnic Group</span><div id="ai-ethnic_group" class="fw-medium">—</div></div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="modal fade" id="qualCheckModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -1397,63 +1168,6 @@
 
 @push('scripts')
 <script>
-// ── Applicant Info modal ─────────────────────────────────────────────────
-function showApplicantInfo(el) {
-    const data = JSON.parse(el.dataset.info || '{}');
-    const set = (id, val) => {
-        const target = document.getElementById(id);
-        if (target) target.textContent = (val === null || val === undefined || val === '') ? '—' : val;
-    };
-
-    document.getElementById('applicantInfoName').textContent = data.name || 'Applicant Information';
-    set('ai-email', data.email);
-    set('ai-phone', data.phone);
-    set('ai-address', data.address);
-    set('ai-age', data.age);
-    set('ai-sex', data.sex);
-    set('ai-civil_status', data.civil_status);
-    set('ai-religion', data.religion);
-    set('ai-disability', data.disability);
-    set('ai-ethnic_group', data.ethnic_group);
-    set('ai-education', data.education);
-    set('ai-training_hours', data.training_hours);
-    set('ai-years_experience', data.years_experience);
-    set('ai-eligibility', data.eligibility);
-
-    const hasAppMeta = data.transaction_number || data.applied_at || data.status;
-    document.getElementById('ai-app-meta-wrap').style.display = hasAppMeta ? '' : 'none';
-    document.getElementById('ai-txn-wrap').style.display = data.transaction_number ? '' : 'none';
-    document.getElementById('ai-applied-wrap').style.display = data.applied_at ? '' : 'none';
-    set('ai-transaction_number', data.transaction_number);
-    set('ai-applied_at', data.applied_at);
-    set('ai-status', data.status);
-
-    document.getElementById('ai-place-wrap').style.display = data.place_of_assignment ? '' : 'none';
-    set('ai-place_of_assignment', data.place_of_assignment);
-
-    document.getElementById('ai-qualresult-wrap').style.display = data.qualification_result ? '' : 'none';
-    set('ai-qualification_result', data.qualification_result);
-
-    document.getElementById('ai-notes-wrap').style.display = data.notes ? '' : 'none';
-    set('ai-notes', data.notes);
-
-    const criteria = data.criteria || [];
-    const tbody = document.getElementById('ai-criteria-tbody');
-    document.getElementById('ai-criteria-wrap').style.display = criteria.length ? '' : 'none';
-    tbody.innerHTML = '';
-    criteria.forEach(row => {
-        const tr = document.createElement('tr');
-        const badgeClass = row.passed ? 'text-bg-success' : 'text-bg-danger';
-        const badgeText  = row.passed ? 'Qualified' : 'Not qualified';
-        tr.innerHTML = '<td>' + row.label + '</td>'
-            + '<td>' + (row.actual || '—') + '</td>'
-            + '<td class="text-end"><span class="badge ' + badgeClass + '">' + badgeText + '</span></td>';
-        tbody.appendChild(tr);
-    });
-
-    new bootstrap.Modal(document.getElementById('applicantInfoModal')).show();
-}
-
 // ── Step switching ──────────────────────────────────────────────────────────
 const currentStep = {{ $currentStep }};
 const activeStep  = {{ $activeStep }};

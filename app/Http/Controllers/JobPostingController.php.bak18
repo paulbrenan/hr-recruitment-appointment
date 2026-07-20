@@ -179,15 +179,10 @@ class JobPostingController extends Controller
         // of the default list, toggle-able via ?archived=1.
         $showArchived = $request->boolean('archived');
 
-        // Sort by id, not created_at -- not every insert path (PDF
-        // import, one-off scripts run directly against the DB, etc.)
-        // reliably sets created_at, which let new postings show up
-        // out of order. id is guaranteed to increase with every new
-        // row regardless of how it was inserted.
         $postings = JobPosting::with('locations')
             ->when($showArchived, fn ($q) => $q->where('status', 'archived'))
             ->when(!$showArchived, fn ($q) => $q->where('status', '!=', 'archived'))
-            ->orderByDesc('id')
+            ->latest()
             ->get();
 
         return view('job-postings.index', compact('postings', 'showArchived'));

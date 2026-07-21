@@ -1090,9 +1090,53 @@
                                 @foreach ($offers as $o)
                                 @php
                                     $offerColors = ['draft' => 'secondary', 'sent' => 'primary', 'accepted' => 'success', 'declined' => 'danger', 'expired' => 'dark'];
+                                    $offerApp = $o->application;
+                                    $offerCand = $offerApp->candidate ?? null;
+                                    $offerPlace = $offerApp ? (optional($offerApp->jobPostingLocation)->place_of_assignment ?? $posting->place_of_assignment ?? null) : null;
+                                    $offerCheckData = $offerApp->qualification_check ?? [];
+                                    $offerCriteria = [];
+                                    foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ock => $ocl) {
+                                        if (isset($offerCheckData['criteria'][$ock])) {
+                                            $offerCriteria[] = [
+                                                'label' => $ocl,
+                                                'actual' => $offerCheckData['criteria'][$ock]['actual'] ?? null,
+                                                'passed' => (bool) ($offerCheckData['criteria'][$ock]['passed'] ?? false),
+                                            ];
+                                        }
+                                    }
+                                    $offerInfoData = [
+                                        'name' => $offerCand->full_name ?? 'Unknown',
+                                        'email' => $offerCand->email ?? null,
+                                        'phone' => $offerCand->phone ?? null,
+                                        'address' => $offerCand->address ?? null,
+                                        'age' => $offerCand->age ?? null,
+                                        'sex' => $offerCand->sex ?? null,
+                                        'civil_status' => $offerCand->civil_status ?? null,
+                                        'religion' => $offerCand->religion ?? null,
+                                        'disability' => $offerCand->disability ?? null,
+                                        'ethnic_group' => $offerCand->ethnic_group ?? null,
+                                        'education' => $offerCand->education ?? null,
+                                        'training_hours' => $offerCand->training_hours ?? null,
+                                        'years_experience' => $offerCand->years_experience ?? null,
+                                        'eligibility' => $offerCand->eligibility ?? null,
+                                        'transaction_number' => $offerApp->transaction_number ?? null,
+                                        'applied_at' => $offerApp && $offerApp->applied_at ? \Carbon\Carbon::parse($offerApp->applied_at)->format('M d, Y') : null,
+                                        'status' => $offerApp ? str_replace('_', ' ', ucfirst($offerApp->status)) : null,
+                                        'place_of_assignment' => $offerPlace,
+                                        'notes' => $offerApp->notes ?? null,
+                                        'qualification_result' => ($offerApp && $offerApp->qualification_result) ? ucfirst(str_replace('_', ' ', $offerApp->qualification_result)) : null,
+                                        'criteria' => $offerCriteria,
+                                    ];
                                 @endphp
                                 <tr>
-                                    <td class="fw-medium">{{ $o->application->candidate->full_name ?? 'Unknown' }}</td>
+                                    <td class="fw-medium">
+                                        <span role="button" style="border-bottom: 1px dashed #adb5bd;"
+                                              title="View applicant information"
+                                              onclick="showApplicantInfo(this)"
+                                              data-info="{{ json_encode($offerInfoData) }}">
+                                            {{ $offerCand->full_name ?? 'Unknown' }}
+                                        </span>
+                                    </td>
                                     <td>{{ $o->application->candidate->email ?? '—' }}</td>
                                     <td>{{ $o->offer_sent_at ? \Carbon\Carbon::parse($o->offer_sent_at)->format('M d, Y') : '—' }}</td>
                                     <td>

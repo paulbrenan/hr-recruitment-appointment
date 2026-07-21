@@ -66,6 +66,37 @@
                     <label class="form-label small text-muted mb-1">Status on import</label>
                     <input type="text" class="form-control form-control-sm" value="Open" disabled>
                 </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">Posted date</label>
+                    <input type="date" class="form-control form-control-sm" name="rows[{{ $i }}][posted_at]" value="{{ now()->toDateString() }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">Closing date</label>
+                    <input type="date" class="form-control form-control-sm" name="rows[{{ $i }}][closes_at]" min="{{ now()->toDateString() }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Panelists</label>
+                    <div class="border rounded p-2" style="background: #fafafa;">
+                        @if ($panelists->isEmpty())
+                            <div class="text-muted small mb-2">No panelists in the pool yet — add one below.</div>
+                        @else
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            @foreach ($panelists as $p)
+                            <label class="form-check form-check-inline border rounded px-2 py-1 small mb-0">
+                                <input type="checkbox" class="form-check-input" name="rows[{{ $i }}][panelist_ids][]" value="{{ $p->id }}">
+                                {{ $p->name }}
+                            </label>
+                            @endforeach
+                        </div>
+                        @endif
+                        <table class="table table-sm mb-2 align-middle new-panelist-tbody-wrapper" style="font-size: 0.82rem;">
+                            <tbody class="new-panelist-tbody" data-group="{{ $i }}"></tbody>
+                        </table>
+                        <button type="button" class="btn btn-sm btn-outline-secondary add-import-panelist" data-group="{{ $i }}">
+                            <i class="bi bi-plus-lg me-1"></i> Add new panelist
+                        </button>
+                    </div>
+                </div>
                 <div class="col-12">
                     <label class="form-label small text-muted mb-1">
                         Places of assignment
@@ -220,6 +251,36 @@
 
     // Init all existing rows on page load
     document.querySelectorAll('.location-import-row').forEach(initImportLocationRow);
+
+    // ── New-panelist rows (name + optional email), added per group ────
+    document.querySelectorAll('.add-import-panelist').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const group = this.dataset.group;
+            const tbody = document.querySelector('.new-panelist-tbody[data-group="' + group + '"]');
+
+            const row = document.createElement('tr');
+            row.innerHTML =
+                '<td style="width:45%;">' +
+                    '<input type="text" class="form-control form-control-sm" ' +
+                    'name="rows[' + group + '][new_panelist_names][]" placeholder="Panelist name">' +
+                '</td>' +
+                '<td style="width:45%;">' +
+                    '<input type="email" class="form-control form-control-sm" ' +
+                    'name="rows[' + group + '][new_panelist_emails][]" placeholder="Email (optional)">' +
+                '</td>' +
+                '<td class="text-center" style="width:10%;">' +
+                    '<button type="button" class="btn btn-sm btn-link text-danger p-0 remove-new-panelist" title="Remove"><i class="bi bi-x-lg"></i></button>' +
+                '</td>';
+
+            tbody.appendChild(row);
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.remove-new-panelist');
+        if (!btn) return;
+        btn.closest('tr').remove();
+    });
 
     // Remove row (keep at least 1)
     document.addEventListener('click', function (e) {

@@ -5,15 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\JobOffer;
 use App\Models\Application;
 use App\Models\JobPosting;
+use App\Models\SalaryGrade;
 use App\Notifications\OfferLetterNotification;
 use Illuminate\Http\Request;
 
 class JobOfferController extends Controller
 {
-    // SG 1 Step 1 — derived from config/salary_grades.php at runtime
+    // SG 1 Step 1 — from the currently-confirmed imported circular, falling
+    // back to config/salary_grades.php if no circular has been imported yet.
     private function minCompensation(): int
     {
-        return config('salary_grades.table.1.0', 14634); // index 0 = step 1
+        return (int) (SalaryGrade::currentTableArray()[1][0] ?? config('salary_grades.table.1.0', 14634));
     }
 
     public function index()
@@ -32,8 +34,9 @@ class JobOfferController extends Controller
             ->get();
 
         $minCompensation = $this->minCompensation();
+        $sgTable = SalaryGrade::currentTableArray();
 
-        return view('offers.index', compact('offers', 'eligibleApplications', 'minCompensation'));
+        return view('offers.index', compact('offers', 'eligibleApplications', 'minCompensation', 'sgTable'));
     }
 
     public function store(Request $request)
@@ -72,7 +75,7 @@ class JobOfferController extends Controller
         // basis for the Step 1 default -- a typed compensation_override
         // still wins over both when present.
         $grade   = (int) ($validated['sg_override'] ?? $posting->salary_grade);
-        $sgTable = config('salary_grades.table');
+        $sgTable = SalaryGrade::currentTableArray();
         $defaultCompensation = $sgTable[$grade][0] ?? $this->minCompensation(); // SG {grade} Step 1
         $compensation = $validated['compensation_override'] ?? $defaultCompensation;
 

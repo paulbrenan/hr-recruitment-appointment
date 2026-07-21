@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\JobOffer;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -29,12 +30,25 @@ class OfferLetterNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $candidate    = $this->offer->application->candidate;
-        $jobTitle     = $this->offer->application->jobPosting->title ?? 'the position';
+        $application  = $this->offer->application;
+        $candidate    = $application->candidate;
+        $posting      = $application->jobPosting;
+        $jobTitle     = $posting->title ?? 'the position';
         $compensation = number_format($this->offer->compensation, 2);
         $deadline     = $this->offer->response_deadline
             ? \Carbon\Carbon::parse($this->offer->response_deadline)->format('F d, Y')
             : null;
+
+        // Same pattern as QualifiedScheduleBundleNotification::toMail():
+        // render the PDF, then attach it directly via attachData() chained
+        // onto the returned MailMessage. No try/catch needed here --
+        // JobOfferController::send() already wraps the whole ->notify()
+        // call (which includes this method) in one, logging failures
+        // without breaking the request.
+        $pdf = Pdf::loadView('pdf.job-description', ['posting' => $posting])
+            ->setPaper('letter');
+
+        $filename = 'Job-Description-' . ($application->transaction_number ?? $posting->id) . '.pdf';
 
         return (new MailMessage)
             ->subject("Official Job Offer — {$jobTitle}")
@@ -44,7 +58,8 @@ class OfferLetterNotification extends Notification
                 'jobTitle'     => $jobTitle,
                 'compensation' => $compensation,
                 'deadline'     => $deadline,
-            ]);
+            ])
+            ->attachData($pdf->output(), $filename, ['mime' => 'application/pdf']);
     }
 
     public function toArray(object $notifiable): array

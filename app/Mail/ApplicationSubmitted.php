@@ -16,7 +16,7 @@ class ApplicationSubmitted extends Mailable
 
     public function __construct(
         public readonly Candidate $candidate,
-        public readonly string    $transactionNumber,
+        public readonly ?string    $transactionNumber,
         public readonly string    $position,
         public readonly ?JobPosting $jobPosting = null,
     ) {}

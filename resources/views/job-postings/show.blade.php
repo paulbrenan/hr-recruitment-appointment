@@ -660,6 +660,9 @@
                                 <i class="bi bi-plus-lg me-1"></i> New schedule
                             </button>
                             @endif
+                            <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-outline-secondary ms-2">
+                                <i class="bi bi-file-earmark-excel me-1"></i> Export IER
+                            </a>
                         </div>
                     </div>
 
@@ -696,7 +699,26 @@
                             @endphp
                             <tr>
                                 <td>
-                                    <div class="d-flex flex-wrap gap-1">
+                                    @php
+                                        $sessInfoData = [
+                                            'scheduled_at' => $sessFirst->scheduled_at ? \Carbon\Carbon::parse($sessFirst->scheduled_at)->format('M d, Y h:i A') : null,
+                                            'location' => $sessFirst->location,
+                                            'applicant_count' => $sessAppCount,
+                                            'panelists' => $sessFirst->panelists->map(fn ($p) => ['name' => $p->name, 'email' => $p->email])->values(),
+                                            'types' => $sessTypes->map(function ($t) use ($sessionSchedules) {
+                                                $typeSchedules = $sessionSchedules->where('type', $t);
+                                                $statuses = $typeSchedules->pluck('status')->unique()->map(fn ($s) => str_replace('_', ' ', ucfirst($s)))->implode(', ');
+                                                $remarks = $typeSchedules->pluck('remarks')->filter()->unique()->implode(' | ');
+                                                return [
+                                                    'type' => str_replace('_', ' ', ucfirst($t)),
+                                                    'status' => $statuses,
+                                                    'remarks' => $remarks ?: null,
+                                                ];
+                                            })->values(),
+                                        ];
+                                    @endphp
+                                    <div class="d-flex flex-wrap gap-1" role="button" title="View schedule details"
+                                         onclick="showScheduleInfo(this)" data-info="{{ json_encode($sessInfoData) }}">
                                         @foreach ($sessTypes as $t)
                                         <span class="badge text-bg-light text-dark border" style="font-size:0.75rem;">{{ str_replace('_',' ',ucfirst($t)) }}</span>
                                         @endforeach
@@ -847,6 +869,47 @@
                     </div>
                     @endforeach
                     @endif
+
+                    <div class="modal fade" id="scheduleInfoModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h6 class="modal-title">Schedule details</h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Date &amp; time</div>
+                                        <div class="fw-medium" id="si-scheduled-at">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Venue</div>
+                                        <div class="fw-medium" id="si-location">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Applicants</div>
+                                        <div class="fw-medium" id="si-applicant-count">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small mb-1">Type breakdown</div>
+                                        <table class="table table-sm mb-0" style="font-size:0.85rem;">
+                                            <thead>
+                                                <tr><th>Type</th><th>Status</th><th>Remarks</th></tr>
+                                            </thead>
+                                            <tbody id="si-types-body"></tbody>
+                                        </table>
+                                    </div>
+                                    <div>
+                                        <div class="text-muted small mb-1">Panelists</div>
+                                        <ul class="mb-0 ps-3" id="si-panelists-list" style="font-size:0.85rem;"></ul>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1968,6 +2031,37 @@ switchStep(activeStep);
     updateOfferAmountHint();
 })();
 
+// ── Schedule info modal (triggered by clicking a session's Type badges) ─
+function showScheduleInfo(el) {
+    const data = JSON.parse(el.getAttribute('data-info'));
+
+    document.getElementById('si-scheduled-at').textContent = data.scheduled_at || '—';
+    document.getElementById('si-location').textContent = data.location || '—';
+    document.getElementById('si-applicant-count').textContent = data.applicant_count + (data.applicant_count === 1 ? ' applicant' : ' applicants');
+
+    const typesBody = document.getElementById('si-types-body');
+    typesBody.innerHTML = '';
+    (data.types || []).forEach(function (t) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + t.type + '</td><td>' + (t.status || '—') + '</td><td>' + (t.remarks || '—') + '</td>';
+        typesBody.appendChild(tr);
+    });
+
+    const panelistsList = document.getElementById('si-panelists-list');
+    panelistsList.innerHTML = '';
+    if (!data.panelists || data.panelists.length === 0) {
+        panelistsList.innerHTML = '<li class="text-muted">No panelists assigned</li>';
+    } else {
+        data.panelists.forEach(function (p) {
+            const li = document.createElement('li');
+            li.textContent = p.name + (p.email ? ' — ' + p.email : '');
+            panelistsList.appendChild(li);
+        });
+    }
+
+    new bootstrap.Modal(document.getElementById('scheduleInfoModal')).show();
+}
+
 function advanceStep() {
     const msgs = {
         2: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
@@ -2143,6 +2237,57 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
                 var disposition = response.headers.get('Content-Disposition') || '';
                 var match = disposition.match(/filename="?([^";]+)"?/);
                 var filename = match ? match[1] : 'qualifications.xlsx';
+                return response.blob().then(function (blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function (result) {
+                var blobUrl = window.URL.createObjectURL(result.blob);
+                var tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = result.filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                window.URL.revokeObjectURL(blobUrl);
+            })
+            .catch(function (err) {
+                alert('Could not export: ' + err.message);
+            })
+            .finally(function () {
+                btn.classList.remove('disabled');
+                btn.innerHTML = originalHtml;
+            });
+    });
+})();
+
+// Export IER: same problem/fix as the export-qualifications button above --
+// fetch as blob so the button never depends on a page navigation event to
+// reset it. The anchor has data-no-loader, so page-loader.js's global
+// click listener skips it and never shows the full-screen overlay for
+// this button in the first place.
+(function () {
+    var btn = document.getElementById('export-ier-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var url = btn.getAttribute('href');
+        var originalHtml = btn.innerHTML;
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Exporting…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) {
+                        throw new Error('Export failed (HTTP ' + response.status + '). ' + text.slice(0, 200));
+                    });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename="?([^";]+)"?/);
+                var filename = match ? match[1] : 'IER.xlsx';
                 return response.blob().then(function (blob) {
                     return { blob: blob, filename: filename };
                 });

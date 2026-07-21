@@ -77,8 +77,10 @@ class PortalController extends Controller
                 ->with('error', 'You have already applied for this position.');
         }
 
+        // No transaction_number / Application Code yet -- Records assigns
+        // it (SDO-YYYY-####) from the /records page after verifying the
+        // applicant's submitted requirements.
         Application::create([
-            'transaction_number' => Application::generateTransactionNumber(),
             'candidate_id'       => $candidate->id,
             'job_posting_id'     => $posting->id,
             'status'             => 'submitted',

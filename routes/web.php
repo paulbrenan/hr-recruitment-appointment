@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\PanelistController;
 use App\Http\Controllers\JobPostingImportController;
+use App\Http\Controllers\RecordsController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\InterviewScheduleController;
 use App\Http\Controllers\AssessmentController;
@@ -102,6 +103,7 @@ Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
 Route::get('/job-postings/{id}/export-qualifications', [JobPostingController::class, 'exportQualifications'])->name('job-postings.export-qualifications');
+Route::get('/job-postings/{id}/export-ier', [JobPostingController::class, 'exportIER'])->name('job-postings.export-ier');
 Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
 Route::post('/job-postings/{id}/archive', [JobPostingController::class, 'archive'])->name('job-postings.archive');
 Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');
@@ -186,5 +188,9 @@ Route::get('/appointments', [AppointmentController::class, 'index'])->name('appo
 Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
 Route::put('/appointments/{id}', [AppointmentController::class, 'update'])->name('appointments.update');
 Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy'])->name('appointments.destroy');
+
+Route::get('/records', [RecordsController::class, 'index'])->name('records.index');
+Route::post('/records/{id}/assign-code', [RecordsController::class, 'assignCode'])->name('records.assign-code');
+
 // Activity Log Book (added by install_activity_log_book.php)
 Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');

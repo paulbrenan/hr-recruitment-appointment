@@ -191,12 +191,17 @@
             </div>
             <div class="card-body p-3">
                 <div class="row g-2 small">
-                    @if($application->transaction_number)
                     <div class="col-6">
-                        <div class="text-muted mb-1">Transaction No.</div>
-                        <div class="fw-medium font-monospace">{{ $application->transaction_number }}</div>
+                        <div class="text-muted mb-1">Application Code</div>
+                        <div class="fw-medium font-monospace">
+                            @if($application->transaction_number)
+                                {{ $application->transaction_number }}
+                            @else
+                                <span class="badge text-bg-warning">Pending</span>
+                                <a href="{{ route('records.index') }}" class="small ms-1 text-decoration-none">Assign in Records &rarr;</a>
+                            @endif
+                        </div>
                     </div>
-                    @endif
                     <div class="col-6">
                         <div class="text-muted mb-1">Date Applied</div>
                         <div class="fw-medium">

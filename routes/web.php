@@ -12,6 +12,7 @@ use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\InterviewScheduleController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\JobOfferController;
+use App\Http\Controllers\SalaryGradeController;
 use App\Http\Controllers\TalentPoolController;
 use App\Http\Controllers\PipelineController;
 use App\Http\Controllers\AppointmentController;
@@ -155,6 +156,15 @@ Route::post('/offers', [JobOfferController::class, 'store'])->name('offers.store
 Route::put('/offers/{id}/send', [JobOfferController::class, 'send'])->name('offers.send');
 Route::put('/offers/{id}/respond', [JobOfferController::class, 'respond'])->name('offers.respond');
 Route::delete('/offers/{id}', [JobOfferController::class, 'destroy'])->name('offers.destroy');
+
+// Salary Grade — imported budget circular schedules (SG table used by Offer management above)
+Route::get('/salary-grades', [SalaryGradeController::class, 'index'])->name('salary-grades.index');
+Route::get('/salary-grades/upload', [SalaryGradeController::class, 'create'])->name('salary-grades.create');
+Route::post('/salary-grades', [SalaryGradeController::class, 'store'])->name('salary-grades.store');
+Route::get('/salary-grades/{budgetCircular}/review', [SalaryGradeController::class, 'review'])->name('salary-grades.review');
+Route::put('/salary-grades/{budgetCircular}', [SalaryGradeController::class, 'update'])->name('salary-grades.update');
+Route::put('/salary-grades/{budgetCircular}/confirm', [SalaryGradeController::class, 'confirm'])->name('salary-grades.confirm');
+Route::delete('/salary-grades/{budgetCircular}', [SalaryGradeController::class, 'destroy'])->name('salary-grades.destroy');
 
 // Talent pool
 Route::get('/talent-pool', [TalentPoolController::class, 'index'])->name('talent-pool.index');

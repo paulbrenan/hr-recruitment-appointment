@@ -38,7 +38,6 @@ return [
         'Dentist II',
         'DevOps',
         'Division Memorandum',
-
         'Driver',
         'Education Program Specialist',
         'Education Program Supervisor',

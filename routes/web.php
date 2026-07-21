@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\PanelistController;
 use App\Http\Controllers\JobPostingImportController;
+use App\Http\Controllers\RecordsController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\InterviewScheduleController;
 use App\Http\Controllers\AssessmentController;
@@ -186,5 +187,9 @@ Route::get('/appointments', [AppointmentController::class, 'index'])->name('appo
 Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
 Route::put('/appointments/{id}', [AppointmentController::class, 'update'])->name('appointments.update');
 Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy'])->name('appointments.destroy');
+
+Route::get('/records', [RecordsController::class, 'index'])->name('records.index');
+Route::post('/records/{id}/assign-code', [RecordsController::class, 'assignCode'])->name('records.assign-code');
+
 // Activity Log Book (added by install_activity_log_book.php)
 Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');

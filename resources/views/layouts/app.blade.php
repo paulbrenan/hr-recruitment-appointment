@@ -196,6 +196,9 @@
                 <a href="{{ route('salary-grades.index') }}" class="nav-link {{ request()->routeIs('salary-grades.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Salary Grade">
                     <i class="bi bi-cash-coin"></i> <span class="nav-label">Salary Grade</span>
                 </a>
+                <a href="{{ route('records.index') }}" class="nav-link {{ request()->routeIs('records.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Records">
+                    <i class="bi bi-file-earmark-text"></i> <span class="nav-label">Records</span>
+                </a>
             </div>
         </nav>
 

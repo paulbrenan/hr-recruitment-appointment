@@ -60,6 +60,7 @@
                     <th>Candidate</th>
                     <th>Job posting</th>
                     <th>Applied</th>
+                    <th>Application Code</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -73,6 +74,13 @@
                     </td>
                     <td>{{ $app->jobPosting->title }}</td>
                     <td>{{ $app->applied_at ? \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') : '—' }}</td>
+                    <td>
+                        @if ($app->transaction_number)
+                            <span class="font-monospace small">{{ $app->transaction_number }}</span>
+                        @else
+                            <span class="badge text-bg-warning">Pending</span>
+                        @endif
+                    </td>
                     <td>
                         @php
                             $statusColors = [

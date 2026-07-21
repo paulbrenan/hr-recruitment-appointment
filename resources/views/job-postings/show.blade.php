@@ -1207,8 +1207,7 @@
                         // grade's Step 1 amount. Still just a starting
                         // point -- HR can edit the peso field afterward and
                         // that typed value always wins on submit.
-                        const sgTable = @json(config('salary_grades.table'));
-                        const sgOverrideSel = document.getElementById('offerSgOverrideSelect');
+                        const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
                         const compInput = document.getElementById('offerCompensationOverride');
                         sgOverrideSel?.addEventListener('change', function () {
                             const grade = parseInt(this.value, 10);
@@ -1795,7 +1794,7 @@ switchStep(activeStep);
 // ── Advance pipeline ────────────────────────────────────────────────────────
 // ── Step 5: SG/step -> compensation live preview ────────────────────────
 (function () {
-    const sgTable = @json(config('salary_grades.table'));
+    const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
     const sgSel   = document.getElementById('offerSgSelect');
     const stepSel = document.getElementById('offerStepSelect');
     const hint    = document.getElementById('offerSgAmountHint');

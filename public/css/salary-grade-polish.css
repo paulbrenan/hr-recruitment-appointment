@@ -1,0 +1,69 @@
+/* ============================================
+   Salary Grade — interactive polish
+   Save to: public/css/salary-grade-polish.css
+   ============================================ */
+
+.card {
+    animation: sg-fade-in 0.3s ease both;
+}
+@keyframes sg-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Current/parsed schedule table ───────────────────────────────────────── */
+.sg-table {
+    font-size: 0.82rem;
+}
+.sg-table thead th {
+    background: rgba(0, 48, 135, 0.06);
+    color: var(--hr-primary, #003087);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+}
+.sg-table td {
+    text-align: right;
+    white-space: nowrap;
+}
+.sg-table td:first-child {
+    text-align: center;
+    background: rgba(0, 48, 135, 0.03);
+}
+
+/* ── Review page: editable cells ─────────────────────────────────────────── */
+.sg-review-table td {
+    padding: 2px;
+}
+.sg-cell {
+    text-align: right;
+    font-size: 0.78rem;
+    padding: 4px 6px;
+}
+.sg-cell:focus {
+    border-color: var(--hr-primary, #003087);
+    box-shadow: 0 0 0 0.15rem rgba(0, 48, 135, 0.12);
+}
+.sg-cell-changed {
+    background-color: rgba(255, 193, 7, 0.12);
+    border-color: #e0a800;
+}
+
+.sg-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+.sg-legend-changed {
+    background-color: rgba(255, 193, 7, 0.35);
+    border: 1px solid #e0a800;
+}
+
+/* ── Import status badges ────────────────────────────────────────────────── */
+.sg-status-processing { background: rgba(13, 110, 253, 0.1); color: #0d6efd; }
+.sg-status-ready      { background: rgba(255, 193, 7, 0.18); color: #8a6500; }
+.sg-status-applied    { background: rgba(25, 135, 84, 0.12); color: #157347; }
+.sg-status-failed     { background: rgba(206, 17, 38, 0.1); color: #ce1126; }

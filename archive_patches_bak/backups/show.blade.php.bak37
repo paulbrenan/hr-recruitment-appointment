@@ -254,10 +254,6 @@
                     </div>
 
                     @if ($locations->isNotEmpty())
-                    @php
-                        $locationsVisible = $locations->take(5);
-                        $locationsHidden = $locations->slice(5);
-                    @endphp
                     <div class="mb-3">
                         <div class="text-muted small mb-2">Places of assignment</div>
                         <table class="table table-sm table-bordered mb-0" style="font-size:0.85rem;">
@@ -265,43 +261,18 @@
                                 <tr><th>Place</th><th class="text-center" style="width:100px;">Vacancies</th></tr>
                             </thead>
                             <tbody>
-                                @foreach ($locationsVisible as $loc)
+                                @foreach ($locations as $loc)
                                 <tr>
                                     <td>{{ $loc->place_of_assignment }}</td>
                                     <td class="text-center">{{ $loc->vacancies }}</td>
                                 </tr>
                                 @endforeach
-                            </tbody>
-                            @if ($locationsHidden->isNotEmpty())
-                            <tbody id="overviewLocationsExtra" class="d-none">
-                                @foreach ($locationsHidden as $loc)
-                                <tr>
-                                    <td>{{ $loc->place_of_assignment }}</td>
-                                    <td class="text-center">{{ $loc->vacancies }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            @endif
-                            <tbody>
                                 <tr class="table-light fw-medium">
                                     <td class="text-end text-muted small">Total</td>
                                     <td class="text-center">{{ $locations->sum('vacancies') }}</td>
                                 </tr>
                             </tbody>
                         </table>
-                        @if ($locationsHidden->isNotEmpty())
-                        <button type="button" id="overviewLocationsToggle"
-                                class="btn btn-link btn-sm p-0 mt-2"
-                                style="font-size: 0.8rem; text-decoration: none; color: var(--hr-primary);"
-                                onclick="
-                                    const extra = document.getElementById('overviewLocationsExtra');
-                                    const isHidden = extra.classList.contains('d-none');
-                                    extra.classList.toggle('d-none', !isHidden);
-                                    this.textContent = isHidden ? 'Show less' : 'Show {{ $locationsHidden->count() }} more';
-                                ">
-                            Show {{ $locationsHidden->count() }} more
-                        </button>
-                        @endif
                     </div>
                     @endif
 
@@ -976,6 +947,9 @@
                                     @endif
                                 </td>
                                 <td class="text-end">
+                                    @php
+                                        $rankAlreadyOffered = $offers->firstWhere('application_id', $cand->application_id);
+                                    @endphp
                                     <div class="d-flex gap-1 justify-content-end">
                                         @if ($posting->status !== 'closed')
                                         <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -986,10 +960,19 @@
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         @endif
-                                        <button type="button" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;"
-                                                onclick="switchStep(5)" title="Go to Offer Management">
-                                            <i class="bi bi-envelope-paper me-1"></i> Offer
-                                        </button>
+                                        @if ($rankAlreadyOffered)
+                                        <span class="badge text-bg-light text-dark border align-self-center" style="font-size:.68rem;">Offer sent</span>
+                                        @else
+                                        <form method="POST" action="{{ route('offers.store') }}" class="d-inline"
+                                              onsubmit="return confirm('Generate a draft offer for {{ addslashes($cand->candidate_name) }} at SG {{ $posting->salary_grade }} Step 1?')">
+                                            @csrf
+                                            <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                                            <input type="hidden" name="application_ids[]" value="{{ $cand->application_id }}">
+                                            <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
+                                                <i class="bi bi-envelope-paper me-1"></i> Offer
+                                            </button>
+                                        </form>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -1191,19 +1174,15 @@
                                     <td>{{ $cand->candidate->years_experience ?? '—' }}{{ $cand->candidate->years_experience ? ' yrs' : '' }}</td>
                                     <td>{{ $cand->candidate->eligibility ?? '—' }}</td>
                                     <td class="text-end">
-                                        {{-- Deliberately NOT a <form> -- it used to be, nested inside the
-                                             bulk #generateOfferForm above, which is invalid HTML (forms
-                                             can't nest). Browsers silently drop the inner <form> tag and
-                                             reparent its hidden application_ids[] input into the OUTER bulk
-                                             form instead, so every row's hidden value rode along with the
-                                             bulk submission and duplicated whatever was also checked. This
-                                             button builds and submits its own isolated form via JS instead. --}}
-                                        <button type="button" class="btn btn-sm offer-single-btn"
-                                                style="background-color: var(--hr-primary); color: #fff;"
-                                                data-application-id="{{ $cand->application_id }}"
-                                                data-candidate-name="{{ $cand->candidate_name }}">
-                                            <i class="bi bi-envelope-paper me-1"></i> Offer
-                                        </button>
+                                        <form method="POST" action="{{ route('offers.store') }}" class="d-inline"
+                                              onsubmit="return confirm('Generate a draft offer for {{ addslashes($cand->candidate_name) }} at SG {{ $posting->salary_grade }} Step 1?')">
+                                            @csrf
+                                            <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                                            <input type="hidden" name="application_ids[]" value="{{ $cand->application_id }}">
+                                            <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
+                                                <i class="bi bi-envelope-paper me-1"></i> Offer
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -1254,51 +1233,12 @@
                         boxes.forEach(function (b) { b.addEventListener('change', refresh); });
                         refresh();
 
-                        // Per-row single-candidate "Offer" button. Builds a
-                        // fully standalone form (not nested anywhere) and
-                        // submits it directly -- isolated from the bulk
-                        // #generateOfferForm above on purpose.
-                        document.querySelectorAll('.offer-single-btn').forEach(function (btn) {
-                            btn.addEventListener('click', function () {
-                                const appId = btn.dataset.applicationId;
-                                const candidateName = btn.dataset.candidateName;
-                                if (!confirm('Generate a draft offer for ' + candidateName + ' at SG {{ $posting->salary_grade }} Step 1?')) {
-                                    return;
-                                }
-
-                                const f = document.createElement('form');
-                                f.method = 'POST';
-                                f.action = '{{ route("offers.store") }}';
-                                f.style.display = 'none';
-
-                                const csrf = document.createElement('input');
-                                csrf.type = 'hidden';
-                                csrf.name = '_token';
-                                csrf.value = '{{ csrf_token() }}';
-                                f.appendChild(csrf);
-
-                                const postingIdInput = document.createElement('input');
-                                postingIdInput.type = 'hidden';
-                                postingIdInput.name = 'job_posting_id';
-                                postingIdInput.value = '{{ $posting->id }}';
-                                f.appendChild(postingIdInput);
-
-                                const appIdInput = document.createElement('input');
-                                appIdInput.type = 'hidden';
-                                appIdInput.name = 'application_ids[]';
-                                appIdInput.value = appId;
-                                f.appendChild(appIdInput);
-
-                                document.body.appendChild(f);
-                                f.submit();
-                            });
-                        });
-
                         // SG override -> auto-fill the peso field with that
                         // grade's Step 1 amount. Still just a starting
                         // point -- HR can edit the peso field afterward and
                         // that typed value always wins on submit.
-                        const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
+                        const sgTable = @json(config('salary_grades.table'));
+                        const sgOverrideSel = document.getElementById('offerSgOverrideSelect');
                         const compInput = document.getElementById('offerCompensationOverride');
                         sgOverrideSel?.addEventListener('change', function () {
                             const grade = parseInt(this.value, 10);
@@ -1885,7 +1825,7 @@ switchStep(activeStep);
 // ── Advance pipeline ────────────────────────────────────────────────────────
 // ── Step 5: SG/step -> compensation live preview ────────────────────────
 (function () {
-    const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
+    const sgTable = @json(config('salary_grades.table'));
     const sgSel   = document.getElementById('offerSgSelect');
     const stepSel = document.getElementById('offerStepSelect');
     const hint    = document.getElementById('offerSgAmountHint');

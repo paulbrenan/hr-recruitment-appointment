@@ -1714,6 +1714,7 @@
                         @endif
                         <input type="text" name="{{ $key }}_actual" class="form-control form-control-sm qual-actual-input"
                                data-criterion="{{ $key }}"
+                               data-required="{{ $meta['required'] }}"
                                placeholder="Candidate's actual {{ strtolower($meta['label']) }}...">
                     </div>
                     @endforeach
@@ -2135,6 +2136,34 @@ document.getElementById('qualCheckModal')?.addEventListener('show.bs.modal', fun
         const targetId = passed === true ? 'qc_' + key + '_yes' : (passed === false ? 'qc_' + key + '_no' : null);
         if (targetId) document.getElementById(targetId)?.setAttribute('checked', 'checked'), document.getElementById(targetId).checked = true;
     });
+
+    // Auto-suggest Qualified/Not-qualified for criteria where both the
+    // requirement and the candidate's actual value are plain numbers
+    // (experience years, training hours). This only pre-checks a radio
+    // as a starting suggestion -- HR can still click the other option
+    // before saving. Education/eligibility are never auto-suggested,
+    // since matching those safely requires human judgment (degree
+    // equivalencies, substitutable eligibilities, etc.), not a number
+    // comparison. A criterion HR already saved a decision for (handled
+    // above) is never touched here.
+    const qcNumericCriteria = ['experience', 'training'];
+    function qcExtractNumber(str) {
+        if (!str) return null;
+        const match = String(str).match(/(\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : null;
+    }
+    qcNumericCriteria.forEach(key => {
+        if (criteria[key]?.passed !== undefined) return; // already decided -- leave as-is
+        const input = document.querySelector('.qual-actual-input[data-criterion="' + key + '"]');
+        if (!input) return;
+        const requiredNum = qcExtractNumber(input.dataset.required);
+        const actualNum = qcExtractNumber(input.value);
+        if (requiredNum === null || actualNum === null) return; // can't parse cleanly -- leave blank, HR decides
+        const suggestedId = actualNum >= requiredNum ? 'qc_' + key + '_yes' : 'qc_' + key + '_no';
+        const el = document.getElementById(suggestedId);
+        if (el) el.checked = true;
+    });
+
     document.getElementById('qualCheckNotes').value = check.notes ?? '';
 });
 

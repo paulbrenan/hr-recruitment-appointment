@@ -515,6 +515,19 @@ class VacancyTableParser
         $school = $buffer;
         $adopted = null;
         $orphanedPrefix = null;
+        // Tracks whether either recognized row shape actually matched.
+        // Previously $school defaulted to the raw, unparsed $buffer and
+        // was returned as a "valid" school name whenever NEITHER pattern
+        // below matched -- which happens when OCR mangled this row badly
+        // enough that no municipality boundary is recognizable at all.
+        // On a real vacancy PDF that buffer can be hundreds of characters
+        // of unrelated table/paragraph noise (confirmed cause of the
+        // "location_place must not be greater than 500 characters" import
+        // failure, and of giant garbled titles on the review screen). Any
+        // row that falls through with no match is now flagged
+        // unrecoverable, same as every other genuinely-unreadable case in
+        // this class, instead of masquerading as real data.
+        $matched = false;
 
         // IMPORTANT: when $isGap is true, this row's marker and the next
         // LEGIBLE marker weren't adjacent — one or more row numbers in
@@ -537,6 +550,7 @@ class VacancyTableParser
             $adopted = null;
             $trailing = trim($m[3]);
             $orphanedPrefix = (!$isGap && $trailing !== '') ? $trailing : null;
+            $matched = true;
         } else {
             // Adopted-school variant: remainder is "<School> <AdoptedSchool(s)>"
             // where BOTH typically end in ES/MES/PS, with no reliable
@@ -562,7 +576,19 @@ class VacancyTableParser
 
                 $municipality = $this->canonicalMunicipality($m[2], $sorted);
                 $orphanedPrefix = (!$isGap && $trailing !== '') ? $trailing : null;
+                $matched = true;
             }
+        }
+
+        if (!$matched) {
+            return [
+                'number' => $number,
+                'school' => null,
+                'adopted' => null,
+                'municipality' => null,
+                'orphaned_prefix' => null,
+                'unrecoverable' => true,
+            ];
         }
 
         return [

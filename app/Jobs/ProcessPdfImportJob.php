@@ -99,13 +99,40 @@ class ProcessPdfImportJob implements ShouldQueue
      */
     private function extractPageTexts(string $pdfPath, string $tmpDir): array
     {
+        // Previously hardcoded to one specific Windows machine's install
+        // paths (C:\poppler\..., C:\Program Files\Tesseract-OCR\...).
+        // That's fragile in two ways: (1) it silently breaks the moment
+        // this runs on any other machine/OS -- including a Linux
+        // production server -- since shell_exec() just returns null/empty
+        // on "command not found" rather than throwing, and (2) even on
+        // the right machine, if the tool errors out for some other reason
+        // (bad install, permissions), the stderr text it prints can
+        // itself be >200 characters and get misread as real extracted
+        // PDF text below. Paths are now configurable via .env
+        // (OCR_PDFTOTEXT_PATH / OCR_PDFTOPPM_PATH / OCR_TESSERACT_PATH),
+        // defaulting to the bare command name so it resolves via PATH on
+        // Linux/macOS deployments; set them in .env to the old absolute
+        // paths if still needed on this Windows box specifically.
+        $pdftotextBin = config('ocr.pdftotext_path', 'pdftotext');
+        $pdftoppmBin  = config('ocr.pdftoppm_path', 'pdftoppm');
+        $tesseractBin = config('ocr.tesseract_path', 'tesseract');
+
         $pdftotextCmd = sprintf(
-            '"C:\\poppler\\Library\\bin\\pdftotext.exe" -layout %s - 2>&1',
+            '%s -layout %s - 2>&1',
+            $pdftotextBin,
             escapeshellarg($pdfPath)
         );
         $directText = shell_exec($pdftotextCmd);
 
-        if ($directText !== null && strlen(trim($directText)) > 200) {
+        // A successful pdftotext run never contains these -- if it does,
+        // shell_exec ran something (or nothing useful), not real PDF
+        // text, and this must NOT be treated as a valid extraction.
+        $looksLikeShellError = $directText !== null && preg_match(
+            '/not recognized as an internal or external command|command not found|No such file or directory|is not a valid Win32 application/i',
+            $directText
+        );
+
+        if ($directText !== null && !$looksLikeShellError && strlen(trim($directText)) > 200) {
             $pages = explode("\f", $directText);
             if (count($pages) > 1 && trim(end($pages)) === '') {
                 array_pop($pages);
@@ -126,15 +153,26 @@ class ProcessPdfImportJob implements ShouldQueue
             // table rows (150dpi read 29/89 rows, 300dpi read 75/89 on the
             // same table) because the row-number column is small text that
             // 150dpi renders too coarsely for Tesseract to read reliably.
-            '"C:\\poppler\\Library\\bin\\pdftoppm.exe" -r 300 -png %s %s 2>&1',
+            '%s -r 300 -png %s %s 2>&1',
+            $pdftoppmBin,
             escapeshellarg($pdfPath),
             escapeshellarg($imagePrefix)
         );
-        shell_exec($pdftoppmCmd);
+        $pdftoppmOutput = shell_exec($pdftoppmCmd);
 
         $imageFiles = glob($tmpDir . DIRECTORY_SEPARATOR . 'page-*.png');
         if (empty($imageFiles)) {
-            throw new \RuntimeException('pdftoppm could not convert the PDF to images.');
+            // Surface whatever pdftoppm actually said (e.g. "command not
+            // found", a permissions error) instead of the generic message
+            // below swallowing it -- this is the difference between "the
+            // PDF is genuinely bad" and "the OCR tools aren't installed/
+            // configured on this machine", which need very different
+            // fixes.
+            $detail = trim((string) $pdftoppmOutput);
+            throw new \RuntimeException(
+                'pdftoppm could not convert the PDF to images.'
+                . ($detail !== '' ? ' (' . $detail . ')' : ' Check that poppler-utils is installed and OCR_PDFTOPPM_PATH is set correctly.')
+            );
         }
 
         natsort($imageFiles);
@@ -145,7 +183,8 @@ class ProcessPdfImportJob implements ShouldQueue
             $outBase = $tmpDir . DIRECTORY_SEPARATOR . 'ocr_page_' . ($index + 1);
 
             $tesseractCmd = sprintf(
-                '"C:\\Program Files\\Tesseract-OCR\\tesseract.exe" %s %s -l eng --oem 1 --psm 6',
+                '%s %s %s -l eng --oem 1 --psm 6',
+                $tesseractBin,
                 escapeshellarg($imagePath),
                 escapeshellarg($outBase)
             );

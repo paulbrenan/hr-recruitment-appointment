@@ -167,7 +167,13 @@ class JobPostingController extends Controller
 
         foreach ($expired as $posting) {
             $posting->update(['status' => 'closed']);
-            $this->autoHireTopRankedCandidates($posting);
+            // Auto-hiring was removed here to match advance() -- see that
+            // method's comment: HR now picks who gets an offer via the
+            // Step 5 checkbox list, and hiring follows from an accepted
+            // offer instead. This call to autoHireTopRankedCandidates()
+            // pointed at a method that no longer exists (dead leftover
+            // from before that change) and threw a fatal "Undefined
+            // method" error every time a posting's closes_at passed.
             $this->cascadeStatusToApplications($posting, 'closed');
         }
     }
@@ -544,13 +550,18 @@ class JobPostingController extends Controller
         $usedWeight      = $criteria->sum('weight_percentage');
         $remainingWeight = max(0, 100 - $usedWeight);
 
-        // Disqualified (and rejected) applicants must never appear in
-        // ranking/assessment -- only candidates who passed Qualification
-        // Checking (step 2) belong here. Built from a filtered subset,
-        // NOT $applications itself, so $applications stays the full list
-        // for the qualification-checking view (step 2) where disqualified
-        // applicants should still show up, correctly labeled.
-        $rankableApplications = $applications->whereNotIn('status', ['not_qualified', 'rejected'])->values();
+        // Only candidates who actually passed Qualification Checking
+        // (step 2) belong in Assessment & Results -- previously this only
+        // excluded 'not_qualified'/'rejected', which let every applicant
+        // who simply hadn't been checked yet (still 'submitted',
+        // 'screening', etc.) flood the ranking list at a score of 0.
+        // Built from a filtered subset, NOT $applications itself, so
+        // $applications stays the full list for the qualification-checking
+        // view (step 2) where every applicant, checked or not, should
+        // still show up, correctly labeled.
+        $rankableApplications = $applications
+            ->filter(fn ($app) => $app->qualification_result === 'qualified')
+            ->values();
 
         $rankedCandidates = $rankableApplications->map(function ($app) use ($criteria) {
             $scores = [];
@@ -631,7 +642,18 @@ class JobPostingController extends Controller
         $alreadyOfferedCount = $offers->whereIn('status', ['draft', 'sent', 'accepted'])->count();
         $offerVacancyLimit = max(0, ((int) $posting->vacancies ?: 1) - $alreadyOfferedCount);
 
-        $minCompensation = config('salary_grades.table.1.0', 14634); // SG 1 Step 1
+        // Was hardcoded to SG 1 Step 1 regardless of this posting's actual
+        // grade, so the Offer Management panel always showed/defaulted to
+        // ₱14,634 no matter what the posting's real salary grade was.
+        // Mirror the same "strip non-digit prefix" normalization used for
+        // salary_grade elsewhere (e.g. "SG-19" -> 19) before looking up
+        // the table, so this now matches what JobOfferController::store()
+        // actually generates.
+        $postingGrade = $posting->salary_grade
+            ? (int) preg_replace('/[^0-9]/', '', $posting->salary_grade)
+            : null;
+        $minCompensation = ($postingGrade ? config("salary_grades.table.{$postingGrade}.0") : null)
+            ?? config('salary_grades.table.1.0', 14634); // fallback: SG 1 Step 1
 
         return view('job-postings.show', compact(
             'posting', 'locations', 'panelists', 'applications',

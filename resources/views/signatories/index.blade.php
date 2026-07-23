@@ -100,7 +100,6 @@
                 <i class="bi bi-plus-lg me-1"></i> Add
             </button>
         </div>
-        <p class="text-muted small">Not wired into the qualification notice email yet -- send that template over and it'll use these the same way the IER export uses the list above.</p>
         <table class="table table-sm align-middle mb-0">
             <thead>
                 <tr><th>Name</th><th>Position</th><th></th></tr>

@@ -59,58 +59,10 @@
                     </select>
                 </div>
 
-                <div class="col-12">
-                    <label class="form-label small fw-medium mb-2 d-block">Places of assignment &amp; vacancies</label>
-                    <div class="border rounded p-3">
-                        <table class="table table-sm mb-2 align-middle" id="locationsTable">
-                            <thead>
-                                <tr>
-                                    <th style="width: 70%;">Place of assignment</th>
-                                    <th style="width: 20%;">Vacancies</th>
-                                    <th style="width: 10%;"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="locationRows">
-                                @php
-                                    $locationRows = old('location_place')
-                                        ? array_map(null, old('location_place', []), old('location_vacancies', []))
-                                        : $locations->map(fn($l) => [$l->place_of_assignment, $l->vacancies])->toArray();
-                                    // If no rows yet, start with one empty row
-                                    if (empty($locationRows)) $locationRows = [['', 1]];
-                                @endphp
-                                @foreach ($locationRows as $i => [$place, $vac])
-                                <tr class="location-row">
-                                    <td>
-                                        <div class="position-relative location-school-wrapper">
-                                            <input
-                                                type="text"
-                                                class="form-control form-control-sm location-school-input"
-                                                name="location_place[]"
-                                                autocomplete="off"
-                                                placeholder="Search or type a school / unit..."
-                                                value="{{ $place ?? '' }}"
-                                            >
-                                            <div class="list-group position-absolute w-100 shadow-sm location-school-results"
-                                                 style="z-index: 1050; max-height: 200px; overflow-y: auto; display: none; top: 100%;"></div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control form-control-sm" name="location_vacancies[]" value="{{ $vac ?? 1 }}" min="1" style="width: 80px;">
-                                    </td>
-                                    <td class="text-center">
-                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 remove-location-btn" title="Remove row">
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="addLocationBtn">
-                            <i class="bi bi-plus-lg me-1"></i> Add location
-                        </button>
-                        <div class="form-text mt-1" style="font-size: 0.72rem;">Each row is one place of assignment. Add as many as needed for this job title.</div>
-                    </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-medium">Vacancies</label>
+                    <input type="number" class="form-control" name="vacancies"
+                           value="{{ old('vacancies', $locations->sum('vacancies') ?: ($posting->vacancies ?? 1)) }}" min="1">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label small fw-medium">Employment type</label>
@@ -434,93 +386,6 @@
             }
         });
     })();
-
-    @php
-        $placeOfAssignmentOptions = array_merge(config('schools.schools', []), config('schools.sdo_units', []));
-    @endphp
-    // ── Multi-location school search ─────────────────────────────────────────
-    const schoolOptions = @json($placeOfAssignmentOptions);
-
-    function initLocationRow(row) {
-        const input      = row.querySelector('.location-school-input');
-        const resultsBox = row.querySelector('.location-school-results');
-        const wrapper    = row.querySelector('.location-school-wrapper');
-
-        if (!input || input._locationInited) return;
-        input._locationInited = true;
-
-        function render(filter) {
-            const query   = filter.trim().toLowerCase();
-            const matches = query === ''
-                ? schoolOptions
-                : schoolOptions.filter(s => s.toLowerCase().includes(query));
-
-            resultsBox.innerHTML = '';
-
-            if (matches.length === 0) {
-                resultsBox.style.display = 'none';
-                return;
-            }
-
-            matches.slice(0, 50).forEach(function (school) {
-                const item = document.createElement('button');
-                item.type = 'button';
-                item.className = 'list-group-item list-group-item-action small py-1';
-                item.textContent = school;
-                item.addEventListener('mousedown', function (e) {
-                    e.preventDefault(); // prevent blur before click
-                    input.value = school;
-                    resultsBox.style.display = 'none';
-                });
-                resultsBox.appendChild(item);
-            });
-
-            resultsBox.style.display = 'block';
-        }
-
-        input.addEventListener('input',  () => render(input.value));
-        input.addEventListener('focus',  () => render(input.value));
-        input.addEventListener('blur',   () => setTimeout(() => { resultsBox.style.display = 'none'; }, 200));
-    }
-
-    // Init existing rows
-    document.querySelectorAll('.location-row').forEach(initLocationRow);
-
-    // Remove row
-    document.getElementById('locationRows').addEventListener('click', function (e) {
-        const btn = e.target.closest('.remove-location-btn');
-        if (!btn) return;
-        const rows = document.querySelectorAll('.location-row');
-        if (rows.length <= 1) {
-            // Keep at least one row — just clear it
-            const row = btn.closest('.location-row');
-            row.querySelector('.location-school-input').value = '';
-            row.querySelector('input[type="number"]').value = 1;
-            return;
-        }
-        btn.closest('.location-row').remove();
-    });
-
-    // Add new row
-    document.getElementById('addLocationBtn').addEventListener('click', function () {
-        const tbody    = document.getElementById('locationRows');
-        const template = tbody.querySelector('.location-row');
-        const newRow   = template.cloneNode(true);
-
-        // Clear values in the cloned row
-        newRow.querySelector('.location-school-input').value = '';
-        newRow.querySelector('.location-school-results').innerHTML = '';
-        newRow.querySelector('.location-school-results').style.display = 'none';
-        newRow.querySelector('input[type="number"]').value = 1;
-
-        // Reset the init flag so initLocationRow wires it up fresh
-        const clonedInput = newRow.querySelector('.location-school-input');
-        clonedInput._locationInited = false;
-
-        tbody.appendChild(newRow);
-        initLocationRow(newRow);
-        clonedInput.focus();
-    });
 
     function initRequirementList(listId, inputId, addBtnId, hiddenId) {
         const listEl = document.getElementById(listId);

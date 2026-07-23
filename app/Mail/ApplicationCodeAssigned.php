@@ -10,13 +10,13 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class ApplicationSubmitted extends Mailable
+class ApplicationCodeAssigned extends Mailable
 {
     use Queueable, SerializesModels;
 
     public function __construct(
         public readonly Candidate $candidate,
-        public readonly ?string    $transactionNumber,
+        public readonly string    $transactionNumber,
         public readonly string    $position,
         public readonly ?JobPosting $jobPosting = null,
     ) {}
@@ -24,14 +24,14 @@ class ApplicationSubmitted extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'DepEd Cavite – Application Received: ' . $this->position,
+            subject: 'DepEd Cavite – Application Code Assigned (' . $this->transactionNumber . ')',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            view: 'mail.application-submitted',
+            view: 'mail.application-code',
             with: [
                 'jobPosting' => $this->jobPosting,
             ],

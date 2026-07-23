@@ -192,5 +192,18 @@ Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy'])->
 Route::get('/records', [RecordsController::class, 'index'])->name('records.index');
 Route::post('/records/{id}/assign-code', [RecordsController::class, 'assignCode'])->name('records.assign-code');
 
+// Signatories -- one page (signatories.index), one section per document
+// type. Add a new document type by copying the ier-signatories.* group
+// below with a new prefix/controller, NOT by adding fields to these.
+Route::get('/signatories', [\App\Http\Controllers\SignatoriesPageController::class, 'index'])->name('signatories.index');
+
+Route::post('/signatories/ier', [\App\Http\Controllers\IERSignatoryController::class, 'store'])->name('ier-signatories.store');
+Route::put('/signatories/ier/{ierSignatory}', [\App\Http\Controllers\IERSignatoryController::class, 'update'])->name('ier-signatories.update');
+Route::delete('/signatories/ier/{ierSignatory}', [\App\Http\Controllers\IERSignatoryController::class, 'destroy'])->name('ier-signatories.destroy');
+
+Route::post('/signatories/qualification-notice', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'store'])->name('qualification-notice-signatories.store');
+Route::put('/signatories/qualification-notice/{qualificationNoticeSignatory}', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'update'])->name('qualification-notice-signatories.update');
+Route::delete('/signatories/qualification-notice/{qualificationNoticeSignatory}', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'destroy'])->name('qualification-notice-signatories.destroy');
+
 // Activity Log Book (added by install_activity_log_book.php)
 Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');

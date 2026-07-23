@@ -951,9 +951,17 @@ class JobPostingController extends Controller
 
         // Footer -- "Prepared and certified correct by"
         $footerStart = $row + 2;
+        // Prefer the first configured IER signatory (Signatories admin
+        // page). Falls back to the logged-in user's name + a generic
+        // title if none has been configured yet, so this doesn't break
+        // before HR sets one up. If more than one IER signatory is ever
+        // configured, this uses the first one -- the export template
+        // only has room for a single "certified by" block.
+        $ierSignatory = \App\Models\IERSignatory::orderBy('id')->first();
+
         $sheet->setCellValue('O' . $footerStart, 'Prepared and certified correct by:');
-        $sheet->setCellValue('O' . ($footerStart + 3), strtoupper(auth()->user()->name ?? ''));
-        $sheet->setCellValue('O' . ($footerStart + 4), 'Human Resource Management Officer');
+        $sheet->setCellValue('O' . ($footerStart + 3), strtoupper($ierSignatory->name ?? auth()->user()->name ?? ''));
+        $sheet->setCellValue('O' . ($footerStart + 4), $ierSignatory->position ?? 'Human Resource Management Officer');
         $sheet->setCellValue('O' . ($footerStart + 5), 'Date: _______________');
         $sheet->getStyle('O' . $footerStart . ':O' . ($footerStart + 5))->getFont()->setName($font)->setSize(18);
         $sheet->getStyle('O' . ($footerStart + 3))->getFont()->setBold(true);

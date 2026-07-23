@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\ApplicationSubmitted;
+use App\Mail\ApplicationCodeAssigned;
 use App\Models\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,10 +27,9 @@ class RecordsController extends Controller
 
     /**
      * Records has checked the applicant's requirements and is now
-     * assigning the official SDO-YYYY-#### Application Code. Re-sends the
-     * same ApplicationSubmitted email, now with the code populated -- the
-     * template shows different wording depending on whether a code is
-     * present (see resources/views/emails/application-submitted.blade.php).
+     * assigning the official SDO-YYYY-#### Application Code. Sends a
+     * dedicated ApplicationCodeAssigned email containing the code
+     * (see resources/views/mail/application-code.blade.php).
      */
     public function assignCode($id)
     {
@@ -46,7 +45,7 @@ class RecordsController extends Controller
 
         try {
             Mail::to($application->candidate->email)
-                ->send(new ApplicationSubmitted(
+                ->send(new ApplicationCodeAssigned(
                     $application->candidate,
                     $application->transaction_number,
                     $application->jobPosting->title ?? '',

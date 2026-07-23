@@ -178,6 +178,7 @@
                 <a href="{{ route('applications.index') }}" class="nav-link {{ request()->routeIs('applications.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Applications">
                     <i class="bi bi-person-lines-fill"></i> <span class="nav-label">Applications</span>
                 </a>
+
                 {{-- "Scheduling" (interviews.*) and "Assessment & ranking"
                      (assessments.*) removed from the sidebar per request.
                      Routes/controllers/views are untouched -- only these
@@ -189,8 +190,14 @@
                 {{-- "Talent pool" (talent-pool.*) and "Pipelines" (pipelines.*)
                      removed from the sidebar per request. Routes/controllers/
                      views are untouched -- only these nav links are hidden. --}}
-                <a href="{{ route('appointments.index') }}" class="nav-link {{ request()->routeIs('appointments.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Appointment & onboarding">
-                    <i class="bi bi-file-earmark-check"></i> <span class="nav-label">Appointment &amp; onboarding</span>
+                <a href="{{ route('signatories.index') }}" class="nav-link {{ request()->routeIs('signatories.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Signatories">
+                    <i class="bi bi-pen"></i> <span class="nav-label">Signatories</span>
+                </a>
+                <a href="{{ route('salary-grades.index') }}" class="nav-link {{ request()->routeIs('salary-grades.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Salary Grade">
+                    <i class="bi bi-cash-coin"></i> <span class="nav-label">Salary Grade</span>
+                </a>
+                <a href="{{ route('records.index') }}" class="nav-link {{ request()->routeIs('records.*') ? 'active' : '' }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Records">
+                    <i class="bi bi-file-earmark-text"></i> <span class="nav-label">Records</span>
                 </a>
             </div>
         </nav>

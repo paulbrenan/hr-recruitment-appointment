@@ -153,7 +153,7 @@
 @push('scripts')
 <script>
     // ── SG/step → compensation live preview ──────────────────────────────────
-    const sgTable = @json(config('salary_grades.table'));
+    const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
 
     function updateAmountHint() {
         const sg   = parseInt(document.getElementById('sgSelect').value);
@@ -174,4 +174,4 @@
 
     // Respond modal removed — no JS needed for accept/decline
 </script>
-@endpush
+@endpushp

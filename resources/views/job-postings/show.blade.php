@@ -660,6 +660,9 @@
                                 <i class="bi bi-plus-lg me-1"></i> New schedule
                             </button>
                             @endif
+                            <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-outline-secondary ms-2">
+                                <i class="bi bi-file-earmark-excel me-1"></i> Export IER
+                            </a>
                         </div>
                     </div>
 
@@ -696,7 +699,26 @@
                             @endphp
                             <tr>
                                 <td>
-                                    <div class="d-flex flex-wrap gap-1">
+                                    @php
+                                        $sessInfoData = [
+                                            'scheduled_at' => $sessFirst->scheduled_at ? \Carbon\Carbon::parse($sessFirst->scheduled_at)->format('M d, Y h:i A') : null,
+                                            'location' => $sessFirst->location,
+                                            'applicant_count' => $sessAppCount,
+                                            'panelists' => $sessFirst->panelists->map(fn ($p) => ['name' => $p->name, 'email' => $p->email])->values(),
+                                            'types' => $sessTypes->map(function ($t) use ($sessionSchedules) {
+                                                $typeSchedules = $sessionSchedules->where('type', $t);
+                                                $statuses = $typeSchedules->pluck('status')->unique()->map(fn ($s) => str_replace('_', ' ', ucfirst($s)))->implode(', ');
+                                                $remarks = $typeSchedules->pluck('remarks')->filter()->unique()->implode(' | ');
+                                                return [
+                                                    'type' => str_replace('_', ' ', ucfirst($t)),
+                                                    'status' => $statuses,
+                                                    'remarks' => $remarks ?: null,
+                                                ];
+                                            })->values(),
+                                        ];
+                                    @endphp
+                                    <div class="d-flex flex-wrap gap-1" role="button" title="View schedule details"
+                                         onclick="showScheduleInfo(this)" data-info="{{ json_encode($sessInfoData) }}">
                                         @foreach ($sessTypes as $t)
                                         <span class="badge text-bg-light text-dark border" style="font-size:0.75rem;">{{ str_replace('_',' ',ucfirst($t)) }}</span>
                                         @endforeach
@@ -847,6 +869,47 @@
                     </div>
                     @endforeach
                     @endif
+
+                    <div class="modal fade" id="scheduleInfoModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h6 class="modal-title">Schedule details</h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Date &amp; time</div>
+                                        <div class="fw-medium" id="si-scheduled-at">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Venue</div>
+                                        <div class="fw-medium" id="si-location">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Applicants</div>
+                                        <div class="fw-medium" id="si-applicant-count">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small mb-1">Type breakdown</div>
+                                        <table class="table table-sm mb-0" style="font-size:0.85rem;">
+                                            <thead>
+                                                <tr><th>Type</th><th>Status</th><th>Remarks</th></tr>
+                                            </thead>
+                                            <tbody id="si-types-body"></tbody>
+                                        </table>
+                                    </div>
+                                    <div>
+                                        <div class="text-muted small mb-1">Panelists</div>
+                                        <ul class="mb-0 ps-3" id="si-panelists-list" style="font-size:0.85rem;"></ul>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -883,6 +946,69 @@
                     <i class="bi bi-file-earmark-text me-1"></i> View / Print CAR
                 </button>
                 @endif
+            </div>
+
+            {{-- Assessment criteria --}}
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Assessment criteria</h6>
+                        <span class="badge {{ $remainingWeight > 0 ? 'text-bg-light text-dark border' : 'text-bg-success' }}">
+                            {{ $usedWeight }}% used &middot; {{ $remainingWeight }}% remaining
+                        </span>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        @forelse ($criteria as $c)
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 small d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-medium">{{ $c->name }}</div>
+                                    <div class="text-muted">{{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}% weight</div>
+                                </div>
+                                @if ($posting->status !== 'closed')
+                                <form method="POST" action="{{ route('assessments.criteria.destroy', $c->id) }}"
+                                      onsubmit="return confirm('Remove this criterion?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
+                                </form>
+                                @endif
+                            </div>
+                        </div>
+                        @empty
+                        <div class="col-12"><p class="text-muted small mb-0">No criteria defined yet.</p></div>
+                        @endforelse
+                    </div>
+                    @if ($posting->status === 'closed')
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="This posting is closed.">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @elseif ($remainingWeight > 0)
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCriterionModal">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @else
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="No weight remaining">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @endif
+
+                    @if ($criteria->isNotEmpty() && $posting->status !== 'closed')
+                    <form method="POST" action="{{ route('assessments.criteria.destroy-all') }}" class="d-inline ms-2"
+                          onsubmit="return confirm('Delete ALL {{ $criteria->count() }} assessment criteria for this posting? This cannot be undone.')">
+                        @csrf @method('DELETE')
+                        <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash me-1"></i> Delete all
+                        </button>
+                    </form>
+                    @endif
+
+                    @if ($posting->status !== 'closed')
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#importCriteriaModal">
+                        <i class="bi bi-upload me-1"></i> Scan file for criteria
+                    </button>
+                    @endif
+                </div>
             </div>
 
             {{-- Ranking --}}
@@ -1000,69 +1126,6 @@
                     @endif
                 </div>
             </div>
-
-            {{-- Assessment criteria --}}
-            <div class="card">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="mb-0">Assessment criteria</h6>
-                        <span class="badge {{ $remainingWeight > 0 ? 'text-bg-light text-dark border' : 'text-bg-success' }}">
-                            {{ $usedWeight }}% used &middot; {{ $remainingWeight }}% remaining
-                        </span>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        @forelse ($criteria as $c)
-                        <div class="col-md-4">
-                            <div class="border rounded p-2 small d-flex justify-content-between align-items-start">
-                                <div>
-                                    <div class="fw-medium">{{ $c->name }}</div>
-                                    <div class="text-muted">{{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}% weight</div>
-                                </div>
-                                @if ($posting->status !== 'closed')
-                                <form method="POST" action="{{ route('assessments.criteria.destroy', $c->id) }}"
-                                      onsubmit="return confirm('Remove this criterion?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
-                                </form>
-                                @endif
-                            </div>
-                        </div>
-                        @empty
-                        <div class="col-12"><p class="text-muted small mb-0">No criteria defined yet.</p></div>
-                        @endforelse
-                    </div>
-                    @if ($posting->status === 'closed')
-                    <button class="btn btn-sm btn-outline-secondary" disabled title="This posting is closed.">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @elseif ($remainingWeight > 0)
-                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCriterionModal">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @else
-                    <button class="btn btn-sm btn-outline-secondary" disabled title="No weight remaining">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @endif
-
-                    @if ($criteria->isNotEmpty() && $posting->status !== 'closed')
-                    <form method="POST" action="{{ route('assessments.criteria.destroy-all') }}" class="d-inline ms-2"
-                          onsubmit="return confirm('Delete ALL {{ $criteria->count() }} assessment criteria for this posting? This cannot be undone.')">
-                        @csrf @method('DELETE')
-                        <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                            <i class="bi bi-trash me-1"></i> Delete all
-                        </button>
-                    </form>
-                    @endif
-
-                    @if ($posting->status !== 'closed')
-                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#importCriteriaModal">
-                        <i class="bi bi-upload me-1"></i> Scan file for criteria
-                    </button>
-                    @endif
-                </div>
-            </div>
         </div>
 
         {{-- ══ STEP 5 ══════════════════════════════════════════════════════ --}}
@@ -1090,9 +1153,53 @@
                                 @foreach ($offers as $o)
                                 @php
                                     $offerColors = ['draft' => 'secondary', 'sent' => 'primary', 'accepted' => 'success', 'declined' => 'danger', 'expired' => 'dark'];
+                                    $offerApp = $o->application;
+                                    $offerCand = $offerApp->candidate ?? null;
+                                    $offerPlace = $offerApp ? (optional($offerApp->jobPostingLocation)->place_of_assignment ?? $posting->place_of_assignment ?? null) : null;
+                                    $offerCheckData = $offerApp->qualification_check ?? [];
+                                    $offerCriteria = [];
+                                    foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ock => $ocl) {
+                                        if (isset($offerCheckData['criteria'][$ock])) {
+                                            $offerCriteria[] = [
+                                                'label' => $ocl,
+                                                'actual' => $offerCheckData['criteria'][$ock]['actual'] ?? null,
+                                                'passed' => (bool) ($offerCheckData['criteria'][$ock]['passed'] ?? false),
+                                            ];
+                                        }
+                                    }
+                                    $offerInfoData = [
+                                        'name' => $offerCand->full_name ?? 'Unknown',
+                                        'email' => $offerCand->email ?? null,
+                                        'phone' => $offerCand->phone ?? null,
+                                        'address' => $offerCand->address ?? null,
+                                        'age' => $offerCand->age ?? null,
+                                        'sex' => $offerCand->sex ?? null,
+                                        'civil_status' => $offerCand->civil_status ?? null,
+                                        'religion' => $offerCand->religion ?? null,
+                                        'disability' => $offerCand->disability ?? null,
+                                        'ethnic_group' => $offerCand->ethnic_group ?? null,
+                                        'education' => $offerCand->education ?? null,
+                                        'training_hours' => $offerCand->training_hours ?? null,
+                                        'years_experience' => $offerCand->years_experience ?? null,
+                                        'eligibility' => $offerCand->eligibility ?? null,
+                                        'transaction_number' => $offerApp->transaction_number ?? null,
+                                        'applied_at' => $offerApp && $offerApp->applied_at ? \Carbon\Carbon::parse($offerApp->applied_at)->format('M d, Y') : null,
+                                        'status' => $offerApp ? str_replace('_', ' ', ucfirst($offerApp->status)) : null,
+                                        'place_of_assignment' => $offerPlace,
+                                        'notes' => $offerApp->notes ?? null,
+                                        'qualification_result' => ($offerApp && $offerApp->qualification_result) ? ucfirst(str_replace('_', ' ', $offerApp->qualification_result)) : null,
+                                        'criteria' => $offerCriteria,
+                                    ];
                                 @endphp
                                 <tr>
-                                    <td class="fw-medium">{{ $o->application->candidate->full_name ?? 'Unknown' }}</td>
+                                    <td class="fw-medium">
+                                        <span role="button" style="border-bottom: 1px dashed #adb5bd;"
+                                              title="View applicant information"
+                                              onclick="showApplicantInfo(this)"
+                                              data-info="{{ json_encode($offerInfoData) }}">
+                                            {{ $offerCand->full_name ?? 'Unknown' }}
+                                        </span>
+                                    </td>
                                     <td>{{ $o->application->candidate->email ?? '—' }}</td>
                                     <td>{{ $o->offer_sent_at ? \Carbon\Carbon::parse($o->offer_sent_at)->format('M d, Y') : '—' }}</td>
                                     <td>
@@ -1298,8 +1405,7 @@
                         // grade's Step 1 amount. Still just a starting
                         // point -- HR can edit the peso field afterward and
                         // that typed value always wins on submit.
-                        const sgTable = @json(config('salary_grades.table'));
-                        const sgOverrideSel = document.getElementById('offerSgOverrideSelect');
+                        const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
                         const compInput = document.getElementById('offerCompensationOverride');
                         sgOverrideSel?.addEventListener('change', function () {
                             const grade = parseInt(this.value, 10);
@@ -1608,6 +1714,7 @@
                         @endif
                         <input type="text" name="{{ $key }}_actual" class="form-control form-control-sm qual-actual-input"
                                data-criterion="{{ $key }}"
+                               data-required="{{ $meta['required'] }}"
                                placeholder="Candidate's actual {{ strtolower($meta['label']) }}...">
                     </div>
                     @endforeach
@@ -1886,7 +1993,7 @@ switchStep(activeStep);
 // ── Advance pipeline ────────────────────────────────────────────────────────
 // ── Step 5: SG/step -> compensation live preview ────────────────────────
 (function () {
-    const sgTable = @json(config('salary_grades.table'));
+    const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
     const sgSel   = document.getElementById('offerSgSelect');
     const stepSel = document.getElementById('offerStepSelect');
     const hint    = document.getElementById('offerSgAmountHint');
@@ -1907,6 +2014,37 @@ switchStep(activeStep);
     stepSel.addEventListener('change', updateOfferAmountHint);
     updateOfferAmountHint();
 })();
+
+// ── Schedule info modal (triggered by clicking a session's Type badges) ─
+function showScheduleInfo(el) {
+    const data = JSON.parse(el.getAttribute('data-info'));
+
+    document.getElementById('si-scheduled-at').textContent = data.scheduled_at || '—';
+    document.getElementById('si-location').textContent = data.location || '—';
+    document.getElementById('si-applicant-count').textContent = data.applicant_count + (data.applicant_count === 1 ? ' applicant' : ' applicants');
+
+    const typesBody = document.getElementById('si-types-body');
+    typesBody.innerHTML = '';
+    (data.types || []).forEach(function (t) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + t.type + '</td><td>' + (t.status || '—') + '</td><td>' + (t.remarks || '—') + '</td>';
+        typesBody.appendChild(tr);
+    });
+
+    const panelistsList = document.getElementById('si-panelists-list');
+    panelistsList.innerHTML = '';
+    if (!data.panelists || data.panelists.length === 0) {
+        panelistsList.innerHTML = '<li class="text-muted">No panelists assigned</li>';
+    } else {
+        data.panelists.forEach(function (p) {
+            const li = document.createElement('li');
+            li.textContent = p.name + (p.email ? ' — ' + p.email : '');
+            panelistsList.appendChild(li);
+        });
+    }
+
+    new bootstrap.Modal(document.getElementById('scheduleInfoModal')).show();
+}
 
 function advanceStep() {
     const msgs = {
@@ -1998,6 +2136,34 @@ document.getElementById('qualCheckModal')?.addEventListener('show.bs.modal', fun
         const targetId = passed === true ? 'qc_' + key + '_yes' : (passed === false ? 'qc_' + key + '_no' : null);
         if (targetId) document.getElementById(targetId)?.setAttribute('checked', 'checked'), document.getElementById(targetId).checked = true;
     });
+
+    // Auto-suggest Qualified/Not-qualified for criteria where both the
+    // requirement and the candidate's actual value are plain numbers
+    // (experience years, training hours). This only pre-checks a radio
+    // as a starting suggestion -- HR can still click the other option
+    // before saving. Education/eligibility are never auto-suggested,
+    // since matching those safely requires human judgment (degree
+    // equivalencies, substitutable eligibilities, etc.), not a number
+    // comparison. A criterion HR already saved a decision for (handled
+    // above) is never touched here.
+    const qcNumericCriteria = ['experience', 'training'];
+    function qcExtractNumber(str) {
+        if (!str) return null;
+        const match = String(str).match(/(\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : null;
+    }
+    qcNumericCriteria.forEach(key => {
+        if (criteria[key]?.passed !== undefined) return; // already decided -- leave as-is
+        const input = document.querySelector('.qual-actual-input[data-criterion="' + key + '"]');
+        if (!input) return;
+        const requiredNum = qcExtractNumber(input.dataset.required);
+        const actualNum = qcExtractNumber(input.value);
+        if (requiredNum === null || actualNum === null) return; // can't parse cleanly -- leave blank, HR decides
+        const suggestedId = actualNum >= requiredNum ? 'qc_' + key + '_yes' : 'qc_' + key + '_no';
+        const el = document.getElementById(suggestedId);
+        if (el) el.checked = true;
+    });
+
     document.getElementById('qualCheckNotes').value = check.notes ?? '';
 });
 
@@ -2083,6 +2249,57 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
                 var disposition = response.headers.get('Content-Disposition') || '';
                 var match = disposition.match(/filename="?([^";]+)"?/);
                 var filename = match ? match[1] : 'qualifications.xlsx';
+                return response.blob().then(function (blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function (result) {
+                var blobUrl = window.URL.createObjectURL(result.blob);
+                var tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = result.filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                window.URL.revokeObjectURL(blobUrl);
+            })
+            .catch(function (err) {
+                alert('Could not export: ' + err.message);
+            })
+            .finally(function () {
+                btn.classList.remove('disabled');
+                btn.innerHTML = originalHtml;
+            });
+    });
+})();
+
+// Export IER: same problem/fix as the export-qualifications button above --
+// fetch as blob so the button never depends on a page navigation event to
+// reset it. The anchor has data-no-loader, so page-loader.js's global
+// click listener skips it and never shows the full-screen overlay for
+// this button in the first place.
+(function () {
+    var btn = document.getElementById('export-ier-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var url = btn.getAttribute('href');
+        var originalHtml = btn.innerHTML;
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Exporting…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) {
+                        throw new Error('Export failed (HTTP ' + response.status + '). ' + text.slice(0, 200));
+                    });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename="?([^";]+)"?/);
+                var filename = match ? match[1] : 'IER.xlsx';
                 return response.blob().then(function (blob) {
                     return { blob: blob, filename: filename };
                 });

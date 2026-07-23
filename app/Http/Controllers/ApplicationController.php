@@ -286,35 +286,42 @@ class ApplicationController extends Controller
             ->whereNotNull('qualification_check')
             ->get();
 
+        // Previously this looped synchronously with sleep(12) between each
+        // send to stay under the Mailtrap sandbox's rolling rate limit.
+        // That blocked the HTTP request for (count-1)*12 seconds -- fine
+        // for a handful of applicants, but with hundreds/thousands it blew
+        // straight through PHP's 300s max_execution_time (this is the
+        // "Maximum execution time of 300 seconds exceeded" fatal error at
+        // this exact line). Each send is now queued with a staggered
+        // delay instead, so the request returns immediately and the
+        // throttle is enforced by the queue worker over time, not by
+        // blocking. Requires a queue worker to be running
+        // (`php artisan queue:work`) with QUEUE_CONNECTION set to
+        // something other than "sync" -- with the sync driver this would
+        // still block just as before.
         $sent = 0;
-        $first = true;
+        $i = 0;
         foreach ($applications as $application) {
-            // Throttle: mail sandboxes (e.g. Mailtrap testing plan) reject
-            // rapid consecutive sends with "550 Too many emails per
-            // second". A short pause between sends keeps us under that
-            // limit without meaningfully slowing down the request.
-            if (!$first) {
-                // Mailtrap's Sandbox rate limit is a rolling 10-second
-                // window (not literally "per second" despite the error
-                // text) -- 12s clears it with margin.
-                sleep(12);
-            }
-            $first = false;
+            $delaySeconds = $i * 12;
+            $i++;
 
-            try {
-                $application->candidate->notify(new QualificationResultNotification($application));
-                $application->update(['qualification_notified_at' => now()]);
-                $sent++;
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Bulk qualification notice failed for application ' . $application->id . ': ' . $e->getMessage());
-            }
+            dispatch(function () use ($application) {
+                try {
+                    $application->candidate->notify(new QualificationResultNotification($application));
+                    $application->update(['qualification_notified_at' => now()]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Bulk qualification notice failed for application ' . $application->id . ': ' . $e->getMessage());
+                }
+            })->delay(now()->addSeconds($delaySeconds));
+
+            $sent++;
         }
 
         $label = $validated['result'] === 'qualified' ? 'qualified' : 'disqualified';
 
         return redirect()
             ->route('job-postings.show', ['id' => $jobPostingId, 'step' => 2])
-            ->with('success', "Emailed qualification result to {$sent} {$label} applicant(s).");
+            ->with('success', "Queued qualification result emails for {$sent} {$label} applicant(s). They'll go out gradually in the background.");
     }
 
     /**
@@ -354,43 +361,49 @@ class ApplicationController extends Controller
                 ->with('error', 'No applicants left to notify — everyone eligible has already been emailed.');
         }
 
+        // Same fix as sendAllQualificationNotices() above: this is the
+        // exact method/line the "Maximum execution time of 300 seconds
+        // exceeded" fatal error was thrown from. sleep(12) per applicant
+        // blocked the request for hours once the applicant count reached
+        // the hundreds; each send is now queued with a staggered delay so
+        // the request returns immediately. Requires a queue worker
+        // running (`php artisan queue:work`) on a non-"sync" connection.
         $sent = 0;
-        $first = true;
+        $i = 0;
 
         foreach ($applications as $application) {
-            // Same Mailtrap-sandbox throttle used by sendAllQualificationNotices().
-            if (!$first) {
-                sleep(12);
-            }
-            $first = false;
-
             $schedule = $application->interviewSchedules->first();
             $isQualified = $application->qualification_result === 'qualified';
+            $delaySeconds = $i * 12;
+            $i++;
 
-            try {
-                if ($isQualified && $schedule) {
-                    $application->candidate->notify(new QualifiedScheduleNotification($application, $schedule));
-                } elseif ($isQualified && !$schedule) {
-                    // Qualified but no schedule yet -- honest, distinct
-                    // notice. Previously this forced the DISQUALIFIED
-                    // template via $overridePassed = false, which
-                    // contradicted the qualification_result (and the
-                    // criteria table) that same email displayed.
-                    $application->candidate->notify(new QualifiedPendingScheduleNotification($application));
-                } else {
-                    // Genuinely not qualified.
-                    $application->candidate->notify(new QualificationResultNotification($application));
+            dispatch(function () use ($application, $schedule, $isQualified) {
+                try {
+                    if ($isQualified && $schedule) {
+                        $application->candidate->notify(new QualifiedScheduleNotification($application, $schedule));
+                    } elseif ($isQualified && !$schedule) {
+                        // Qualified but no schedule yet -- honest, distinct
+                        // notice. Previously this forced the DISQUALIFIED
+                        // template via $overridePassed = false, which
+                        // contradicted the qualification_result (and the
+                        // criteria table) that same email displayed.
+                        $application->candidate->notify(new QualifiedPendingScheduleNotification($application));
+                    } else {
+                        // Genuinely not qualified.
+                        $application->candidate->notify(new QualificationResultNotification($application));
+                    }
+
+                    $application->update(['schedule_notice_sent_at' => now()]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Bulk schedule notice failed for application ' . $application->id . ': ' . $e->getMessage());
                 }
+            })->delay(now()->addSeconds($delaySeconds));
 
-                $application->update(['schedule_notice_sent_at' => now()]);
-                $sent++;
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Bulk schedule notice failed for application ' . $application->id . ': ' . $e->getMessage());
-            }
+            $sent++;
         }
 
         return redirect()
             ->route('job-postings.show', ['id' => $jobPostingId, 'step' => 3])
-            ->with('success', "Emailed {$sent} applicant(s).");
+            ->with('success', "Queued emails for {$sent} applicant(s). They'll go out gradually in the background.");
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\JobPosting;
 use App\Models\JobPostingLocation;
+use App\Models\Panelist;
 use App\Models\PdfImportBatch;
 use App\Jobs\ProcessPdfImportJob;
 use Illuminate\Http\Request;
@@ -141,6 +142,7 @@ class JobPostingImportController extends Controller
             'grouped' => $grouped,
             'requirements' => $batch->requirements ?? ['mandatory' => [], 'additional' => ''],
             'newlyRegisteredTitles' => $batch->newly_registered_titles ?? [],
+            'panelists' => Panelist::orderBy('name')->get(),
         ]);
     }
 
@@ -155,6 +157,25 @@ class JobPostingImportController extends Controller
     public function confirm(Request $request, $batchId)
     {
         $batch = PdfImportBatch::findOrFail($batchId);
+
+        // OCR occasionally grabs an over-long stray block of text into a
+        // location_place field (garbled scan, table lines misread, etc.),
+        // which used to hard-fail validation below with e.g. "The
+        // rows.1.location_place.0 field must not be greater than 500
+        // characters" -- killing the ENTIRE confirm submission and
+        // discarding every row HR had already reviewed/edited, not just
+        // the one bad field. Truncate any over-length entries up front so
+        // a single garbled OCR read can't take down the whole import; HR
+        // can still fix the truncated text on the posting afterward.
+        $rows = $request->input('rows', []);
+        foreach ($rows as $i => $row) {
+            foreach (($row['location_place'] ?? []) as $j => $place) {
+                if (is_string($place) && mb_strlen($place) > 500) {
+                    $rows[$i]['location_place'][$j] = mb_substr(trim($place), 0, 500);
+                }
+            }
+        }
+        $request->merge(['rows' => $rows]);
 
         // Atomically claim this batch so a duplicate/concurrent submission
         // (double-click, browser back+resubmit, retry, two tabs, etc.)
@@ -185,6 +206,14 @@ class JobPostingImportController extends Controller
         'rows.*.qualification_experience'   => ['nullable', 'string'],
         'rows.*.qualification_eligibility'  => ['nullable', 'string'],
         'rows.*.duties_responsibilities'    => ['nullable', 'string'],
+        'rows.*.posted_at'                  => ['nullable', 'date'],
+        'rows.*.closes_at'                  => ['nullable', 'date'],
+        'rows.*.panelist_ids'               => ['nullable', 'array'],
+        'rows.*.panelist_ids.*'             => ['integer', 'exists:panelists,id'],
+        'rows.*.new_panelist_names'         => ['nullable', 'array'],
+        'rows.*.new_panelist_names.*'       => ['nullable', 'string', 'max:255'],
+        'rows.*.new_panelist_emails'        => ['nullable', 'array'],
+        'rows.*.new_panelist_emails.*'      => ['nullable', 'email', 'max:255'],
             ]);
 
         $selectedIndexes = array_flip($validated['selected'] ?? []);
@@ -276,6 +305,8 @@ class JobPostingImportController extends Controller
                 'qualification_experience' => $rowData['qualification_experience'] ?? null,
                 'qualification_eligibility' => $rowData['qualification_eligibility'] ?? null,
                 'duties_responsibilities' => $rowData['duties_responsibilities'] ?? null,
+                'posted_at' => $rowData['posted_at'] ?? null,
+                'closes_at' => $rowData['closes_at'] ?? null,
                 'mandatory_requirements' => $mandatoryRequirementsText,
                 'additional_requirements' => $additionalRequirementsText,
                 // Legacy single-location columns, kept in sync from the
@@ -287,6 +318,8 @@ class JobPostingImportController extends Controller
                 'employment_type' => 'Regular',
                 'status' => 'open',
             ]);
+
+            $this->syncImportPanelists($posting, $rowData);
 
             if (!empty($locationRows)) {
                 $insertRows = [];
@@ -315,5 +348,50 @@ class JobPostingImportController extends Controller
         return redirect()
             ->route('job-postings.index')
             ->with('success', $message);
+    }
+
+    /**
+     * Panelist assignment for one imported posting, built from that row's
+     * array data. Equivalent to JobPostingController::syncPanelists(),
+     * which can't be reused directly here -- that method is private and
+     * expects a single Request scoped to one posting, whereas confirm()
+     * handles many rows (many postings) from one request at once.
+     *
+     * Expects, per row:
+     *   panelist_ids[]        — checked existing panelist IDs to assign
+     *   new_panelist_names[]  — names of brand-new panelists to create and assign
+     *   new_panelist_emails[] — matching optional emails (same index as names)
+     */
+    private function syncImportPanelists(JobPosting $posting, array $rowData): void
+    {
+        $assignedIds = array_map('intval', $rowData['panelist_ids'] ?? []);
+
+        $newNames  = $rowData['new_panelist_names'] ?? [];
+        $newEmails = $rowData['new_panelist_emails'] ?? [];
+        foreach ($newNames as $i => $name) {
+            $name = trim($name);
+            if ($name === '') {
+                continue;
+            }
+            $email = trim($newEmails[$i] ?? '');
+            $new = Panelist::create([
+                'name'  => $name,
+                'email' => $email !== '' ? $email : null,
+            ]);
+            $assignedIds[] = $new->id;
+        }
+
+        if (empty($assignedIds)) {
+            return;
+        }
+
+        // Every assigned panelist is available, always -- same convention
+        // as the manual posting form (no separate "available" toggle).
+        $syncData = [];
+        foreach (array_unique($assignedIds) as $panelistId) {
+            $syncData[$panelistId] = ['is_available' => true];
+        }
+
+        $posting->panelists()->sync($syncData);
     }
 }

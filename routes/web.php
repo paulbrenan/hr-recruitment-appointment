@@ -8,10 +8,12 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\PanelistController;
 use App\Http\Controllers\JobPostingImportController;
+use App\Http\Controllers\RecordsController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\InterviewScheduleController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\JobOfferController;
+use App\Http\Controllers\SalaryGradeController;
 use App\Http\Controllers\TalentPoolController;
 use App\Http\Controllers\PipelineController;
 use App\Http\Controllers\AppointmentController;
@@ -101,6 +103,7 @@ Route::post('/job-postings', [JobPostingController::class, 'store'])->name('job-
 Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name('job-postings.update');
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
 Route::get('/job-postings/{id}/export-qualifications', [JobPostingController::class, 'exportQualifications'])->name('job-postings.export-qualifications');
+Route::get('/job-postings/{id}/export-ier', [JobPostingController::class, 'exportIER'])->name('job-postings.export-ier');
 Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
 Route::post('/job-postings/{id}/archive', [JobPostingController::class, 'archive'])->name('job-postings.archive');
 Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');
@@ -156,6 +159,15 @@ Route::put('/offers/{id}/send', [JobOfferController::class, 'send'])->name('offe
 Route::put('/offers/{id}/respond', [JobOfferController::class, 'respond'])->name('offers.respond');
 Route::delete('/offers/{id}', [JobOfferController::class, 'destroy'])->name('offers.destroy');
 
+// Salary Grade — imported budget circular schedules (SG table used by Offer management above)
+Route::get('/salary-grades', [SalaryGradeController::class, 'index'])->name('salary-grades.index');
+Route::get('/salary-grades/upload', [SalaryGradeController::class, 'create'])->name('salary-grades.create');
+Route::post('/salary-grades', [SalaryGradeController::class, 'store'])->name('salary-grades.store');
+Route::get('/salary-grades/{budgetCircular}/review', [SalaryGradeController::class, 'review'])->name('salary-grades.review');
+Route::put('/salary-grades/{budgetCircular}', [SalaryGradeController::class, 'update'])->name('salary-grades.update');
+Route::put('/salary-grades/{budgetCircular}/confirm', [SalaryGradeController::class, 'confirm'])->name('salary-grades.confirm');
+Route::delete('/salary-grades/{budgetCircular}', [SalaryGradeController::class, 'destroy'])->name('salary-grades.destroy');
+
 // Talent pool
 Route::get('/talent-pool', [TalentPoolController::class, 'index'])->name('talent-pool.index');
 Route::post('/talent-pool', [TalentPoolController::class, 'store'])->name('talent-pool.store');
@@ -176,5 +188,22 @@ Route::get('/appointments', [AppointmentController::class, 'index'])->name('appo
 Route::post('/appointments', [AppointmentController::class, 'store'])->name('appointments.store');
 Route::put('/appointments/{id}', [AppointmentController::class, 'update'])->name('appointments.update');
 Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy'])->name('appointments.destroy');
+
+Route::get('/records', [RecordsController::class, 'index'])->name('records.index');
+Route::post('/records/{id}/assign-code', [RecordsController::class, 'assignCode'])->name('records.assign-code');
+
+// Signatories -- one page (signatories.index), one section per document
+// type. Add a new document type by copying the ier-signatories.* group
+// below with a new prefix/controller, NOT by adding fields to these.
+Route::get('/signatories', [\App\Http\Controllers\SignatoriesPageController::class, 'index'])->name('signatories.index');
+
+Route::post('/signatories/ier', [\App\Http\Controllers\IERSignatoryController::class, 'store'])->name('ier-signatories.store');
+Route::put('/signatories/ier/{ierSignatory}', [\App\Http\Controllers\IERSignatoryController::class, 'update'])->name('ier-signatories.update');
+Route::delete('/signatories/ier/{ierSignatory}', [\App\Http\Controllers\IERSignatoryController::class, 'destroy'])->name('ier-signatories.destroy');
+
+Route::post('/signatories/qualification-notice', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'store'])->name('qualification-notice-signatories.store');
+Route::put('/signatories/qualification-notice/{qualificationNoticeSignatory}', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'update'])->name('qualification-notice-signatories.update');
+Route::delete('/signatories/qualification-notice/{qualificationNoticeSignatory}', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'destroy'])->name('qualification-notice-signatories.destroy');
+
 // Activity Log Book (added by install_activity_log_book.php)
 Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');

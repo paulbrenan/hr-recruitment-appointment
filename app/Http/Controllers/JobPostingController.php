@@ -296,6 +296,13 @@ class JobPostingController extends Controller
     public function edit($id)
     {
         $posting = JobPosting::findOrFail($id);
+
+        if ($posting->status !== 'open') {
+            return redirect()
+                ->route('job-postings.index')
+                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
+        }
+
         $posting->exists = true;
         $jobTitles  = config('job_titles.titles', []);
         $panelists         = Panelist::orderBy('name')->get();
@@ -308,6 +315,12 @@ class JobPostingController extends Controller
     public function update(Request $request, $id)
     {
         $posting = JobPosting::findOrFail($id);
+
+        if ($posting->status !== 'open') {
+            return redirect()
+                ->route('job-postings.index')
+                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
+        }
 
         $validated = $request->validate($this->rules());
 

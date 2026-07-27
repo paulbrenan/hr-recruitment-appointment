@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Job postings')
-@section('page-title', 'Job postings')
+@section('title', 'Job Vacancy')
+@section('page-title', 'Job Vacancy')
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/jobpostings-index-polish.css') }}">
@@ -73,9 +73,22 @@
     @endif
 </div>
 
+<div class="mb-3">
+    <div class="input-group input-group-sm" style="max-width: 320px;">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input
+            type="text"
+            id="jobTitleSearch"
+            class="form-control"
+            placeholder="Search by job title..."
+            autocomplete="off"
+        >
+    </div>
+</div>
+
 <div class="card">
     <div class="table-responsive">
-        <table class="table align-top mb-0" style="vertical-align: top; table-layout: fixed; width: 100%;">
+        <table class="table align-top mb-0" id="jobPostingsTable" style="vertical-align: top; table-layout: fixed; width: 100%;">
             <colgroup>
                 <col style="width: 32%;">  {{-- Title --}}
                 <col style="width: 9%;">   {{-- Vacancies --}}
@@ -100,7 +113,7 @@
             </thead>
             <tbody>
                 @foreach ($postings as $posting)
-                <tr class="posting-row" style="cursor: pointer; vertical-align: top;" data-href="{{ route('job-postings.show', $posting->id) }}">
+                <tr class="posting-row" style="cursor: pointer; vertical-align: top;" data-href="{{ route('job-postings.show', $posting->id) }}" data-title="{{ strtolower($posting->title) }}">
                     <td class="fw-medium" style="word-break: break-word;">
                         {{ $posting->title }}
                         <div class="text-muted fw-normal" style="font-size: 0.75rem;">
@@ -157,9 +170,16 @@
                         <a href="{{ route('job-postings.show', $posting->id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-eye"></i>
                         </a>
+                        @if ($posting->status === 'open')
                         <a href="{{ route('job-postings.edit', $posting->id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        @else
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled
+                                title="This posting can no longer be edited once it's no longer open.">
+                            <i class="bi bi-lock"></i>
+                        </button>
+                        @endif
                         <form action="{{ route('job-postings.destroy', $posting->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this job posting? This cannot be undone.')">
                             @csrf
                             @method('DELETE')
@@ -182,6 +202,24 @@
             window.location = this.dataset.href;
         });
     });
+
+    // Job title search — client-side filter, all postings are already
+    // rendered in the table so no extra request is needed.
+    (function () {
+        var searchInput = document.getElementById('jobTitleSearch');
+        var table = document.getElementById('jobPostingsTable');
+        if (!searchInput || !table) return;
+
+        var rows = table.querySelectorAll('tbody tr.posting-row');
+
+        searchInput.addEventListener('input', function () {
+            var query = this.value.trim().toLowerCase();
+            rows.forEach(function (row) {
+                var title = row.dataset.title || '';
+                row.style.display = title.indexOf(query) !== -1 ? '' : 'none';
+            });
+        });
+    })();
 </script>
 <script src="{{ asset('js/jobpostings-index-polish.js') }}"></script>
 @endpush

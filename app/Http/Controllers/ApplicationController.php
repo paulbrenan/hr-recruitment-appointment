@@ -25,7 +25,7 @@ class ApplicationController extends Controller
             $query->where('job_posting_id', $request->input('job_posting'));
         }
 
-        $applications = $query->paginate(25)->withQueryString();
+        $applications = $query->paginate(10)->withQueryString();
 
         // For the job-posting filter dropdown, and so it doubles as the
         // scope selector for the Excel export below.

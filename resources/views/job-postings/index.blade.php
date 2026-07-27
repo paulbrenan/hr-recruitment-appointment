@@ -36,38 +36,38 @@
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Archived</div>
-            <div class="fs-4 fw-semibold">{{ $postings->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $postings->total() }}</div>
         </div>
     </div>
     @else
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Open</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'open')->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $statusCounts->get('open', 0) }}</div>
         </div>
     </div>
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Interview</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'interview_scheduled')->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $statusCounts->get('interview_scheduled', 0) }}</div>
         </div>
     </div>
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Ranking</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'ranking')->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $statusCounts->get('ranking', 0) }}</div>
         </div>
     </div>
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Closed</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'closed')->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $statusCounts->get('closed', 0) }}</div>
         </div>
     </div>
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Total vacancies</div>
-            <div class="fs-4 fw-semibold">{{ $postings->sum(fn($p) => $p->locations->sum('vacancies') ?: $p->vacancies) }}</div>
+            <div class="fs-4 fw-semibold">{{ $totalVacancies }}</div>
         </div>
     </div>
     @endif
@@ -193,6 +193,9 @@
             </tbody>
         </table>
     </div>
+</div>
+<div class="mt-3">
+    {{ $postings->onEachSide(1)->links() }}
 </div>
 @push('scripts')
 <script>

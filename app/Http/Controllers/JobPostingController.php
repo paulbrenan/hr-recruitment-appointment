@@ -193,11 +193,26 @@ class JobPostingController extends Controller
         // reliably sets created_at, which let new postings show up
         // out of order. id is guaranteed to increase with every new
         // row regardless of how it was inserted.
-        $postings = JobPosting::with('locations')
+        // Base query (unpaginated) — reused for both the stat cards, which
+        // need to reflect the FULL filtered set, and the paginated list
+        // itself. Cloned before each terminal call since a query builder
+        // gets consumed once executed.
+        $baseQuery = JobPosting::query()
             ->when($showArchived, fn ($q) => $q->where('status', 'archived'))
             ->when(!$showArchived, fn ($q) => $q->where('status', '!=', 'archived'))
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
+
+        // Stat cards: pull just id/status/vacancies (+ locations for the
+        // vacancy sum) across the WHOLE filtered set, independent of which
+        // page is showing. Cheap since it skips every other posting column.
+        $statsSource   = (clone $baseQuery)->with('locations:id,job_posting_id,vacancies')
+            ->get(['id', 'status', 'vacancies']);
+        $statusCounts  = $statsSource->countBy('status');
+        $totalVacancies = $statsSource->sum(fn ($p) => $p->locations->sum('vacancies') ?: $p->vacancies);
+
+        $postings = (clone $baseQuery)->with('locations')
+            ->paginate(10)
+            ->withQueryString();
 
         // Applicant counts for all listed postings in a single grouped
         // query, then attach as a dynamic property -- avoids an N+1
@@ -211,7 +226,7 @@ class JobPostingController extends Controller
             $posting->applicant_count = $applicantCounts->get($posting->id, 0);
         });
 
-        return view('job-postings.index', compact('postings', 'showArchived'));
+        return view('job-postings.index', compact('postings', 'showArchived', 'statusCounts', 'totalVacancies'));
     }
 
     public function create()

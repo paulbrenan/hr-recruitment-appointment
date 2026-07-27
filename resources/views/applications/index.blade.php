@@ -114,6 +114,9 @@
         </table>
     </div>
 </div>
+<div class="mt-3">
+    {{ $applications->onEachSide(1)->links() }}
+</div>
 
 @push('styles')
 <style>

@@ -253,57 +253,7 @@
                         </div>
                     </div>
 
-                    @if ($locations->isNotEmpty())
-                    @php
-                        $locationsVisible = $locations->take(5);
-                        $locationsHidden = $locations->slice(5);
-                    @endphp
-                    <div class="mb-3">
-                        <div class="text-muted small mb-2">Places of assignment</div>
-                        <table class="table table-sm table-bordered mb-0" style="font-size:0.85rem;">
-                            <thead class="table-light">
-                                <tr><th>Place</th><th class="text-center" style="width:100px;">Vacancies</th></tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($locationsVisible as $loc)
-                                <tr>
-                                    <td>{{ $loc->place_of_assignment }}</td>
-                                    <td class="text-center">{{ $loc->vacancies }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            @if ($locationsHidden->isNotEmpty())
-                            <tbody id="overviewLocationsExtra" class="d-none">
-                                @foreach ($locationsHidden as $loc)
-                                <tr>
-                                    <td>{{ $loc->place_of_assignment }}</td>
-                                    <td class="text-center">{{ $loc->vacancies }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            @endif
-                            <tbody>
-                                <tr class="table-light fw-medium">
-                                    <td class="text-end text-muted small">Total</td>
-                                    <td class="text-center">{{ $locations->sum('vacancies') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        @if ($locationsHidden->isNotEmpty())
-                        <button type="button" id="overviewLocationsToggle"
-                                class="btn btn-link btn-sm p-0 mt-2"
-                                style="font-size: 0.8rem; text-decoration: none; color: var(--hr-primary);"
-                                onclick="
-                                    const extra = document.getElementById('overviewLocationsExtra');
-                                    const isHidden = extra.classList.contains('d-none');
-                                    extra.classList.toggle('d-none', !isHidden);
-                                    this.textContent = isHidden ? 'Show less' : 'Show {{ $locationsHidden->count() }} more';
-                                ">
-                            Show {{ $locationsHidden->count() }} more
-                        </button>
-                        @endif
-                    </div>
-                    @endif
+                    {{-- Places-of-assignment breakdown removed — Total vacancies above covers it. --}}
 
                     {{-- Qualification standards — moved above duties --}}
                     @if ($posting->qualification_education || $posting->qualification_training || $posting->qualification_experience || $posting->qualification_eligibility)
@@ -450,7 +400,7 @@
                         // whichever group is first in this array as the default
                         // active tab ($loop->first), and Pending is the one HR
                         // actually needs to act on.
-                        $qualGroups = [
+                        $qualGroupsAll = [
                             'pending'       => $applications->whereNull('qualification_result')->values(),
                             'qualified'     => $applications->where('qualification_result', 'qualified')->values(),
                             'not_qualified' => $applications->where('qualification_result', 'not_qualified')->values(),
@@ -460,15 +410,42 @@
                             'qualified'     => ['label' => 'Qualified', 'color' => 'success'],
                             'not_qualified' => ['label' => 'Disqualified', 'color' => 'danger'],
                         ];
+
+                        // Each tab renders only one page of rows at a time --
+                        // previously all three tabs' full applicant lists
+                        // (up to 1000+ rows each) were rendered into the DOM
+                        // simultaneously and just toggled with d-none, which
+                        // is what made this page heavy to load. A separate
+                        // page query param per tab (pg_pending / pg_qualified
+                        // / pg_not_qualified) lets each tab paginate on its
+                        // own without disturbing the others or the active
+                        // step/tab selection.
+                        $qualPerPage = 50;
+                        $qualPages = [
+                            'pending'       => max(1, (int) request('pg_pending', 1)),
+                            'qualified'     => max(1, (int) request('pg_qualified', 1)),
+                            'not_qualified' => max(1, (int) request('pg_not_qualified', 1)),
+                        ];
+                        $qualGroups = collect($qualGroupsAll)->mapWithKeys(function ($groupApps, $groupKey) use ($qualPages, $qualPerPage) {
+                            return [$groupKey => $groupApps->forPage($qualPages[$groupKey], $qualPerPage)->values()];
+                        });
+
+                        // Which tab is shown expanded on load -- respects
+                        // ?qual_tab= so a Prev/Next click (which reloads the
+                        // page) reopens on the same tab it was clicked from,
+                        // instead of always resetting to Pending.
+                        $activeQualTab = in_array(request('qual_tab'), array_keys($qualGroupsAll), true)
+                            ? request('qual_tab')
+                            : 'pending';
                     @endphp
 
                     {{-- Pill switcher — pick one group to view at a time --}}
                     <div class="qual-pill-tabs mb-3" role="tablist">
-                        @foreach ($qualGroups as $groupKey => $groupApps)
+                        @foreach ($qualGroupsAll as $groupKey => $groupApps)
                         <button type="button"
-                                class="qual-pill-tab {{ $loop->first ? 'active' : '' }}"
+                                class="qual-pill-tab {{ $groupKey === $activeQualTab ? 'active' : '' }}"
                                 data-qual-tab="{{ $groupKey }}"
-                                role="tab" aria-selected="{{ $loop->first ? 'true' : 'false' }}">
+                                role="tab" aria-selected="{{ $groupKey === $activeQualTab ? 'true' : 'false' }}">
                             {{ $qualGroupMeta[$groupKey]['label'] }}
                             <span class="qual-pill-count">{{ $groupApps->count() }}</span>
                         </button>
@@ -517,7 +494,7 @@
                     </style>
 
                     @foreach ($qualGroups as $groupKey => $groupApps)
-                    <div class="qual-tab-panel {{ $loop->first ? '' : 'd-none' }}" data-qual-panel="{{ $groupKey }}">
+                    <div class="qual-tab-panel {{ $groupKey === $activeQualTab ? '' : 'd-none' }}" data-qual-panel="{{ $groupKey }}">
                         @forelse ($groupApps as $app)
                         @php
                             $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
@@ -607,6 +584,30 @@
                         @empty
                         <p class="text-muted small mb-0 py-3 text-center">None in this group.</p>
                         @endforelse
+
+                        @php
+                            $qualTotal = $qualGroupsAll[$groupKey]->count();
+                            $qualLastPage = max(1, (int) ceil($qualTotal / $qualPerPage));
+                            $qualCurrentPage = $qualPages[$groupKey];
+                            $qualParam = 'pg_' . $groupKey;
+                        @endphp
+                        @if ($qualLastPage > 1)
+                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                            <span class="text-muted small">
+                                Page {{ $qualCurrentPage }} of {{ $qualLastPage }} ({{ $qualTotal }} total)
+                            </span>
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-outline-secondary {{ $qualCurrentPage <= 1 ? 'disabled' : '' }}"
+                                   href="{{ $qualCurrentPage > 1 ? request()->fullUrlWithQuery([$qualParam => $qualCurrentPage - 1, 'qual_tab' => $groupKey]) : '#' }}">
+                                    <i class="bi bi-chevron-left"></i> Prev
+                                </a>
+                                <a class="btn btn-outline-secondary {{ $qualCurrentPage >= $qualLastPage ? 'disabled' : '' }}"
+                                   href="{{ $qualCurrentPage < $qualLastPage ? request()->fullUrlWithQuery([$qualParam => $qualCurrentPage + 1, 'qual_tab' => $groupKey]) : '#' }}">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                        @endif
                     </div>
                     @endforeach
 
@@ -660,6 +661,9 @@
                                 <i class="bi bi-plus-lg me-1"></i> New schedule
                             </button>
                             @endif
+                            <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-outline-secondary ms-2">
+                                <i class="bi bi-file-earmark-excel me-1"></i> Export IER
+                            </a>
                         </div>
                     </div>
 
@@ -696,7 +700,26 @@
                             @endphp
                             <tr>
                                 <td>
-                                    <div class="d-flex flex-wrap gap-1">
+                                    @php
+                                        $sessInfoData = [
+                                            'scheduled_at' => $sessFirst->scheduled_at ? \Carbon\Carbon::parse($sessFirst->scheduled_at)->format('M d, Y h:i A') : null,
+                                            'location' => $sessFirst->location,
+                                            'applicant_count' => $sessAppCount,
+                                            'panelists' => $sessFirst->panelists->map(fn ($p) => ['name' => $p->name, 'email' => $p->email])->values(),
+                                            'types' => $sessTypes->map(function ($t) use ($sessionSchedules) {
+                                                $typeSchedules = $sessionSchedules->where('type', $t);
+                                                $statuses = $typeSchedules->pluck('status')->unique()->map(fn ($s) => str_replace('_', ' ', ucfirst($s)))->implode(', ');
+                                                $remarks = $typeSchedules->pluck('remarks')->filter()->unique()->implode(' | ');
+                                                return [
+                                                    'type' => str_replace('_', ' ', ucfirst($t)),
+                                                    'status' => $statuses,
+                                                    'remarks' => $remarks ?: null,
+                                                ];
+                                            })->values(),
+                                        ];
+                                    @endphp
+                                    <div class="d-flex flex-wrap gap-1" role="button" title="View schedule details"
+                                         onclick="showScheduleInfo(this)" data-info="{{ json_encode($sessInfoData) }}">
                                         @foreach ($sessTypes as $t)
                                         <span class="badge text-bg-light text-dark border" style="font-size:0.75rem;">{{ str_replace('_',' ',ucfirst($t)) }}</span>
                                         @endforeach
@@ -847,6 +870,47 @@
                     </div>
                     @endforeach
                     @endif
+
+                    <div class="modal fade" id="scheduleInfoModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h6 class="modal-title">Schedule details</h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Date &amp; time</div>
+                                        <div class="fw-medium" id="si-scheduled-at">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Venue</div>
+                                        <div class="fw-medium" id="si-location">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Applicants</div>
+                                        <div class="fw-medium" id="si-applicant-count">—</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="text-muted small mb-1">Type breakdown</div>
+                                        <table class="table table-sm mb-0" style="font-size:0.85rem;">
+                                            <thead>
+                                                <tr><th>Type</th><th>Status</th><th>Remarks</th></tr>
+                                            </thead>
+                                            <tbody id="si-types-body"></tbody>
+                                        </table>
+                                    </div>
+                                    <div>
+                                        <div class="text-muted small mb-1">Panelists</div>
+                                        <ul class="mb-0 ps-3" id="si-panelists-list" style="font-size:0.85rem;"></ul>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -885,6 +949,69 @@
                 @endif
             </div>
 
+            {{-- Assessment criteria --}}
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Assessment criteria</h6>
+                        <span class="badge {{ $remainingWeight > 0 ? 'text-bg-light text-dark border' : 'text-bg-success' }}">
+                            {{ $usedWeight }}% used &middot; {{ $remainingWeight }}% remaining
+                        </span>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        @forelse ($criteria as $c)
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 small d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-medium">{{ $c->name }}</div>
+                                    <div class="text-muted">{{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}% weight</div>
+                                </div>
+                                @if ($posting->status !== 'closed')
+                                <form method="POST" action="{{ route('assessments.criteria.destroy', $c->id) }}"
+                                      onsubmit="return confirm('Remove this criterion?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
+                                </form>
+                                @endif
+                            </div>
+                        </div>
+                        @empty
+                        <div class="col-12"><p class="text-muted small mb-0">No criteria defined yet.</p></div>
+                        @endforelse
+                    </div>
+                    @if ($posting->status === 'closed')
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="This posting is closed.">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @elseif ($remainingWeight > 0)
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCriterionModal">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @else
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="No weight remaining">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @endif
+
+                    @if ($criteria->isNotEmpty() && $posting->status !== 'closed')
+                    <form method="POST" action="{{ route('assessments.criteria.destroy-all') }}" class="d-inline ms-2"
+                          onsubmit="return confirm('Delete ALL {{ $criteria->count() }} assessment criteria for this posting? This cannot be undone.')">
+                        @csrf @method('DELETE')
+                        <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash me-1"></i> Delete all
+                        </button>
+                    </form>
+                    @endif
+
+                    @if ($posting->status !== 'closed')
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#importCriteriaModal">
+                        <i class="bi bi-upload me-1"></i> Scan file for criteria
+                    </button>
+                    @endif
+                </div>
+            </div>
+
             {{-- Ranking --}}
             <div class="card mb-3">
                 <div class="card-body p-4">
@@ -892,6 +1019,19 @@
                     @if ($rankedCandidates->isEmpty())
                         <p class="text-muted small mb-0 text-center py-3">No applications to rank yet.</p>
                     @else
+                    @php
+                        // Display-only pagination for this on-screen table --
+                        // $rankedCandidates itself stays whole (the CAR
+                        // document below and the offer-eligibility list both
+                        // need every ranked candidate, not just this page).
+                        // Rendering all of them here too was the other big
+                        // contributor to this page being heavy to load/toggle
+                        // between steps, alongside the qualification tabs.
+                        $rankPerPage = 50;
+                        $rankPage = max(1, (int) request('pg_rank', 1));
+                        $rankLastPage = max(1, (int) ceil($rankedCandidates->count() / $rankPerPage));
+                        $rankPageCandidates = $rankedCandidates->forPage($rankPage, $rankPerPage)->values();
+                    @endphp
                     <div class="table-responsive">
                     <table class="table align-middle mb-0" style="font-size:0.875rem;">
                         <thead>
@@ -909,7 +1049,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($rankedCandidates as $i => $cand)
+                            @foreach ($rankPageCandidates as $cand)
+                            @php $i = $cand->rank - 1; @endphp
                             <tr>
                                 <td>
                                     @if ($i === 0 && $cand->total_score > 0)
@@ -997,69 +1138,23 @@
                         </tbody>
                     </table>
                     </div>
-                    @endif
-                </div>
-            </div>
-
-            {{-- Assessment criteria --}}
-            <div class="card">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="mb-0">Assessment criteria</h6>
-                        <span class="badge {{ $remainingWeight > 0 ? 'text-bg-light text-dark border' : 'text-bg-success' }}">
-                            {{ $usedWeight }}% used &middot; {{ $remainingWeight }}% remaining
+                    @if ($rankLastPage > 1)
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                        <span class="text-muted small">
+                            Page {{ $rankPage }} of {{ $rankLastPage }} ({{ $rankedCandidates->count() }} total)
                         </span>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        @forelse ($criteria as $c)
-                        <div class="col-md-4">
-                            <div class="border rounded p-2 small d-flex justify-content-between align-items-start">
-                                <div>
-                                    <div class="fw-medium">{{ $c->name }}</div>
-                                    <div class="text-muted">{{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}% weight</div>
-                                </div>
-                                @if ($posting->status !== 'closed')
-                                <form method="POST" action="{{ route('assessments.criteria.destroy', $c->id) }}"
-                                      onsubmit="return confirm('Remove this criterion?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
-                                </form>
-                                @endif
-                            </div>
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-outline-secondary {{ $rankPage <= 1 ? 'disabled' : '' }}"
+                               href="{{ $rankPage > 1 ? request()->fullUrlWithQuery(['pg_rank' => $rankPage - 1]) : '#' }}">
+                                <i class="bi bi-chevron-left"></i> Prev
+                            </a>
+                            <a class="btn btn-outline-secondary {{ $rankPage >= $rankLastPage ? 'disabled' : '' }}"
+                               href="{{ $rankPage < $rankLastPage ? request()->fullUrlWithQuery(['pg_rank' => $rankPage + 1]) : '#' }}">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
                         </div>
-                        @empty
-                        <div class="col-12"><p class="text-muted small mb-0">No criteria defined yet.</p></div>
-                        @endforelse
                     </div>
-                    @if ($posting->status === 'closed')
-                    <button class="btn btn-sm btn-outline-secondary" disabled title="This posting is closed.">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @elseif ($remainingWeight > 0)
-                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCriterionModal">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @else
-                    <button class="btn btn-sm btn-outline-secondary" disabled title="No weight remaining">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
                     @endif
-
-                    @if ($criteria->isNotEmpty() && $posting->status !== 'closed')
-                    <form method="POST" action="{{ route('assessments.criteria.destroy-all') }}" class="d-inline ms-2"
-                          onsubmit="return confirm('Delete ALL {{ $criteria->count() }} assessment criteria for this posting? This cannot be undone.')">
-                        @csrf @method('DELETE')
-                        <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                            <i class="bi bi-trash me-1"></i> Delete all
-                        </button>
-                    </form>
-                    @endif
-
-                    @if ($posting->status !== 'closed')
-                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#importCriteriaModal">
-                        <i class="bi bi-upload me-1"></i> Scan file for criteria
-                    </button>
                     @endif
                 </div>
             </div>
@@ -1090,9 +1185,53 @@
                                 @foreach ($offers as $o)
                                 @php
                                     $offerColors = ['draft' => 'secondary', 'sent' => 'primary', 'accepted' => 'success', 'declined' => 'danger', 'expired' => 'dark'];
+                                    $offerApp = $o->application;
+                                    $offerCand = $offerApp->candidate ?? null;
+                                    $offerPlace = $offerApp ? (optional($offerApp->jobPostingLocation)->place_of_assignment ?? $posting->place_of_assignment ?? null) : null;
+                                    $offerCheckData = $offerApp->qualification_check ?? [];
+                                    $offerCriteria = [];
+                                    foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ock => $ocl) {
+                                        if (isset($offerCheckData['criteria'][$ock])) {
+                                            $offerCriteria[] = [
+                                                'label' => $ocl,
+                                                'actual' => $offerCheckData['criteria'][$ock]['actual'] ?? null,
+                                                'passed' => (bool) ($offerCheckData['criteria'][$ock]['passed'] ?? false),
+                                            ];
+                                        }
+                                    }
+                                    $offerInfoData = [
+                                        'name' => $offerCand->full_name ?? 'Unknown',
+                                        'email' => $offerCand->email ?? null,
+                                        'phone' => $offerCand->phone ?? null,
+                                        'address' => $offerCand->address ?? null,
+                                        'age' => $offerCand->age ?? null,
+                                        'sex' => $offerCand->sex ?? null,
+                                        'civil_status' => $offerCand->civil_status ?? null,
+                                        'religion' => $offerCand->religion ?? null,
+                                        'disability' => $offerCand->disability ?? null,
+                                        'ethnic_group' => $offerCand->ethnic_group ?? null,
+                                        'education' => $offerCand->education ?? null,
+                                        'training_hours' => $offerCand->training_hours ?? null,
+                                        'years_experience' => $offerCand->years_experience ?? null,
+                                        'eligibility' => $offerCand->eligibility ?? null,
+                                        'transaction_number' => $offerApp->transaction_number ?? null,
+                                        'applied_at' => $offerApp && $offerApp->applied_at ? \Carbon\Carbon::parse($offerApp->applied_at)->format('M d, Y') : null,
+                                        'status' => $offerApp ? str_replace('_', ' ', ucfirst($offerApp->status)) : null,
+                                        'place_of_assignment' => $offerPlace,
+                                        'notes' => $offerApp->notes ?? null,
+                                        'qualification_result' => ($offerApp && $offerApp->qualification_result) ? ucfirst(str_replace('_', ' ', $offerApp->qualification_result)) : null,
+                                        'criteria' => $offerCriteria,
+                                    ];
                                 @endphp
                                 <tr>
-                                    <td class="fw-medium">{{ $o->application->candidate->full_name ?? 'Unknown' }}</td>
+                                    <td class="fw-medium">
+                                        <span role="button" style="border-bottom: 1px dashed #adb5bd;"
+                                              title="View applicant information"
+                                              onclick="showApplicantInfo(this)"
+                                              data-info="{{ json_encode($offerInfoData) }}">
+                                            {{ $offerCand->full_name ?? 'Unknown' }}
+                                        </span>
+                                    </td>
                                     <td>{{ $o->application->candidate->email ?? '—' }}</td>
                                     <td>{{ $o->offer_sent_at ? \Carbon\Carbon::parse($o->offer_sent_at)->format('M d, Y') : '—' }}</td>
                                     <td>
@@ -1298,8 +1437,7 @@
                         // grade's Step 1 amount. Still just a starting
                         // point -- HR can edit the peso field afterward and
                         // that typed value always wins on submit.
-                        const sgTable = @json(config('salary_grades.table'));
-                        const sgOverrideSel = document.getElementById('offerSgOverrideSelect');
+                        const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
                         const compInput = document.getElementById('offerCompensationOverride');
                         sgOverrideSel?.addEventListener('change', function () {
                             const grade = parseInt(this.value, 10);
@@ -1368,7 +1506,7 @@
                     <div class="alert alert-info small py-2 mb-3">
                         <i class="bi bi-info-circle me-1"></i>
                         This will schedule <strong>all qualified applicants</strong> on this posting at once.
-                        {{ $applications->whereIn('status', ['qualified','interview_scheduled','ranked'])->count() }} applicant(s) will be scheduled.
+                        {{ $applications->where('qualification_result', 'qualified')->count() }} applicant(s) will be scheduled.
                     </div>
 
                     <div class="mb-2">
@@ -1608,6 +1746,7 @@
                         @endif
                         <input type="text" name="{{ $key }}_actual" class="form-control form-control-sm qual-actual-input"
                                data-criterion="{{ $key }}"
+                               data-required="{{ $meta['required'] }}"
                                placeholder="Candidate's actual {{ strtolower($meta['label']) }}...">
                     </div>
                     @endforeach
@@ -1696,10 +1835,6 @@
             <div class="modal-header">
                 <h6 class="modal-title"><i class="bi bi-file-earmark-text me-2"></i>Comparative Assessment Result</h6>
                 <div class="d-flex align-items-center gap-2 ms-auto me-2">
-                    <div class="form-check form-check-inline mb-0" style="font-size:0.8rem;">
-                        <input type="checkbox" class="form-check-input" id="carPublicToggle">
-                        <label for="carPublicToggle" class="form-check-label">Public view (conceal names)</label>
-                    </div>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
                         <i class="bi bi-printer me-1"></i> Print
                     </button>
@@ -1708,7 +1843,20 @@
             </div>
             <div class="modal-body">
                 <div id="carDocumentPrintArea">
-                    <div class="text-center fw-bold mb-1">Comparative Assessment Result (CAR)</div>
+                    {{-- Official letterhead: hidden on screen, shown only when printing --}}
+                    <div class="d-none d-print-block text-center mb-2">
+                        <img src="{{ asset('images/deped-logo.png') }}" alt="DepEd Seal" style="height:70px;">
+                        <div style="font-size:0.75rem; line-height:1.2; margin-top:2px;">
+                            Republic of the Philippines<br>
+                            <strong>Department of Education</strong><br>
+                            REGION IV-A<br>
+                            SCHOOLS DIVISION OFFICE OF CAVITE PROVINCE
+                        </div>
+                        <hr style="border-top:2px solid #000; margin:6px 0;">
+                    </div>
+                    <div class="text-center fw-bold mb-1" style="font-size:0.95rem; text-transform:uppercase;">
+                        Comparative Assessment Results – Registry of Qualified Applicants (CAR-EQA)
+                    </div>
                     <div class="text-center text-muted small mb-3">{{ $posting->title }}</div>
                     <div class="row mb-2" style="font-size:0.8rem;">
                         <div class="col-6">Position: <strong>{{ $posting->title }}</strong></div>
@@ -1717,40 +1865,41 @@
                         <div class="col-6">Office: <strong>DepEd Division of Cavite Province</strong></div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered" style="font-size:0.78rem;" id="carDocTable">
+                        <table class="table table-bordered" style="font-size:0.78rem; border:2px solid #000;" id="carDocTable">
                             <thead>
                                 <tr>
-                                    <th>Rank</th>
-                                    <th class="car-confidential">Name</th>
-                                    <th>App. Code</th>
+                                    <th rowspan="2" class="text-center align-middle" style="border:1px solid #000; width:3%;">No.</th>
+                                    <th rowspan="2" class="text-center align-middle" style="border:1px solid #000; width:9%;">Application Code</th>
+                                    <th colspan="{{ count($criteria) + 1 }}" class="text-center" style="border:1px solid #000;">
+                                        Comparative Assessment Results
+                                    </th>
+                                    <th rowspan="2" class="text-center align-middle car-doc-fillable" style="border:1px solid #000; width:5%;">Passed</th>
+                                </tr>
+                                <tr>
                                     @foreach ($criteria as $c)
-                                    <th>{{ $c->name }} ({{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}%)</th>
+                                    <th class="text-center" style="border:1px solid #000;">
+                                        {{ $c->name }}<br>({{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}%)
+                                    </th>
                                     @endforeach
-                                    <th>Total</th>
-                                    <th>Passed</th>
-                                    <th class="car-doc-fillable">Background Investigation</th>
-                                    <th class="car-doc-fillable">Appointment</th>
+                                    <th class="text-center" style="border:1px solid #000;">Total<br>(100 pts)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($rankedCandidates as $i => $cand)
                                 <tr>
-                                    <td class="text-center fw-bold">#{{ $i + 1 }}</td>
-                                    <td class="car-confidential">{{ $cand->candidate_name }}</td>
-                                    <td>{{ $cand->application_code ?? '—' }}</td>
+                                    <td class="text-center fw-bold" style="border:1px solid #000;">{{ $i + 1 }}</td>
+                                    <td class="text-center fw-bold" style="border:1px solid #000;">{{ $cand->application_code ?? '—' }}</td>
                                     @foreach ($criteria as $c)
-                                    <td class="text-center">{{ $cand->scores[$c->id] ?? '—' }}</td>
+                                    <td class="text-center" style="border:1px solid #000;">{{ $cand->scores[$c->id] ?? '—' }}</td>
                                     @endforeach
-                                    <td class="text-center fw-bold">{{ $cand->total_score }}</td>
-                                    <td class="text-center">
+                                    <td class="text-center fw-bold" style="border:1px solid #000;">{{ $cand->total_score }}</td>
+                                    <td class="text-center car-doc-fillable" style="border:1px solid #000;">
                                         @if ($cand->passed ?? false)
                                             <span class="badge text-bg-success">Passed</span>
                                         @else
                                             <span class="badge text-bg-secondary">—</span>
                                         @endif
                                     </td>
-                                    <td></td>
-                                    <td></td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -1886,7 +2035,7 @@ switchStep(activeStep);
 // ── Advance pipeline ────────────────────────────────────────────────────────
 // ── Step 5: SG/step -> compensation live preview ────────────────────────
 (function () {
-    const sgTable = @json(config('salary_grades.table'));
+    const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
     const sgSel   = document.getElementById('offerSgSelect');
     const stepSel = document.getElementById('offerStepSelect');
     const hint    = document.getElementById('offerSgAmountHint');
@@ -1907,6 +2056,37 @@ switchStep(activeStep);
     stepSel.addEventListener('change', updateOfferAmountHint);
     updateOfferAmountHint();
 })();
+
+// ── Schedule info modal (triggered by clicking a session's Type badges) ─
+function showScheduleInfo(el) {
+    const data = JSON.parse(el.getAttribute('data-info'));
+
+    document.getElementById('si-scheduled-at').textContent = data.scheduled_at || '—';
+    document.getElementById('si-location').textContent = data.location || '—';
+    document.getElementById('si-applicant-count').textContent = data.applicant_count + (data.applicant_count === 1 ? ' applicant' : ' applicants');
+
+    const typesBody = document.getElementById('si-types-body');
+    typesBody.innerHTML = '';
+    (data.types || []).forEach(function (t) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + t.type + '</td><td>' + (t.status || '—') + '</td><td>' + (t.remarks || '—') + '</td>';
+        typesBody.appendChild(tr);
+    });
+
+    const panelistsList = document.getElementById('si-panelists-list');
+    panelistsList.innerHTML = '';
+    if (!data.panelists || data.panelists.length === 0) {
+        panelistsList.innerHTML = '<li class="text-muted">No panelists assigned</li>';
+    } else {
+        data.panelists.forEach(function (p) {
+            const li = document.createElement('li');
+            li.textContent = p.name + (p.email ? ' — ' + p.email : '');
+            panelistsList.appendChild(li);
+        });
+    }
+
+    new bootstrap.Modal(document.getElementById('scheduleInfoModal')).show();
+}
 
 function advanceStep() {
     const msgs = {
@@ -1944,21 +2124,82 @@ function advanceStep() {
     });
 }
 
-// ── CAR public toggle ───────────────────────────────────────────────────────
-document.getElementById('carPublicToggle')?.addEventListener('change', function () {
-    document.getElementById('carDocTable')?.classList.toggle('public-mode', this.checked);
-});
-
 // ── Print CAR ───────────────────────────────────────────────────────────────
 // Scoped print CSS added inline so it works without a separate stylesheet
 if (!document.getElementById('carPrintStyle')) {
     const s = document.createElement('style');
     s.id = 'carPrintStyle';
     s.textContent = `@media print {
-        body * { visibility: hidden; }
-        #carDocumentPrintArea, #carDocumentPrintArea * { visibility: visible; }
-        #carDocumentPrintArea { position: absolute; top: 0; left: 0; width: 100%; }
-        .car-confidential.public-mode { display: none !important; }
+        body * { visibility: hidden; height: 0 !important; overflow: hidden !important; }
+        #carDocumentPrintArea, #carDocumentPrintArea * {
+            visibility: visible;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        #carDocumentPrintArea {
+            position: absolute; top: 0; left: 0; width: 100%;
+        }
+        /* The blanket height:auto rule above (needed to un-collapse the
+           print area) also overrides the seal's inline style="height:70px",
+           since an !important stylesheet rule beats a plain inline style.
+           Pin it back down so the logo doesn't render at full native size
+           and split across the page break. */
+        #carDocumentPrintArea img {
+            height: 70px !important;
+            width: auto !important;
+        }
+        /* The modal wrapper is what actually caused the blank pages:
+           Bootstrap gives .modal a fixed position and .modal-body a
+           capped, scrollable height. Printing a fixed/scrolling box
+           only prints whatever slice was visible on screen, page
+           after page. Reset all of it to normal flow so the table
+           can paginate naturally. */
+        #carDocumentModal,
+        #carDocumentModal .modal-dialog,
+        #carDocumentModal .modal-dialog-scrollable,
+        #carDocumentModal .modal-content,
+        #carDocumentModal .modal-body {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: none !important;
+        }
+        #carDocumentModal .modal-header,
+        #carDocumentModal .modal-footer {
+            display: none !important;
+        }
+        /* .table-responsive normally scrolls overflow horizontally on
+           screen -- on paper there's no scrollbar, so anything past the
+           visible width was just getting cut off. Let it flow full width
+           instead, and force the table to actually fit that width. */
+        #carDocumentPrintArea .table-responsive {
+            overflow: visible !important;
+            width: 100% !important;
+        }
+        #carDocTable {
+            font-size: 7px;
+            width: 100% !important;
+            table-layout: fixed;
+        }
+        #carDocTable th, #carDocTable td {
+            padding: 2px 3px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        /* Passed / Background Investigation / Appointment columns are
+           only for on-screen reference -- not needed on the printed copy. */
+        #carDocTable .car-doc-fillable {
+            display: none !important;
+        }
+        @page { size: landscape; margin: 8mm; }
     }`;
     document.head.appendChild(s);
 }
@@ -1998,6 +2239,34 @@ document.getElementById('qualCheckModal')?.addEventListener('show.bs.modal', fun
         const targetId = passed === true ? 'qc_' + key + '_yes' : (passed === false ? 'qc_' + key + '_no' : null);
         if (targetId) document.getElementById(targetId)?.setAttribute('checked', 'checked'), document.getElementById(targetId).checked = true;
     });
+
+    // Auto-suggest Qualified/Not-qualified for criteria where both the
+    // requirement and the candidate's actual value are plain numbers
+    // (experience years, training hours). This only pre-checks a radio
+    // as a starting suggestion -- HR can still click the other option
+    // before saving. Education/eligibility are never auto-suggested,
+    // since matching those safely requires human judgment (degree
+    // equivalencies, substitutable eligibilities, etc.), not a number
+    // comparison. A criterion HR already saved a decision for (handled
+    // above) is never touched here.
+    const qcNumericCriteria = ['experience', 'training'];
+    function qcExtractNumber(str) {
+        if (!str) return null;
+        const match = String(str).match(/(\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : null;
+    }
+    qcNumericCriteria.forEach(key => {
+        if (criteria[key]?.passed !== undefined) return; // already decided -- leave as-is
+        const input = document.querySelector('.qual-actual-input[data-criterion="' + key + '"]');
+        if (!input) return;
+        const requiredNum = qcExtractNumber(input.dataset.required);
+        const actualNum = qcExtractNumber(input.value);
+        if (requiredNum === null || actualNum === null) return; // can't parse cleanly -- leave blank, HR decides
+        const suggestedId = actualNum >= requiredNum ? 'qc_' + key + '_yes' : 'qc_' + key + '_no';
+        const el = document.getElementById(suggestedId);
+        if (el) el.checked = true;
+    });
+
     document.getElementById('qualCheckNotes').value = check.notes ?? '';
 });
 
@@ -2083,6 +2352,57 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
                 var disposition = response.headers.get('Content-Disposition') || '';
                 var match = disposition.match(/filename="?([^";]+)"?/);
                 var filename = match ? match[1] : 'qualifications.xlsx';
+                return response.blob().then(function (blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function (result) {
+                var blobUrl = window.URL.createObjectURL(result.blob);
+                var tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = result.filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                window.URL.revokeObjectURL(blobUrl);
+            })
+            .catch(function (err) {
+                alert('Could not export: ' + err.message);
+            })
+            .finally(function () {
+                btn.classList.remove('disabled');
+                btn.innerHTML = originalHtml;
+            });
+    });
+})();
+
+// Export IER: same problem/fix as the export-qualifications button above --
+// fetch as blob so the button never depends on a page navigation event to
+// reset it. The anchor has data-no-loader, so page-loader.js's global
+// click listener skips it and never shows the full-screen overlay for
+// this button in the first place.
+(function () {
+    var btn = document.getElementById('export-ier-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var url = btn.getAttribute('href');
+        var originalHtml = btn.innerHTML;
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Exporting…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) {
+                        throw new Error('Export failed (HTTP ' + response.status + '). ' + text.slice(0, 200));
+                    });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename="?([^";]+)"?/);
+                var filename = match ? match[1] : 'IER.xlsx';
                 return response.blob().then(function (blob) {
                     return { blob: blob, filename: filename };
                 });

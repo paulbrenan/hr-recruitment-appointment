@@ -11,6 +11,7 @@ use App\Models\JobPostingLocation;
 use App\Models\Panelist;
 use App\Services\JobTitleRegistrar;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class JobPostingController extends Controller
@@ -112,7 +113,8 @@ class JobPostingController extends Controller
             'qualification_eligibility' => ['nullable', 'string'],
             'mandatory_requirements' => ['nullable', 'string'],
             'additional_requirements' => ['nullable', 'string'],
-            // place_of_assignment is now managed via job_posting_locations table
+            // place_of_assignment removed — postings now track a single
+            // vacancies number instead of per-school location rows.
             'employment_type' => ['nullable', 'string', 'max:255'],
             'salary_grade' => [
                 'nullable',
@@ -128,7 +130,7 @@ class JobPostingController extends Controller
                     }
                 },
             ],
-            // vacancies is now per-location in job_posting_locations table
+            'vacancies' => ['nullable', 'integer', 'min:1'],
             'posted_at' => [
                 'nullable',
                 'date',
@@ -167,7 +169,13 @@ class JobPostingController extends Controller
 
         foreach ($expired as $posting) {
             $posting->update(['status' => 'closed']);
-            $this->autoHireTopRankedCandidates($posting);
+            // Auto-hiring was removed here to match advance() -- see that
+            // method's comment: HR now picks who gets an offer via the
+            // Step 5 checkbox list, and hiring follows from an accepted
+            // offer instead. This call to autoHireTopRankedCandidates()
+            // pointed at a method that no longer exists (dead leftover
+            // from before that change) and threw a fatal "Undefined
+            // method" error every time a posting's closes_at passed.
             $this->cascadeStatusToApplications($posting, 'closed');
         }
     }
@@ -185,11 +193,26 @@ class JobPostingController extends Controller
         // reliably sets created_at, which let new postings show up
         // out of order. id is guaranteed to increase with every new
         // row regardless of how it was inserted.
-        $postings = JobPosting::with('locations')
+        // Base query (unpaginated) — reused for both the stat cards, which
+        // need to reflect the FULL filtered set, and the paginated list
+        // itself. Cloned before each terminal call since a query builder
+        // gets consumed once executed.
+        $baseQuery = JobPosting::query()
             ->when($showArchived, fn ($q) => $q->where('status', 'archived'))
             ->when(!$showArchived, fn ($q) => $q->where('status', '!=', 'archived'))
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
+
+        // Stat cards: pull just id/status/vacancies (+ locations for the
+        // vacancy sum) across the WHOLE filtered set, independent of which
+        // page is showing. Cheap since it skips every other posting column.
+        $statsSource   = (clone $baseQuery)->with('locations:id,job_posting_id,vacancies')
+            ->get(['id', 'status', 'vacancies']);
+        $statusCounts  = $statsSource->countBy('status');
+        $totalVacancies = $statsSource->sum(fn ($p) => $p->locations->sum('vacancies') ?: $p->vacancies);
+
+        $postings = (clone $baseQuery)->with('locations')
+            ->paginate(10)
+            ->withQueryString();
 
         // Applicant counts for all listed postings in a single grouped
         // query, then attach as a dynamic property -- avoids an N+1
@@ -203,7 +226,7 @@ class JobPostingController extends Controller
             $posting->applicant_count = $applicantCounts->get($posting->id, 0);
         });
 
-        return view('job-postings.index', compact('postings', 'showArchived'));
+        return view('job-postings.index', compact('postings', 'showArchived', 'statusCounts', 'totalVacancies'));
     }
 
     public function create()
@@ -239,16 +262,16 @@ class JobPostingController extends Controller
         $existing = JobPosting::where('title', $validated['title'])->first();
 
         if ($existing) {
-            $this->mergeLocationsInto($existing, $request);
+            $this->mergeVacanciesInto($existing, $request);
 
             return redirect()
                 ->route('job-postings.show', $existing->id)
-                ->with('success', 'A posting for "' . $existing->title . '" already exists -- the place(s) of assignment you entered were added to it instead of creating a duplicate.');
+                ->with('success', 'A posting for "' . $existing->title . '" already exists -- the vacancies you entered were added to it instead of creating a duplicate.');
         }
 
         $posting = JobPosting::create($validated);
 
-        $this->syncLocations($posting, $request);
+        $this->syncSingleLocation($posting, $request);
         $this->syncPanelists($posting, $request);
 
         return redirect()
@@ -257,52 +280,45 @@ class JobPostingController extends Controller
     }
 
     /**
-     * Merge location_place[]/location_vacancies[] from a create-form
-     * submission into an ALREADY-EXISTING posting, without touching its
-     * current locations (unlike syncLocations(), which wholesale replaces
-     * them -- that's correct for editing a posting's own form, but wrong
-     * here since we're adding to a different, pre-existing posting).
-     * Same place submitted again increments that location's vacancy count
-     * rather than creating a second row for it.
+     * Add the vacancies entered on a create-form submission to an
+     * ALREADY-EXISTING posting for the same title, instead of creating a
+     * duplicate posting. Since place of assignment no longer exists,
+     * "merge" just means incrementing the existing single location's
+     * vacancy count.
      */
-    private function mergeLocationsInto(JobPosting $posting, \Illuminate\Http\Request $request): void
+    private function mergeVacanciesInto(JobPosting $posting, \Illuminate\Http\Request $request): void
     {
-        $places    = $request->input('location_place', []);
-        $vacancies = $request->input('location_vacancies', []);
+        $addVacancies = max(1, (int) $request->input('vacancies', 1));
 
-        $existingLocations = $posting->locations()->get()->keyBy('place_of_assignment');
-
-        foreach ($places as $i => $place) {
-            $place = trim($place);
-            if ($place === '') continue;
-
-            $addVacancies = max(1, (int) ($vacancies[$i] ?? 1));
-
-            $existingLocation = $existingLocations->get($place);
-            if ($existingLocation) {
-                $existingLocation->increment('vacancies', $addVacancies);
-            } else {
-                $newLocation = $posting->locations()->create([
-                    'place_of_assignment' => $place,
-                    'vacancies'           => $addVacancies,
-                ]);
-                $existingLocations->put($place, $newLocation);
-            }
+        $location = $posting->locations()->first();
+        if ($location) {
+            $location->increment('vacancies', $addVacancies);
+        } else {
+            $posting->locations()->create([
+                'place_of_assignment' => null,
+                'vacancies'           => $addVacancies,
+            ]);
         }
 
-        // Keep the legacy place_of_assignment/vacancies columns in sync,
-        // same convention syncLocations() uses.
+        // Keep the legacy vacancies column in sync, same convention
+        // syncSingleLocation() uses.
         $posting->refresh();
-        $allLocations = $posting->locations()->get();
         $posting->updateQuietly([
-            'place_of_assignment' => $allLocations->first()?->place_of_assignment,
-            'vacancies'           => $allLocations->sum('vacancies') ?: 1,
+            'place_of_assignment' => null,
+            'vacancies'           => $posting->locations()->sum('vacancies') ?: $addVacancies,
         ]);
     }
 
     public function edit($id)
     {
         $posting = JobPosting::findOrFail($id);
+
+        if ($posting->status !== 'open') {
+            return redirect()
+                ->route('job-postings.index')
+                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
+        }
+
         $posting->exists = true;
         $jobTitles  = config('job_titles.titles', []);
         $panelists         = Panelist::orderBy('name')->get();
@@ -316,6 +332,12 @@ class JobPostingController extends Controller
     {
         $posting = JobPosting::findOrFail($id);
 
+        if ($posting->status !== 'open') {
+            return redirect()
+                ->route('job-postings.index')
+                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
+        }
+
         $validated = $request->validate($this->rules());
 
         $oldStatus = $posting->status;
@@ -328,7 +350,7 @@ class JobPostingController extends Controller
             $this->cascadeStatusToApplications($posting, $newStatus);
         }
 
-        $this->syncLocations($posting, $request);
+        $this->syncSingleLocation($posting, $request);
         $this->syncPanelists($posting, $request);
 
         return redirect()
@@ -383,45 +405,34 @@ class JobPostingController extends Controller
     }
 
     /**
-     * Sync place-of-assignment locations from the form submission.
-     * Expects parallel arrays:
-     *   location_place[]    — place of assignment strings
-     *   location_vacancies[] — vacancy count per place
-     * Empty/blank place rows are skipped.
+     * Sync the posting's vacancy count from the form submission.
+     *
+     * Place of assignment has been removed from the posting form — HR now
+     * enters a single "Vacancies" number instead of one row per school.
+     * Internally this still creates exactly ONE JobPostingLocation row
+     * (with place_of_assignment left null) rather than deleting the
+     * relation outright, because applications link to a specific
+     * job_posting_location_id, and the auto-hire-top-ranked-candidates
+     * logic, the qualification-checking/scheduling/ranking panels, and
+     * the IER export all read through $posting->locations. Keeping one
+     * row means all of that keeps working exactly as it did for a
+     * single-location posting — HR just no longer types a place name.
      */
-    private function syncLocations(JobPosting $posting, \Illuminate\Http\Request $request): void
+    private function syncSingleLocation(JobPosting $posting, \Illuminate\Http\Request $request): void
     {
-        $places    = $request->input('location_place', []);
-        $vacancies = $request->input('location_vacancies', []);
+        $vacancies = max(1, (int) $request->input('vacancies', 1));
 
-        // Delete all existing location rows for this posting then re-insert
         $posting->locations()->delete();
+        $posting->locations()->create([
+            'place_of_assignment' => null,
+            'vacancies'           => $vacancies,
+        ]);
 
-        $rows = [];
-        foreach ($places as $i => $place) {
-            $place = trim($place);
-            if ($place === '') continue;
-
-            $rows[] = [
-                'job_posting_id'     => $posting->id,
-                'place_of_assignment' => $place,
-                'vacancies'          => max(1, (int) ($vacancies[$i] ?? 1)),
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ];
-        }
-
-        if (!empty($rows)) {
-            JobPostingLocation::insert($rows);
-        }
-
-        // Keep the legacy place_of_assignment column in sync (first location)
-        // so existing code that reads it doesn't break
-        $first = $rows[0]['place_of_assignment'] ?? null;
-        $totalVacancies = array_sum(array_column($rows, 'vacancies')) ?: 1;
+        // Keep the legacy place_of_assignment/vacancies columns in sync,
+        // same convention this used to follow for the first location.
         $posting->updateQuietly([
-            'place_of_assignment' => $first,
-            'vacancies'           => $totalVacancies,
+            'place_of_assignment' => null,
+            'vacancies'           => $vacancies,
         ]);
     }
 
@@ -527,7 +538,7 @@ class JobPostingController extends Controller
         $locations = $posting->locations;
         $panelists = $posting->panelists;
 
-        $applications = Application::with(['candidate', 'assessments'])
+        $applications = Application::with('candidate')
             ->where('job_posting_id', $id)
             ->latest('applied_at')
             ->get();
@@ -544,13 +555,25 @@ class JobPostingController extends Controller
         $usedWeight      = $criteria->sum('weight_percentage');
         $remainingWeight = max(0, 100 - $usedWeight);
 
-        // Disqualified (and rejected) applicants must never appear in
-        // ranking/assessment -- only candidates who passed Qualification
-        // Checking (step 2) belong here. Built from a filtered subset,
-        // NOT $applications itself, so $applications stays the full list
-        // for the qualification-checking view (step 2) where disqualified
-        // applicants should still show up, correctly labeled.
-        $rankableApplications = $applications->whereNotIn('status', ['not_qualified', 'rejected'])->values();
+        // Only candidates who actually passed Qualification Checking
+        // (step 2) belong in Assessment & Results -- previously this only
+        // excluded 'not_qualified'/'rejected', which let every applicant
+        // who simply hadn't been checked yet (still 'submitted',
+        // 'screening', etc.) flood the ranking list at a score of 0.
+        // Built from a filtered subset, NOT $applications itself, so
+        // $applications stays the full list for the qualification-checking
+        // view (step 2) where every applicant, checked or not, should
+        // still show up, correctly labeled.
+        $rankableApplications = $applications
+            ->filter(fn ($app) => $app->qualification_result === 'qualified')
+            ->values();
+
+        // Assessments are only ever read for this narrowed subset below --
+        // loading them here (one extra whereIn query) instead of on the
+        // full $applications collection above avoids fetching assessment
+        // rows for hundreds/thousands of applicants who haven't even
+        // passed qualification checking yet.
+        $rankableApplications->load('assessments');
 
         $rankedCandidates = $rankableApplications->map(function ($app) use ($criteria) {
             $scores = [];
@@ -631,7 +654,18 @@ class JobPostingController extends Controller
         $alreadyOfferedCount = $offers->whereIn('status', ['draft', 'sent', 'accepted'])->count();
         $offerVacancyLimit = max(0, ((int) $posting->vacancies ?: 1) - $alreadyOfferedCount);
 
-        $minCompensation = config('salary_grades.table.1.0', 14634); // SG 1 Step 1
+        // Was hardcoded to SG 1 Step 1 regardless of this posting's actual
+        // grade, so the Offer Management panel always showed/defaulted to
+        // ₱14,634 no matter what the posting's real salary grade was.
+        // Mirror the same "strip non-digit prefix" normalization used for
+        // salary_grade elsewhere (e.g. "SG-19" -> 19) before looking up
+        // the table, so this now matches what JobOfferController::store()
+        // actually generates.
+        $postingGrade = $posting->salary_grade
+            ? (int) preg_replace('/[^0-9]/', '', $posting->salary_grade)
+            : null;
+        $minCompensation = ($postingGrade ? config("salary_grades.table.{$postingGrade}.0") : null)
+            ?? config('salary_grades.table.1.0', 14634); // fallback: SG 1 Step 1
 
         return view('job-postings.show', compact(
             'posting', 'locations', 'panelists', 'applications',
@@ -764,6 +798,220 @@ class JobPostingController extends Controller
 
         $writer   = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $filename = 'qualification-check-' . $id . '-' . now()->format('Ymd') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * Export the DepEd Initial Evaluation Result (Annex D / Annex D-1)
+     * for this posting, matching the official template exactly. See the
+     * header comment in patch_add_export_ier.php for data-source notes.
+     */
+    public function exportIER($id)
+    {
+        $posting = JobPosting::findOrFail($id);
+
+        $applications = Application::with('candidate')
+            ->where('job_posting_id', $id)
+            ->get()
+            ->sortBy(fn ($a) => $a->candidate?->full_name ?? '')
+            ->values();
+
+        // Salary Grade + Step 1 monthly amount, from the CURRENT imported
+        // schedule -- not the old hardcoded config table.
+        $grade = $posting->salary_grade ? (int) preg_replace('/[^0-9]/', '', $posting->salary_grade) : null;
+        $monthlySalary = null;
+        $currentCircular = \App\Models\BudgetCircular::current()->first();
+
+        if ($currentCircular && $grade) {
+            // Try exact Step 1 first.
+            $monthlySalary = \App\Models\SalaryGrade::where('budget_circular_id', $currentCircular->id)
+                ->where('grade', $grade)
+                ->where('step', 1)
+                ->value('amount');
+
+            // Step 1 specifically wasn't imported for this grade -- fall
+            // back to whichever step IS available, lowest first.
+            if ($monthlySalary === null) {
+                $monthlySalary = \App\Models\SalaryGrade::where('budget_circular_id', $currentCircular->id)
+                    ->where('grade', $grade)
+                    ->orderBy('step')
+                    ->value('amount');
+            }
+        }
+
+        // Nothing in the database at all (no current circular yet, or
+        // this grade was never imported) -- last-resort fallback to the
+        // old hardcoded table so the export still shows SOMETHING.
+        if ($monthlySalary === null && $grade) {
+            $monthlySalary = config("salary_grades.table.{$grade}.0");
+        }
+        $sgLine = $grade
+            ? 'SG ' . $grade . ($monthlySalary !== null ? ' - Php ' . number_format($monthlySalary, 0) : '')
+            : '';
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('IER');
+
+        $font = 'Bookman Old Style';
+        $thin = \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN;
+
+        // Column widths matching the template
+        $widths = ['A' => 1.5, 'B' => 6, 'C' => 18.5, 'D' => 32, 'E' => 16, 'F' => 12, 'G' => 12, 'H' => 12,
+            'I' => 12, 'J' => 14, 'K' => 12, 'L' => 20.8, 'M' => 18, 'N' => 19.5, 'O' => 15.5, 'P' => 9,
+            'Q' => 17, 'R' => 9.8, 'S' => 14.4, 'T' => 18.3, 'U' => 18.8];
+        foreach ($widths as $col => $w) {
+            $sheet->getColumnDimension($col)->setWidth($w);
+        }
+
+        // Header block
+        $sheet->mergeCells('B2:U2');
+        $sheet->setCellValue('B2', 'INITIAL EVALUATION RESULT (IER)');
+        $sheet->getStyle('B2')->getFont()->setName($font)->setSize(20)->setBold(true);
+        $sheet->getStyle('B2')->getAlignment()->setHorizontal('center');
+
+        $sheet->setCellValue('B4', 'Position:   ' . $posting->title);
+        $sheet->setCellValue('B5', 'Salary Grade and Monthly Salary:   ' . $sgLine);
+        $sheet->setCellValue('B6', 'Qualification Standards:');
+        $sheet->getStyle('B4:B6')->getFont()->setName($font)->setSize(18);
+
+        $sheet->setCellValue('C7', 'Education');
+        $sheet->setCellValue('D7', $posting->qualification_education);
+        $sheet->setCellValue('C8', 'Training');
+        $sheet->setCellValue('D8', $posting->qualification_training);
+        $sheet->setCellValue('C9', 'Experience');
+        $sheet->setCellValue('D9', $posting->qualification_experience);
+        $sheet->setCellValue('C10', 'Eligibility');
+        $sheet->setCellValue('D10', $posting->qualification_eligibility);
+        $sheet->getStyle('C7:D10')->getFont()->setName($font)->setSize(18);
+
+        // Table header row 1 (row 12)
+        $headerFont = ['name' => $font, 'size' => 14, 'bold' => true];
+        $headerCells = [
+            'B12' => 'No.', 'C12' => 'Application Code', 'D12' => 'Names of Applicant',
+            'E12' => 'Personal Information', 'N12' => 'Education', 'O12' => 'Training',
+            'Q12' => 'Experience', 'S12' => 'Eligibility', 'T12' => 'Remarks',
+        ];
+        foreach ($headerCells as $coord => $val) {
+            $sheet->setCellValue($coord, $val);
+        }
+        foreach (['B12:B13', 'C12:C13', 'D12:D13', 'E12:M12', 'N12:N13', 'O12:P12', 'Q12:R12', 'S12:S13', 'T12:U12'] as $range) {
+            $sheet->mergeCells($range);
+        }
+
+        // Table header row 2 (row 13)
+        $subHeaderCells = [
+            'E13' => 'Address', 'F13' => 'Age', 'G13' => 'Sex', 'H13' => 'Civil Status',
+            'I13' => 'Religion', 'J13' => 'Disability', 'K13' => 'Ethnic Group',
+            'L13' => 'Email Address', 'M13' => 'Contact No. ',
+            'O13' => 'Title', 'P13' => 'Hours', 'Q13' => 'Details', 'R13' => 'Years',
+            'T13' => "QS\n(Qualified or Disqualified)", 'U13' => "Performance\n(Met or\nNot Met)",
+        ];
+        foreach ($subHeaderCells as $coord => $val) {
+            $sheet->setCellValue($coord, $val);
+        }
+
+        $sheet->getStyle('B12:U13')->getFont()->setName($font)->setSize(14)->setBold(true);
+        $sheet->getStyle('B12:U13')->getAlignment()->setHorizontal('center')->setVertical('center')->setWrapText(true);
+        $sheet->getStyle('B12:U13')->getBorders()->getAllBorders()->setBorderStyle($thin);
+        $sheet->getRowDimension(12)->setRowHeight(18.6);
+        $sheet->getRowDimension(13)->setRowHeight(59.45);
+
+        // Applicant rows
+        $row = 14;
+        foreach ($applications as $i => $app) {
+            $cand = $app->candidate;
+            $check = $app->qualification_check ?? [];
+            $criteria = $check['criteria'] ?? [];
+
+            $education = $criteria['education']['actual'] ?? $cand?->education;
+            $trainingTitle = $criteria['training']['actual'] ?? null;
+            $experienceDetails = $criteria['experience']['actual'] ?? null;
+            $eligibility = $criteria['eligibility']['actual'] ?? $cand?->eligibility;
+
+            $qsRemark = match ($app->qualification_result) {
+                'qualified' => 'Qualified',
+                'not_qualified' => 'Disqualified',
+                default => $app->qualification_result ? ucfirst(str_replace('_', ' ', $app->qualification_result)) : '',
+            };
+
+            $values = [
+                'B' => $i + 1,
+                'C' => $app->transaction_number,
+                'D' => $cand?->full_name,
+                'E' => $cand?->address,
+                'F' => $cand?->age,
+                'G' => $cand?->sex,
+                'H' => $cand?->civil_status,
+                'I' => $cand?->religion,
+                'J' => $cand?->disability,
+                'K' => $cand?->ethnic_group,
+                'L' => $cand?->email,
+                'M' => $cand?->phone,
+                'N' => $education,
+                'O' => $trainingTitle,
+                'P' => $cand?->training_hours,
+                'Q' => $experienceDetails,
+                'R' => $cand?->years_experience,
+                'S' => $eligibility,
+                'T' => $qsRemark,
+                'U' => '', // Performance -- filled in by hand after the interview
+            ];
+            foreach ($values as $col => $val) {
+                $sheet->setCellValue($col . $row, $val);
+            }
+
+            $sheet->getRowDimension($row)->setRowHeight(40.5);
+
+            $row++;
+        }
+
+        // Style the whole applicant-data range in ONE call instead of
+        // once per row -- getStyle() allocates a new style object every
+        // time it's called, so doing this per row scaled very badly and
+        // was the actual cause of the export hanging for any real
+        // applicant count.
+        if ($row > 14) {
+            $dataRange = 'B14:U' . ($row - 1);
+            $sheet->getStyle($dataRange)->getFont()->setName($font)->setSize(11);
+            $sheet->getStyle($dataRange)->getAlignment()->setHorizontal('center')->setVertical('center')->setWrapText(true);
+            $sheet->getStyle($dataRange)->getBorders()->getAllBorders()->setBorderStyle($thin);
+        }
+
+        // Footer -- "Prepared and certified correct by"
+        $footerStart = $row + 2;
+        // Prefer the first configured IER signatory (Signatories admin
+        // page). Falls back to the logged-in user's name + a generic
+        // title if none has been configured yet, so this doesn't break
+        // before HR sets one up. If more than one IER signatory is ever
+        // configured, this uses the first one -- the export template
+        // only has room for a single "certified by" block.
+        $ierSignatory = \App\Models\IERSignatory::orderBy('id')->first();
+
+        $sheet->setCellValue('O' . $footerStart, 'Prepared and certified correct by:');
+        $sheet->setCellValue('O' . ($footerStart + 3), strtoupper($ierSignatory->name ?? Auth::user()?->name ?? ''));
+        $sheet->setCellValue('O' . ($footerStart + 4), $ierSignatory->position ?? 'Human Resource Management Officer');
+        $sheet->setCellValue('O' . ($footerStart + 5), 'Date: _______________');
+        $sheet->getStyle('O' . $footerStart . ':O' . ($footerStart + 5))->getFont()->setName($font)->setSize(18);
+        $sheet->getStyle('O' . ($footerStart + 3))->getFont()->setBold(true);
+
+        // Footer -- HRMO notes
+        $notesStart = $footerStart + 7;
+        $sheet->setCellValue('B' . $notesStart, 'Notes and Instructions for the HRMO:');
+        $sheet->setCellValue('B' . ($notesStart + 1), 'a) For the purpose of posting the IER, columns D to M shall be concealed in accordance with RA No. 10163 (Data Privacy Act). The only information that shall be made public are the ');
+        $sheet->setCellValue('B' . ($notesStart + 2), 'application codes, qualifications of the applicants in terms of Education, Training, Experience, Eligibility, and Competency (if applicable), and remark on whether Qualified or Disqualified');
+        $sheet->setCellValue('B' . ($notesStart + 3), 'b) If the information does not apply to the applicant, please put N/A.');
+        $sheet->getStyle('B' . $notesStart)->getFont()->setName($font)->setSize(11)->setBold(true);
+        $sheet->getStyle('B' . ($notesStart + 1) . ':B' . ($notesStart + 3))->getFont()->setName($font)->setSize(11);
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $safeTitle = preg_replace('/[^A-Za-z0-9]+/', '-', $posting->title);
+        $filename = 'IER-' . $safeTitle . '-' . now()->format('Ymd') . '.xlsx';
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');

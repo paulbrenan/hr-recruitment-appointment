@@ -89,8 +89,17 @@
                     <span>Final</span>
                 </div>
 
+                <div class="text-muted mt-2" style="font-size:0.75rem;">
+                    Application Code:
+                    @if ($app->transaction_number)
+                        <span class="font-monospace">{{ $app->transaction_number }}</span>
+                    @else
+                        <span class="fst-italic">Pending verification by Records</span>
+                    @endif
+                </div>
+
                 @if ($app->applied_at)
-                    <div class="text-muted mt-2" style="font-size:0.75rem;">
+                    <div class="text-muted mt-1" style="font-size:0.75rem;">
                         Applied {{ \Carbon\Carbon::parse($app->applied_at)->format('M d, Y') }}
                     </div>
                 @endif

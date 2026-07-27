@@ -80,19 +80,34 @@ class Application extends Model
     }
 
     /**
-     * Generate a unique, human-readable transaction number.
-     * Format: APP-YYYYMMDD-XXXXXX
+     * Generate the official Application Code, assigned by Records after
+     * they've checked the applicant's submitted requirements.
      *
-     * Loops until a collision-free value is found (practically instant —
-     * 36^6 = ~2.1 billion combinations).
+     * Format: SDO-YYYY-#### (e.g. SDO-2026-0001), sequential and resetting
+     * to 0001 at the start of each year. Applications don't get this at
+     * registration anymore — transaction_number stays null until Records
+     * calls this from RecordsController::assignCode().
+     *
+     * Wrap the caller in DB::transaction() (RecordsController already
+     * does) so the lockForUpdate() below actually protects against two
+     * staff assigning codes at the same moment. Note: locking only kicks
+     * in once at least one code exists for the current year — the very
+     * first assignment of a new year has a (very unlikely, low-traffic)
+     * race window. If that ever becomes a real concern, move to a
+     * dedicated per-year counters table instead.
      */
     public static function generateTransactionNumber(): string
     {
-        do {
-            $suffix = strtoupper(substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6));
-            $number = 'APP-' . date('Ymd') . '-' . $suffix;
-        } while (static::where('transaction_number', $number)->exists());
+        $year = now()->format('Y');
+        $prefix = "SDO-{$year}-";
 
-        return $number;
+        $last = static::where('transaction_number', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->orderByDesc('transaction_number')
+            ->value('transaction_number');
+
+        $nextSeq = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
+
+        return $prefix . str_pad((string) $nextSeq, 4, '0', STR_PAD_LEFT);
     }
 }

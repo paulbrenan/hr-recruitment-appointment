@@ -53,17 +53,6 @@
       Your submission has been received and is now under initial review by the Human Resource Unit.
     </p>
 
-    <div style="text-align:center; margin:20px 0;">
-      <a href="{{ url('/?txn=' . $transactionNumber) }}"
-         style="background:#003087; color:#fff; text-decoration:none; padding:12px 32px;
-                border-radius:6px; font-weight:700; font-size:.9rem; display:inline-block;">
-        View My Application Status
-      </a>
-    </div>
-    <p style="text-align:center; font-size:.78rem; color:#888; margin-top:-8px;">
-      Or copy this link: {{ url('/?txn=' . $transactionNumber) }}
-    </p>
-
     @if (isset($jobPosting) && $jobPosting->memoPdfUrl())
     <div style="text-align:center; margin:14px 0 4px;">
       <a href="{{ $jobPosting->memoPdfUrl() }}" target="_blank" rel="noopener"
@@ -72,15 +61,6 @@
       </a>
     </div>
     @endif
-
-    {{-- Transaction Number --}}
-    <div class="txn">
-      <div class="lbl">Your Transaction Number</div>
-      <div class="num">{{ $transactionNumber }}</div>
-    </div>
-    <p style="font-size:.82rem;color:#555;text-align:center;margin-top:-8px;">
-      Please keep this transaction number for your records and follow-up inquiries.
-    </p>
 
     {{-- Application Details --}}
     <div class="section-title">Application Details</div>

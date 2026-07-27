@@ -19,6 +19,8 @@
         .code-line { margin: 14px 0; }
         .closing { margin-top: 30px; }
         .chair { margin-top: 46px; font-weight: bold; text-transform: uppercase; }
+        .chair .position { font-weight: normal; text-transform: none; font-size: 10.5pt; }
+        .chair + .chair { margin-top: 34px; }
     </style>
 </head>
 <body>
@@ -107,7 +109,21 @@
 
     <div class="closing">
         Very truly yours,
-        <div class="chair">{{ $check['chair_name'] ?? '[Sub-Committee Chair]' }}</div>
+        @php
+            $qnSignatories = \App\Models\QualificationNoticeSignatory::all();
+        @endphp
+        @if ($qnSignatories->isNotEmpty())
+            @foreach ($qnSignatories as $sig)
+            <div class="chair">
+                {{ strtoupper($sig->name) }}
+                <div class="position">{{ $sig->position }}</div>
+            </div>
+            @endforeach
+        @else
+            {{-- No signatories configured yet at /signatories -- fall back
+                 to whatever HR typed into the qualification check form. --}}
+            <div class="chair">{{ $check['chair_name'] ?? '[Sub-Committee Chair]' }}</div>
+        @endif
     </div>
 
 </body>

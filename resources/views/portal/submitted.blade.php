@@ -30,14 +30,15 @@
       Your application for <strong>{{ $position }}</strong> has been received.
     </p>
 
+    @if ($transactionNumber)
     <div class="txn-box">
-      <div class="label">Your Transaction Number</div>
+      <div class="label">Your Application Code</div>
       <div class="number">{{ $transactionNumber }}</div>
     </div>
 
     <p style="font-size:.82rem;color:#555;text-align:center;">
       A confirmation email has been sent to <strong>{{ $candidate->email }}</strong>.<br>
-      Please keep your transaction number for follow-up inquiries.
+      Please keep your Application Code for follow-up inquiries.
     </p>
 
     <div class="text-center mb-3 mt-1">
@@ -48,9 +49,22 @@
         <i class="bi bi-search"></i> Track Your Application
       </a>
       <div style="font-size:.75rem;color:#888;margin-top:6px;">
-        Uses your transaction number automatically
+        Uses your Application Code automatically
       </div>
     </div>
+    @else
+    <div class="txn-box">
+      <div class="label">Application Status</div>
+      <div class="number" style="font-size:1.05rem;">Pending Verification</div>
+    </div>
+
+    <p style="font-size:.82rem;color:#555;text-align:center;">
+      A confirmation email has been sent to <strong>{{ $candidate->email }}</strong>.<br>
+      Our Records Unit will verify your submitted requirements, and you will
+      receive a follow-up email with your official <strong>Application Code</strong>
+      once that's done — you can use it to track your application from that point on.
+    </p>
+    @endif
 
     @if (isset($jobPosting) && $jobPosting->memoPdfUrl())
     <div class="text-center mb-3">

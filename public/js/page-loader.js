@@ -53,6 +53,18 @@
         if (overlay) {
             overlay.classList.add('is-active');
             shownAt = Date.now();
+
+            // Genuine safety net: force-hide after 8s no matter what, in
+            // case a future link/download triggers the loader without
+            // ever firing a 'load' or 'pageshow' event to hide it again
+            // (the header comment already claimed this existed -- it
+            // didn't, this is that).
+            clearTimeout(window.__depedLoaderSafetyTimer);
+            window.__depedLoaderSafetyTimer = setTimeout(function () {
+                if (overlay.classList.contains('is-active')) {
+                    overlay.classList.remove('is-active');
+                }
+            }, 8000);
         }
     }
 

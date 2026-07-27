@@ -136,12 +136,11 @@ class CandidateAuthController extends Controller
             'eligibility'      => $validated['eligibility'],
         ]);
 
-        // Generate transaction number
-        $txn = Application::generateTransactionNumber();
-
-        // Auto-create the application record so it appears in HR's list
+        // No transaction_number / Application Code yet -- Records assigns
+        // it (SDO-YYYY-####) from the /records page after verifying the
+        // applicant's submitted requirements. The application still shows
+        // up in HR's list immediately with status 'submitted'.
         Application::create([
-            'transaction_number' => $txn,
             'candidate_id'       => $candidate->id,
             'job_posting_id'     => $jobPosting->id,
             'status'             => 'submitted',
@@ -149,17 +148,20 @@ class CandidateAuthController extends Controller
             'notes'              => 'Submitted via Online Recruitment Form.',
         ]);
 
-        // Send confirmation email (non-blocking — catches any mail failure)
+        // Send confirmation email (non-blocking — catches any mail failure).
+        // No transaction number to include yet; passing null so
+        // ApplicationSubmitted can show a "pending verification" message
+        // instead of a code.
         try {
             Mail::to($candidate->email)
-                ->send(new ApplicationSubmitted($candidate, $txn, $jobPosting->title, $jobPosting));
+                ->send(new ApplicationSubmitted($candidate, null, $jobPosting->title, $jobPosting));
         } catch (\Throwable $e) {
             Log::error('Recruitment confirmation email failed: ' . $e->getMessage());
         }
 
         return view('portal.submitted', [
             'candidate'         => $candidate,
-            'transactionNumber' => $txn,
+            'transactionNumber' => null,
             'position'          => $jobPosting->title,
             'jobPosting'        => $jobPosting,
         ]);

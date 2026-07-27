@@ -16,7 +16,7 @@ class ApplicationSubmitted extends Mailable
 
     public function __construct(
         public readonly Candidate $candidate,
-        public readonly string    $transactionNumber,
+        public readonly ?string    $transactionNumber,
         public readonly string    $position,
         public readonly ?JobPosting $jobPosting = null,
     ) {}
@@ -24,7 +24,7 @@ class ApplicationSubmitted extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'DepEd Cavite – Application Received (' . $this->transactionNumber . ')',
+            subject: 'DepEd Cavite – Application Received: ' . $this->position,
         );
     }
 

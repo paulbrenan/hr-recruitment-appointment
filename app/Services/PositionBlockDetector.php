@@ -729,7 +729,19 @@ class PositionBlockDetector
         // that use a bullet heading for a non-COS single position with
         // an inline SG code instead of an appointment type, e.g.
         // "» SCHOOL PRINCIPAL II (SG-20)" (confirmed real: OSDS-2025-0149).
-        $pattern = '/(?:»|>|›)\s+(.+?)\n\s*Qualification[s]?(?:\s+Standards)?:/is';
+        // Confirmed real OCR case (OSDS-2025-0066): a stray bullet-like
+        // character elsewhere in the page's letterhead/logo noise (OCR
+        // build/DPI dependent) can anchor this regex far too early, and
+        // an unbounded ".+?" then lazily swallows everything up to the
+        // real "Qualifications:" — the entire letterhead, recipient
+        // list, and intro paragraph — as if it were the title. Real
+        // titles are never more than ~110 chars even wrapped across two
+        // lines; capping the capture at 180 chars makes it structurally
+        // impossible to swallow a whole page: if no "Qualifications:"
+        // appears within 180 chars of a given bullet, that match
+        // attempt simply fails and the regex engine moves on to test
+        // the next bullet occurrence instead.
+        $pattern = '/(?:»|>|›)\s+(.{1,180}?)\n\s*Qualification[s]?(?:\s+Standards)?:/is';
 
         if (!preg_match_all($pattern, $fullText, $matches, PREG_OFFSET_CAPTURE)) {
             return [];

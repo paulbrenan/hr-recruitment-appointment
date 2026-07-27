@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\ApplicationCodeAssigned;
 use App\Models\Application;
+use App\Models\JobPosting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,15 +15,43 @@ class RecordsController extends Controller
     /**
      * Applications still waiting on an Application Code -- i.e. Records
      * hasn't verified the applicant's submitted requirements yet.
+     *
+     * Supports:
+     *   ?search=   filter by the applicant's (candidate's) full name
+     *   ?position= filter by job posting title (dropdown of distinct titles)
      */
     public function index(Request $request)
     {
+        $search = trim($request->query('search', ''));
+        $position = trim($request->query('position', ''));
+
         $pending = Application::with(['candidate', 'jobPosting'])
             ->whereNull('transaction_number')
+            ->when($search !== '', function ($query) use ($search) {
+                $query->whereHas('candidate', function ($q) use ($search) {
+                    $q->where('full_name', 'like', '%' . $search . '%');
+                });
+            })
+            ->when($position !== '', function ($query) use ($position) {
+                $query->whereHas('jobPosting', function ($q) use ($position) {
+                    $q->where('title', $position);
+                });
+            })
             ->latest()
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
 
-        return view('records.index', compact('pending'));
+        // Distinct job titles for the position filter dropdown, drawn only
+        // from postings that currently have at least one pending application.
+        $positions = JobPosting::whereHas('applications', function ($q) {
+                $q->whereNull('transaction_number');
+            })
+            ->orderBy('title')
+            ->pluck('title')
+            ->unique()
+            ->values();
+
+        return view('records.index', compact('pending', 'search', 'position', 'positions'));
     }
 
     /**

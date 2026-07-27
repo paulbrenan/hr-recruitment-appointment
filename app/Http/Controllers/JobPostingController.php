@@ -11,6 +11,7 @@ use App\Models\JobPostingLocation;
 use App\Models\Panelist;
 use App\Services\JobTitleRegistrar;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class JobPostingController extends Controller
@@ -522,7 +523,7 @@ class JobPostingController extends Controller
         $locations = $posting->locations;
         $panelists = $posting->panelists;
 
-        $applications = Application::with(['candidate', 'assessments'])
+        $applications = Application::with('candidate')
             ->where('job_posting_id', $id)
             ->latest('applied_at')
             ->get();
@@ -551,6 +552,13 @@ class JobPostingController extends Controller
         $rankableApplications = $applications
             ->filter(fn ($app) => $app->qualification_result === 'qualified')
             ->values();
+
+        // Assessments are only ever read for this narrowed subset below --
+        // loading them here (one extra whereIn query) instead of on the
+        // full $applications collection above avoids fetching assessment
+        // rows for hundreds/thousands of applicants who haven't even
+        // passed qualification checking yet.
+        $rankableApplications->load('assessments');
 
         $rankedCandidates = $rankableApplications->map(function ($app) use ($criteria) {
             $scores = [];
@@ -971,7 +979,7 @@ class JobPostingController extends Controller
         $ierSignatory = \App\Models\IERSignatory::orderBy('id')->first();
 
         $sheet->setCellValue('O' . $footerStart, 'Prepared and certified correct by:');
-        $sheet->setCellValue('O' . ($footerStart + 3), strtoupper($ierSignatory->name ?? auth()->user()->name ?? ''));
+        $sheet->setCellValue('O' . ($footerStart + 3), strtoupper($ierSignatory->name ?? Auth::user()?->name ?? ''));
         $sheet->setCellValue('O' . ($footerStart + 4), $ierSignatory->position ?? 'Human Resource Management Officer');
         $sheet->setCellValue('O' . ($footerStart + 5), 'Date: _______________');
         $sheet->getStyle('O' . $footerStart . ':O' . ($footerStart + 5))->getFont()->setName($font)->setSize(18);

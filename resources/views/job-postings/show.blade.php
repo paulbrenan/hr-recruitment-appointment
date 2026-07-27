@@ -253,57 +253,7 @@
                         </div>
                     </div>
 
-                    @if ($locations->isNotEmpty())
-                    @php
-                        $locationsVisible = $locations->take(5);
-                        $locationsHidden = $locations->slice(5);
-                    @endphp
-                    <div class="mb-3">
-                        <div class="text-muted small mb-2">Places of assignment</div>
-                        <table class="table table-sm table-bordered mb-0" style="font-size:0.85rem;">
-                            <thead class="table-light">
-                                <tr><th>Place</th><th class="text-center" style="width:100px;">Vacancies</th></tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($locationsVisible as $loc)
-                                <tr>
-                                    <td>{{ $loc->place_of_assignment }}</td>
-                                    <td class="text-center">{{ $loc->vacancies }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            @if ($locationsHidden->isNotEmpty())
-                            <tbody id="overviewLocationsExtra" class="d-none">
-                                @foreach ($locationsHidden as $loc)
-                                <tr>
-                                    <td>{{ $loc->place_of_assignment }}</td>
-                                    <td class="text-center">{{ $loc->vacancies }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            @endif
-                            <tbody>
-                                <tr class="table-light fw-medium">
-                                    <td class="text-end text-muted small">Total</td>
-                                    <td class="text-center">{{ $locations->sum('vacancies') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        @if ($locationsHidden->isNotEmpty())
-                        <button type="button" id="overviewLocationsToggle"
-                                class="btn btn-link btn-sm p-0 mt-2"
-                                style="font-size: 0.8rem; text-decoration: none; color: var(--hr-primary);"
-                                onclick="
-                                    const extra = document.getElementById('overviewLocationsExtra');
-                                    const isHidden = extra.classList.contains('d-none');
-                                    extra.classList.toggle('d-none', !isHidden);
-                                    this.textContent = isHidden ? 'Show less' : 'Show {{ $locationsHidden->count() }} more';
-                                ">
-                            Show {{ $locationsHidden->count() }} more
-                        </button>
-                        @endif
-                    </div>
-                    @endif
+                    {{-- Places-of-assignment breakdown removed — Total vacancies above covers it. --}}
 
                     {{-- Qualification standards — moved above duties --}}
                     @if ($posting->qualification_education || $posting->qualification_training || $posting->qualification_experience || $posting->qualification_eligibility)

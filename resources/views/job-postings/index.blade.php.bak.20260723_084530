@@ -77,20 +77,20 @@
     <div class="table-responsive">
         <table class="table align-top mb-0" style="vertical-align: top; table-layout: fixed; width: 100%;">
             <colgroup>
-                <col style="width: 32%;">  {{-- Title --}} 
-                <col style="width: 9%;">   {{-- Vacancies --}} 
-                <col style="width: 12%;">  {{-- Employment type --}} 
-                <col style="width: 7%;">   {{-- SG --}}
+                <col style="width: 35%;">  {{-- Title --}}
+                <col style="width: 10%;">  {{-- Vacancies --}}
+                <col style="width: 10%;">  {{-- Employment type --}}
+                <col style="width: 5%;">   {{-- SG --}}
                 <col style="width: 8%;">   {{-- Posted --}}
                 <col style="width: 8%;">   {{-- Closes --}}
                 <col style="width: 8%;">   {{-- Status --}}
-                <col style="width: 11%;">  {{-- Actions — tightened to fit 3 buttons without excess dead space --}}
+                <col style="width: 16%;">  {{-- Actions — wide enough for 3 buttons --}}
             </colgroup>
             <thead>
                 <tr>
                     <th>Title</th>
                     <th class="text-nowrap">Vacancies</th>
-                    <th style="white-space: normal; word-break: break-word;">Employment type</th>
+                    <th style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Employment type</th>
                     <th class="text-nowrap">SG</th>
                     <th class="text-nowrap">Posted</th>
                     <th class="text-nowrap">Closes</th>
@@ -111,7 +111,7 @@
                         {{ $posting->locations->sum('vacancies') ?: ($posting->vacancies ?? '—') }}
                     </td>
                     <td>{{ $posting->employment_type }}</td>
-                    <td class="text-nowrap ps-4">
+                    <td class="text-nowrap">
                         @if ($posting->salary_grade)
                             {{ Str::startsWith($posting->salary_grade, 'SG-') ? $posting->salary_grade : 'SG-' . $posting->salary_grade }}
                         @else

@@ -74,7 +74,14 @@ class JobOfferController extends Controller
         // sg_override, if given, replaces the job's inherited SG as the
         // basis for the Step 1 default -- a typed compensation_override
         // still wins over both when present.
-        $grade   = (int) ($validated['sg_override'] ?? $posting->salary_grade);
+        // $posting->salary_grade is stored as free text (e.g. "SG-19" or
+        // "19") -- casting a "SG-19" string straight to (int) silently
+        // yields 0, which fell through to the SG-1 Step-1 default below
+        // and produced wildly wrong compensation on offers. Strip any
+        // non-digit prefix first, same normalization JobPostingController
+        // already applies elsewhere.
+        $rawGrade = $validated['sg_override'] ?? $posting->salary_grade;
+        $grade   = (int) preg_replace('/[^0-9]/', '', (string) $rawGrade);
         $sgTable = SalaryGrade::currentTableArray();
         $defaultCompensation = $sgTable[$grade][0] ?? $this->minCompensation(); // SG {grade} Step 1
         $compensation = $validated['compensation_override'] ?? $defaultCompensation;

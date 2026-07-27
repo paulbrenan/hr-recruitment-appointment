@@ -112,7 +112,8 @@ class JobPostingController extends Controller
             'qualification_eligibility' => ['nullable', 'string'],
             'mandatory_requirements' => ['nullable', 'string'],
             'additional_requirements' => ['nullable', 'string'],
-            // place_of_assignment is now managed via job_posting_locations table
+            // place_of_assignment removed — postings now track a single
+            // vacancies number instead of per-school location rows.
             'employment_type' => ['nullable', 'string', 'max:255'],
             'salary_grade' => [
                 'nullable',
@@ -128,7 +129,7 @@ class JobPostingController extends Controller
                     }
                 },
             ],
-            // vacancies is now per-location in job_posting_locations table
+            'vacancies' => ['nullable', 'integer', 'min:1'],
             'posted_at' => [
                 'nullable',
                 'date',
@@ -167,7 +168,13 @@ class JobPostingController extends Controller
 
         foreach ($expired as $posting) {
             $posting->update(['status' => 'closed']);
-            $this->autoHireTopRankedCandidates($posting);
+            // Auto-hiring was removed here to match advance() -- see that
+            // method's comment: HR now picks who gets an offer via the
+            // Step 5 checkbox list, and hiring follows from an accepted
+            // offer instead. This call to autoHireTopRankedCandidates()
+            // pointed at a method that no longer exists (dead leftover
+            // from before that change) and threw a fatal "Undefined
+            // method" error every time a posting's closes_at passed.
             $this->cascadeStatusToApplications($posting, 'closed');
         }
     }
@@ -239,16 +246,16 @@ class JobPostingController extends Controller
         $existing = JobPosting::where('title', $validated['title'])->first();
 
         if ($existing) {
-            $this->mergeLocationsInto($existing, $request);
+            $this->mergeVacanciesInto($existing, $request);
 
             return redirect()
                 ->route('job-postings.show', $existing->id)
-                ->with('success', 'A posting for "' . $existing->title . '" already exists -- the place(s) of assignment you entered were added to it instead of creating a duplicate.');
+                ->with('success', 'A posting for "' . $existing->title . '" already exists -- the vacancies you entered were added to it instead of creating a duplicate.');
         }
 
         $posting = JobPosting::create($validated);
 
-        $this->syncLocations($posting, $request);
+        $this->syncSingleLocation($posting, $request);
         $this->syncPanelists($posting, $request);
 
         return redirect()
@@ -257,46 +264,32 @@ class JobPostingController extends Controller
     }
 
     /**
-     * Merge location_place[]/location_vacancies[] from a create-form
-     * submission into an ALREADY-EXISTING posting, without touching its
-     * current locations (unlike syncLocations(), which wholesale replaces
-     * them -- that's correct for editing a posting's own form, but wrong
-     * here since we're adding to a different, pre-existing posting).
-     * Same place submitted again increments that location's vacancy count
-     * rather than creating a second row for it.
+     * Add the vacancies entered on a create-form submission to an
+     * ALREADY-EXISTING posting for the same title, instead of creating a
+     * duplicate posting. Since place of assignment no longer exists,
+     * "merge" just means incrementing the existing single location's
+     * vacancy count.
      */
-    private function mergeLocationsInto(JobPosting $posting, \Illuminate\Http\Request $request): void
+    private function mergeVacanciesInto(JobPosting $posting, \Illuminate\Http\Request $request): void
     {
-        $places    = $request->input('location_place', []);
-        $vacancies = $request->input('location_vacancies', []);
+        $addVacancies = max(1, (int) $request->input('vacancies', 1));
 
-        $existingLocations = $posting->locations()->get()->keyBy('place_of_assignment');
-
-        foreach ($places as $i => $place) {
-            $place = trim($place);
-            if ($place === '') continue;
-
-            $addVacancies = max(1, (int) ($vacancies[$i] ?? 1));
-
-            $existingLocation = $existingLocations->get($place);
-            if ($existingLocation) {
-                $existingLocation->increment('vacancies', $addVacancies);
-            } else {
-                $newLocation = $posting->locations()->create([
-                    'place_of_assignment' => $place,
-                    'vacancies'           => $addVacancies,
-                ]);
-                $existingLocations->put($place, $newLocation);
-            }
+        $location = $posting->locations()->first();
+        if ($location) {
+            $location->increment('vacancies', $addVacancies);
+        } else {
+            $posting->locations()->create([
+                'place_of_assignment' => null,
+                'vacancies'           => $addVacancies,
+            ]);
         }
 
-        // Keep the legacy place_of_assignment/vacancies columns in sync,
-        // same convention syncLocations() uses.
+        // Keep the legacy vacancies column in sync, same convention
+        // syncSingleLocation() uses.
         $posting->refresh();
-        $allLocations = $posting->locations()->get();
         $posting->updateQuietly([
-            'place_of_assignment' => $allLocations->first()?->place_of_assignment,
-            'vacancies'           => $allLocations->sum('vacancies') ?: 1,
+            'place_of_assignment' => null,
+            'vacancies'           => $posting->locations()->sum('vacancies') ?: $addVacancies,
         ]);
     }
 
@@ -328,7 +321,7 @@ class JobPostingController extends Controller
             $this->cascadeStatusToApplications($posting, $newStatus);
         }
 
-        $this->syncLocations($posting, $request);
+        $this->syncSingleLocation($posting, $request);
         $this->syncPanelists($posting, $request);
 
         return redirect()
@@ -383,45 +376,34 @@ class JobPostingController extends Controller
     }
 
     /**
-     * Sync place-of-assignment locations from the form submission.
-     * Expects parallel arrays:
-     *   location_place[]    — place of assignment strings
-     *   location_vacancies[] — vacancy count per place
-     * Empty/blank place rows are skipped.
+     * Sync the posting's vacancy count from the form submission.
+     *
+     * Place of assignment has been removed from the posting form — HR now
+     * enters a single "Vacancies" number instead of one row per school.
+     * Internally this still creates exactly ONE JobPostingLocation row
+     * (with place_of_assignment left null) rather than deleting the
+     * relation outright, because applications link to a specific
+     * job_posting_location_id, and the auto-hire-top-ranked-candidates
+     * logic, the qualification-checking/scheduling/ranking panels, and
+     * the IER export all read through $posting->locations. Keeping one
+     * row means all of that keeps working exactly as it did for a
+     * single-location posting — HR just no longer types a place name.
      */
-    private function syncLocations(JobPosting $posting, \Illuminate\Http\Request $request): void
+    private function syncSingleLocation(JobPosting $posting, \Illuminate\Http\Request $request): void
     {
-        $places    = $request->input('location_place', []);
-        $vacancies = $request->input('location_vacancies', []);
+        $vacancies = max(1, (int) $request->input('vacancies', 1));
 
-        // Delete all existing location rows for this posting then re-insert
         $posting->locations()->delete();
+        $posting->locations()->create([
+            'place_of_assignment' => null,
+            'vacancies'           => $vacancies,
+        ]);
 
-        $rows = [];
-        foreach ($places as $i => $place) {
-            $place = trim($place);
-            if ($place === '') continue;
-
-            $rows[] = [
-                'job_posting_id'     => $posting->id,
-                'place_of_assignment' => $place,
-                'vacancies'          => max(1, (int) ($vacancies[$i] ?? 1)),
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ];
-        }
-
-        if (!empty($rows)) {
-            JobPostingLocation::insert($rows);
-        }
-
-        // Keep the legacy place_of_assignment column in sync (first location)
-        // so existing code that reads it doesn't break
-        $first = $rows[0]['place_of_assignment'] ?? null;
-        $totalVacancies = array_sum(array_column($rows, 'vacancies')) ?: 1;
+        // Keep the legacy place_of_assignment/vacancies columns in sync,
+        // same convention this used to follow for the first location.
         $posting->updateQuietly([
-            'place_of_assignment' => $first,
-            'vacancies'           => $totalVacancies,
+            'place_of_assignment' => null,
+            'vacancies'           => $vacancies,
         ]);
     }
 
@@ -544,13 +526,18 @@ class JobPostingController extends Controller
         $usedWeight      = $criteria->sum('weight_percentage');
         $remainingWeight = max(0, 100 - $usedWeight);
 
-        // Disqualified (and rejected) applicants must never appear in
-        // ranking/assessment -- only candidates who passed Qualification
-        // Checking (step 2) belong here. Built from a filtered subset,
-        // NOT $applications itself, so $applications stays the full list
-        // for the qualification-checking view (step 2) where disqualified
-        // applicants should still show up, correctly labeled.
-        $rankableApplications = $applications->whereNotIn('status', ['not_qualified', 'rejected'])->values();
+        // Only candidates who actually passed Qualification Checking
+        // (step 2) belong in Assessment & Results -- previously this only
+        // excluded 'not_qualified'/'rejected', which let every applicant
+        // who simply hadn't been checked yet (still 'submitted',
+        // 'screening', etc.) flood the ranking list at a score of 0.
+        // Built from a filtered subset, NOT $applications itself, so
+        // $applications stays the full list for the qualification-checking
+        // view (step 2) where every applicant, checked or not, should
+        // still show up, correctly labeled.
+        $rankableApplications = $applications
+            ->filter(fn ($app) => $app->qualification_result === 'qualified')
+            ->values();
 
         $rankedCandidates = $rankableApplications->map(function ($app) use ($criteria) {
             $scores = [];
@@ -631,7 +618,18 @@ class JobPostingController extends Controller
         $alreadyOfferedCount = $offers->whereIn('status', ['draft', 'sent', 'accepted'])->count();
         $offerVacancyLimit = max(0, ((int) $posting->vacancies ?: 1) - $alreadyOfferedCount);
 
-        $minCompensation = config('salary_grades.table.1.0', 14634); // SG 1 Step 1
+        // Was hardcoded to SG 1 Step 1 regardless of this posting's actual
+        // grade, so the Offer Management panel always showed/defaulted to
+        // ₱14,634 no matter what the posting's real salary grade was.
+        // Mirror the same "strip non-digit prefix" normalization used for
+        // salary_grade elsewhere (e.g. "SG-19" -> 19) before looking up
+        // the table, so this now matches what JobOfferController::store()
+        // actually generates.
+        $postingGrade = $posting->salary_grade
+            ? (int) preg_replace('/[^0-9]/', '', $posting->salary_grade)
+            : null;
+        $minCompensation = ($postingGrade ? config("salary_grades.table.{$postingGrade}.0") : null)
+            ?? config('salary_grades.table.1.0', 14634); // fallback: SG 1 Step 1
 
         return view('job-postings.show', compact(
             'posting', 'locations', 'panelists', 'applications',

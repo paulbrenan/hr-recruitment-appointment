@@ -92,16 +92,28 @@ class PositionBlockDetector
         $matches = [];
 
         // Letter + title + (SG-XX), tolerant of OCR's "Ill" for "III" etc.
-        // IMPORTANT: the leading "A." / "B." position-letter prefix must
-        // stay case-SENSITIVE (uppercase only) — see prior session's
-        // confirmed bug where /i across the whole pattern matched
-        // lowercase sub-bullets inside Duties text as fake headings.
+        // Letter prefix is now case-INSENSITIVE ("a." as well as "A.") —
+        // confirmed real memos (OSDS-2025-0087, -0150) use lowercase
+        // lettering. A prior session made this uppercase-only after a
+        // false-positive match on lowercase sub-bullets inside Duties
+        // text, but that false positive would have needed to (a) be
+        // immediately followed by "(SG-nn)" AND (b) have its captured
+        // text exactly match an entry in the canonical title list via
+        // resolveTitle() below — both required, so re-widening the case
+        // here is safe: the SG-suffix requirement and the canonical-list
+        // gate together do the job the case restriction used to do alone.
         // Allow optional "*" before title (marks new positions in some memos).
         // Title may have an en-dash role suffix like "– Supply Officer I" which
         // we strip during resolution but keep for display.
         // ^\s* tolerates leading whitespace — pdftotext sometimes indents
         // heading lines slightly, which breaks ^[A-Z]\. in /m mode.
-        $pattern = '/^\s*[A-Z]\.\s+\*?((?i)[A-Za-z][A-Za-z\s.,\'\-\x{2013}\x{2014}]+?)\s*\((?i)sg-?\s*(\d{1,2})\)/mu';
+        // Title char class now also allows an inner parenthetical
+        // abbreviation like "(SNED)" — confirmed real case (OSDS-2025-0087):
+        // "Special Education Teacher I (SNED) (SG-14)". The lazy quantifier
+        // still stops at the EARLIEST point that satisfies the trailing
+        // "(SG-nn)" literal, so this doesn't change behavior for titles
+        // that have no inner parens.
+        $pattern = '/^\s*[A-Za-z]\.\s+\*?((?i)[A-Za-z][A-Za-z\s.,\'\-\x{2013}\x{2014}()]+?)\s*\((?i)sg-?\s*(\d{1,2})\)/mu';
 
         if (!preg_match_all($pattern, $text, $rawMatches, PREG_OFFSET_CAPTURE)) {
             return [];
@@ -181,6 +193,20 @@ class PositionBlockDetector
             // Also try the suffix-stripped form
             if ($normalizedStripped !== null &&
                 $this->normalizeForComparison($canonical) === $normalizedStripped) {
+                return ['title' => $canonical, 'was_registered' => false];
+            }
+        }
+
+        // 1b. Space-insensitive fallback — confirmed real OCR case:
+        // "Farm Worker I" vs. canonical "Farmworker I". Tesseract
+        // sometimes splits/joins compound words inconsistently. Compare
+        // with ALL whitespace stripped (not just collapsed) as a last
+        // resort before falling through to prefix-stripping below, so
+        // this doesn't need its own duplicate canonical-list entry.
+        $rawNoSpace = preg_replace('/\s+/', '', $normalizedRaw);
+        foreach ($this->canonicalTitles as $canonical) {
+            $canonicalNoSpace = preg_replace('/\s+/', '', $this->normalizeForComparison($canonical));
+            if ($canonicalNoSpace === $rawNoSpace) {
                 return ['title' => $canonical, 'was_registered' => false];
             }
         }
@@ -319,7 +345,14 @@ class PositionBlockDetector
             'Preferred Qualification',
         ];
         $stopLabels = array_filter($stopLabels, fn ($l) => $l !== $label);
-        $stopPattern = implode('|', array_map(fn ($l) => preg_quote($l, '/'), $stopLabels));
+        // preg_quote each label, then loosen "Place of Assignment"
+        // specifically to tolerate the confirmed real OCR misread
+        // "Piace of Assignment" (l -> i) so a field like Eligibility
+        // doesn't run past its real boundary and swallow the place text.
+        $stopPattern = implode('|', array_map(function ($l) {
+            $quoted = preg_quote($l, '/');
+            return $l === 'Place of Assignment' ? 'P[l1i]ace of Assignment' : $quoted;
+        }, $stopLabels));
 
         // Confirmed real OCR behavior: the bullet marker ("•") in front of
         // each Qualification Standards line is misread as a lone letter
@@ -348,7 +381,7 @@ class PositionBlockDetector
         array $pageBoundaries,
         ?int $vacancies
     ): array {
-        if (preg_match('/Place of Assignment:?\s*To be determined/i', $blockText)) {
+        if (preg_match('/P[l1i]ace of Assignment:?\s*To be determined/i', $blockText)) {
             return ['type' => 'single', 'value' => 'To be determined'];
         }
 
@@ -364,7 +397,7 @@ class PositionBlockDetector
         // Also handles inline bullet format where count prefix is given:
         //   ➤  2 – Tanza National Comprehensive HS
         //   ➤  1 – Emiliano Tria Tirona Memorial Integrated NHS, Kawit
-        if (preg_match('/Place\s+of\s+Assignment:?\s*((?:[\x{27A4}>›].*(?:\n|$))+)/iu', $blockText, $bm)) {
+        if (preg_match('/P[l1i]ace\s+of\s+Assignment:?\s*((?:[\x{27A4}>›].*(?:\n|$))+)/iu', $blockText, $bm)) {
             $bulletBlock = $bm[1];
             // Extract each bullet line
             preg_match_all('/[\x{27A4}>›]\s*(.*)/u', $bulletBlock, $lines);
@@ -403,9 +436,16 @@ class PositionBlockDetector
         // This MUST run before the table parser so inline-place PDFs
         // don't fall through to VacancyTableParser which misreads footer
         // numbers as table row numbers.
-        $inlineStopPattern = '(?:Duties\s+and\s+Responsibilities|Job\s+Summary|Terms\s+of\s+Reference|Preferred\s+Qualification|Qualification\s+Standards|Number\s+of\s+Vacant\s+Position)';
+        // "Performance Requirements" added — confirmed real case
+        // (OSDS-2025-0087): without it, a comma-separated inline school
+        // list ("Place of Assignment: School A, School B, ...") ran past
+        // its real boundary into the next section's garbled OCR table,
+        // exceeded the 300-char inline-value ceiling below, and fell
+        // through to the table-parsing branch, producing hundreds of
+        // bogus "unrecoverable" rows instead of one clean inline value.
+        $inlineStopPattern = '(?:Duties\s+and\s+Responsibilities|Job\s+Summary|Terms\s+of\s+Reference|Preferred\s+Qualification|Qualification\s+Standards|Performance\s+Requirements|Number\s+of\s+Vacant\s+Position)';
         if (preg_match(
-            '/Place\s+of\s+Assignment:?\s+(.+?)(?=\s*' . $inlineStopPattern . '|$)/is',
+            '/P[l1i]ace\s+of\s+Assignment:?\s+(.+?)(?=\s*' . $inlineStopPattern . '|$)/is',
             $blockText,
             $m
         )) {
@@ -414,7 +454,7 @@ class PositionBlockDetector
             // Only treat as inline if the extracted value looks like a real
             // place name (not a table header like "No. Mother School ...").
             // A table header will contain "Mother School" or "No." at the start.
-            $looksLikeTable = preg_match('/\bNo\.?\s+(Mother\s+School|Place\s+of\s+Assignment)\b/i', $value)
+            $looksLikeTable = preg_match('/\bNo\.?\s+(Mother\s+School|P[l1i]ace\s+of\s+Assignment)\b/i', $value)
                 || preg_match('/^\s*\d+\s+\w/', $value); // starts with a row number
 
             if (!$looksLikeTable && strlen($value) > 2 && strlen($value) < 300) {
@@ -513,11 +553,32 @@ class PositionBlockDetector
 
     private function extractDuties(string $blockText, string $canonicalTitle): ?string
     {
+        // Confirmed real case (OSDS-2025-0132): this memo's positions use
+        // "Job Summary:" in place of "Duties and Responsibilities:" —
+        // extractLabeledField()'s stopLabels list already anticipated
+        // "Job Summary" as a section heading, but duties extraction itself
+        // never checked for it, so every block in this memo silently came
+        // back with duties_responsibilities = null. Try the standard label
+        // first (existing behavior unchanged), then fall back to "Job
+        // Summary" so both memo styles work.
         if (preg_match('/Duties and Responsibilities(?: OF [A-Z\s]+)?:?\s*(.*)/is', $blockText, $m)) {
-            return $this->cleanDutiesText($m[1]);
+            return $this->cleanDutiesText($m[1]) ?? 'None';
         }
 
-        return null;
+        if (preg_match('/Job Summary:?\s*(.*)/is', $blockText, $m)) {
+            return $this->cleanDutiesText($m[1]) ?? 'None';
+        }
+
+        // Confirmed real case (OSDS-2025-0150): teaching-position memos
+        // (Master Teacher I/II, Special Science Teacher I) have NO
+        // duties/responsibilities section at all — nothing follows
+        // Qualification Standards / Place of Assignment except a
+        // Performance Requirements rubric table. There is genuinely
+        // nothing to extract here, as opposed to a section that exists
+        // but failed to parse — so this returns the literal string
+        // "None" rather than null, so the review screen doesn't flag it
+        // as a missing field HR needs to go fix.
+        return 'None';
     }
 
     /**
@@ -532,6 +593,56 @@ class PositionBlockDetector
      * confirmed "e " bullet-glyph OCR misread (tesseract reading "•" as a
      * lone "e") back to a real bullet, per line.
      */
+    /**
+     * Lines matching any of these are letterhead/footer boilerplate that
+     * repeats on EVERY page of a DepEd Cavite memo (header block + footer
+     * address/contact strip). When a Duties/Job Summary section spans a
+     * page boundary, the raw capture swallows this boilerplate along with
+     * the real content — confirmed real case (OSDS-2025-0132): a Job
+     * Summary landed with "...Bids and Awards Committee (BAC)," followed
+     * immediately by the next page's full header+footer, INCLUDING
+     * garbled OCR noise from the seal/logo images ("ernest", "a * - * *
+     * &,", "D ED us «SS @sP") that don't match any clean text pattern.
+     */
+    private const NOISE_LINE_PATTERNS = [
+        '/^Republic of the Philippines$/i',
+        '/^.epartment of .ducation$/i',
+        '/^REGION\s*IV-?A$/i',
+        '/^SCHOOLS DIVISION OFFICE OF CAVITE PROVINCE$/i',
+        '/Cavite Capitol Compound/i',
+        '/^\(?\d{2,4}\)?[\s-]?\d{3}[\s-]?\d{4}$/', // phone numbers e.g. (046) 419-1286
+        '/^(www\.|https?:\/\/)/i',
+        '/deped\.gov\.ph|depedcavite\.com\.ph/i',
+        '/^Attachment\s+\d+\s+to\s+Division\s+Memorandum/i',
+    ];
+
+    /**
+     * Heuristic catch for the un-patternable OCR garbage from logo/seal
+     * images ("ernest", "a * - * * &,", "B", "bs", "D ED us «SS @sP"):
+     * a real duty line is mostly letters/spaces. A line that's mostly
+     * symbols/digits, OR is just 1-2 bare characters with no punctuation
+     * a real sentence would have, is almost certainly OCR noise rather
+     * than content — skip it rather than let it corrupt the output.
+     */
+    private function looksLikeOcrNoise(string $line): bool
+    {
+        if (mb_strlen($line) <= 2) {
+            return true;
+        }
+        $letters = preg_replace('/[^a-zA-Z]/', '', $line);
+        return (mb_strlen($letters) / max(mb_strlen($line), 1)) < 0.5;
+    }
+
+    private function isBoilerplateLine(string $line): bool
+    {
+        foreach (self::NOISE_LINE_PATTERNS as $pattern) {
+            if (preg_match($pattern, $line)) {
+                return true;
+            }
+        }
+        return $this->looksLikeOcrNoise($line);
+    }
+
     private function cleanDutiesText(string $raw): ?string
     {
         $lines = preg_split('/\r\n|\r|\n/', $raw);
@@ -542,6 +653,9 @@ class PositionBlockDetector
             // touch the newlines themselves.
             $line = trim(preg_replace('/[ \t]+/', ' ', $line));
             if ($line === '') {
+                continue;
+            }
+            if ($this->isBoilerplateLine($line)) {
                 continue;
             }
             // Confirmed OCR misread: bullet glyph "•" renders as a lone
@@ -572,9 +686,17 @@ class PositionBlockDetector
         array $pageTexts,
         array $pageBoundaries
     ): array {
-        // Match » or > followed by an all-caps title, then optionally
-        // "(Appointment Type)" on the next line.
-        $pattern = '/(?:»|>|›)\s+([A-Z][A-Z\s\-]+?)[ \t]*\n[ \t]*(?:\(([^)\n]+)\))?/m';
+        // Match » or > followed by the title text (which may wrap across
+        // multiple lines and contain commas or inline parenthetical
+        // abbreviations, e.g. "SBFP, WINS AND NSP FOCAL PERSONS" or
+        // "INFORMATION AND COMMUNICATIONS TECHNOLOGY (ICT)\nINVENTORY
+        // AND PERSONNEL MASTERLIST"), stopping at the next known
+        // "Qualifications:" / "Qualification Standards:" header rather
+        // than at a restrictive character class. This also covers memos
+        // that use a bullet heading for a non-COS single position with
+        // an inline SG code instead of an appointment type, e.g.
+        // "» SCHOOL PRINCIPAL II (SG-20)" (confirmed real: OSDS-2025-0149).
+        $pattern = '/(?:»|>|›)\s+(.+?)\n\s*Qualification[s]?(?:\s+Standards)?:/is';
 
         if (!preg_match_all($pattern, $fullText, $matches, PREG_OFFSET_CAPTURE)) {
             return [];
@@ -584,11 +706,28 @@ class PositionBlockDetector
         $total   = count($matches[0]);
 
         foreach ($matches[0] as $idx => $fullMatch) {
-            $rawTitle        = trim($matches[1][$idx][0]);
-            $appointmentType = isset($matches[2][$idx][0]) && $matches[2][$idx][0] !== ''
-                               ? trim($matches[2][$idx][0])
-                               : null;
-            $offset          = $fullMatch[1];
+            $titleBlock = trim(preg_replace('/\s+/', ' ', $matches[1][$idx][0]));
+            $offset     = $fullMatch[1];
+
+            // Peel off a trailing "(...)" — it's either an SG code
+            // ("(SG-20)") or an appointment type ("(Contract of
+            // Service)"). Greedy capture on the base ensures we grab the
+            // LAST parenthetical, not an earlier inline one like "(ICT)"
+            // that's actually part of the title itself.
+            $rawTitle        = $titleBlock;
+            $appointmentType = null;
+            $salaryGrade     = null;
+            if (preg_match('/^(.*)\(([^)]*)\)\s*$/s', $titleBlock, $pm)) {
+                $base     = trim($pm[1]);
+                $trailing = trim($pm[2]);
+                if ($base !== '' && preg_match('/^sg-?\s*(\d{1,2})$/i', $trailing, $sgm)) {
+                    $salaryGrade = 'SG-' . $sgm[1];
+                    $rawTitle    = $base;
+                } elseif ($base !== '') {
+                    $appointmentType = $trailing;
+                    $rawTitle        = $base;
+                }
+            }
 
             $displayTitle = $this->titleCaseOcr($rawTitle);
             if ($appointmentType) {
@@ -606,7 +745,8 @@ class PositionBlockDetector
             $block = $this->parseCosBlock(
                 $displayTitle,
                 $canonicalTitle,
-                $blockText
+                $blockText,
+                $salaryGrade
             );
 
             if ($block !== null) {
@@ -624,20 +764,32 @@ class PositionBlockDetector
     private function parseCosBlock(
         string $displayTitle,
         string $canonicalTitle,
-        string $blockText
+        string $blockText,
+        ?string $salaryGrade = null
     ): ?array {
         // Qualifications — same field names, under "Qualifications:" header.
         // extractLabeledField() works unchanged since it matches the label
         // name anywhere in the block text.
-        $education  = $this->extractLabeledField($blockText, 'Education');
-        $training   = $this->extractLabeledField($blockText, 'Training');
-        $experience = $this->extractLabeledField($blockText, 'Experience');
+        $education   = $this->extractLabeledField($blockText, 'Education');
+        $training    = $this->extractLabeledField($blockText, 'Training');
+        $experience  = $this->extractLabeledField($blockText, 'Experience');
+
+        // CONFIRMED REAL BUG (OSDS-2025-0149): this method previously
+        // hardcoded qualification_eligibility to null unconditionally,
+        // on the assumption COS memos never state an Eligibility line.
+        // detectCosFormat()'s heading pattern also matches non-COS single
+        // positions that just use a bullet instead of "A." lettering
+        // (this memo: "> SCHOOL PRINCIPAL II (SG-20)") — those DO have a
+        // real Eligibility line ("RA 1080, as amended (Teacher)"), and it
+        // was being silently dropped. extractLabeledField() already knows
+        // how to find it; just call it like the other qualification fields.
+        $eligibility = $this->extractLabeledField($blockText, 'Eligibility');
 
         // Additional Qualifications — COS-specific extra bullet points.
         // Stored in description since there's no standard field for them.
         $description = null;
         if (preg_match(
-            '/Additional Qualifications?:?\s*(.*?)(?=Number of Vacant|Place of Assignment|Terms of Reference|Mandatory Requirements|$)/is',
+            '/Additional Qualifications?:?\s*(.*?)(?=Number of Vacant|P[l1i]ace of Assignment|Terms of Reference|Mandatory Requirements|$)/is',
             $blockText, $m
         )) {
             $val = trim(preg_replace('/\s+/', ' ', $m[1]));
@@ -652,15 +804,26 @@ class PositionBlockDetector
 
         // Place of assignment — inline prose in COS memos, not a table.
         // Confirmed: "Place of Assignment: Schools Division Office — Curriculum Implementation Division"
+        // "P[l1i]ace" tolerates the confirmed real OCR misread "Piace of
+        // Assignment" (l -> i), which previously caused this whole match
+        // to silently fail and fall through to the table-parsing branch
+        // in extractPlaceOfAssignment(), swallowing hundreds of
+        // characters of unrelated block text into place_of_assignment.
         $place = 'To be determined';
-        if (preg_match('/Place of Assignment:?\s*(.+?)(?:\n|$)/i', $blockText, $m)) {
+        if (preg_match('/P[l1i]ace of Assignment:?\s*(.+?)(?:\n|$)/i', $blockText, $m)) {
             $extracted = trim($m[1]);
             if ($extracted !== '') {
                 $place = $extracted;
             }
         }
 
-        // Duties — "Terms of Reference:" in COS memos.
+        // Duties — "Terms of Reference:" in true COS memos, but
+        // "Duties and Responsibilities:" in non-COS single-position memos
+        // that route through this same COS-format detector because they
+        // use a bullet heading instead of "A." lettering (confirmed real
+        // case: OSDS-2025-0149, "SCHOOL PRINCIPAL II"). Try the latter
+        // first since it's the more common plain-position label; fall
+        // back to "Terms of Reference" for genuine COS memos.
         // CONFIRMED REAL BUG: the stop-lookahead only recognized a numbered
         // list item ("\n  1. ...") as the end of the duties section.
         // Bullet-style duty lines never hit that stop condition, so the
@@ -670,23 +833,32 @@ class PositionBlockDetector
         // info, and the start of Additional Requirements into
         // duties_responsibilities. Added the recurring boilerplate section
         // markers shared across every DepEd Cavite memo as stop points.
-        $duties = null;
+        $dutiesStopLookahead = '(?=\n\s*\d+\.\s|Interested and qualified applicants|Mandatory Requirements|Additional Requirements|Checklist of Requirements|\z)';
+        // Default 'None' rather than null when neither label is present —
+        // consistent with extractDuties() above: a section that's genuinely
+        // absent from the source isn't a parse failure HR needs to fix.
+        $duties = 'None';
         if (preg_match(
-            '/Terms of Reference:?\s*(.*?)(?=\n\s*\d+\.\s|Interested and qualified applicants|Mandatory Requirements|Additional Requirements|Checklist of Requirements|\z)/is',
+            '/Duties and Responsibilities:?\s*(.*?)' . $dutiesStopLookahead . '/is',
             $blockText, $m
         )) {
-            $duties = $this->cleanDutiesText($m[1]);
+            $duties = $this->cleanDutiesText($m[1]) ?? 'None';
+        } elseif (preg_match(
+            '/Terms of Reference:?\s*(.*?)' . $dutiesStopLookahead . '/is',
+            $blockText, $m
+        )) {
+            $duties = $this->cleanDutiesText($m[1]) ?? 'None';
         }
 
         return [
             'title'                     => $displayTitle,
             'canonical_title'           => $canonicalTitle,
             'was_registered'            => false,
-            'salary_grade'              => null,
+            'salary_grade'              => $salaryGrade,
             'qualification_education'   => $education,
             'qualification_training'    => $training,
             'qualification_experience'  => $experience,
-            'qualification_eligibility' => null,
+            'qualification_eligibility' => $eligibility,
             'description'              => $description,
             'vacancies'                => $vacancies,
             'duties_responsibilities'  => $duties,

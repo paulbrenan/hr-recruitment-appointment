@@ -253,57 +253,7 @@
                         </div>
                     </div>
 
-                    @if ($locations->isNotEmpty())
-                    @php
-                        $locationsVisible = $locations->take(5);
-                        $locationsHidden = $locations->slice(5);
-                    @endphp
-                    <div class="mb-3">
-                        <div class="text-muted small mb-2">Places of assignment</div>
-                        <table class="table table-sm table-bordered mb-0" style="font-size:0.85rem;">
-                            <thead class="table-light">
-                                <tr><th>Place</th><th class="text-center" style="width:100px;">Vacancies</th></tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($locationsVisible as $loc)
-                                <tr>
-                                    <td>{{ $loc->place_of_assignment }}</td>
-                                    <td class="text-center">{{ $loc->vacancies }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            @if ($locationsHidden->isNotEmpty())
-                            <tbody id="overviewLocationsExtra" class="d-none">
-                                @foreach ($locationsHidden as $loc)
-                                <tr>
-                                    <td>{{ $loc->place_of_assignment }}</td>
-                                    <td class="text-center">{{ $loc->vacancies }}</td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                            @endif
-                            <tbody>
-                                <tr class="table-light fw-medium">
-                                    <td class="text-end text-muted small">Total</td>
-                                    <td class="text-center">{{ $locations->sum('vacancies') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        @if ($locationsHidden->isNotEmpty())
-                        <button type="button" id="overviewLocationsToggle"
-                                class="btn btn-link btn-sm p-0 mt-2"
-                                style="font-size: 0.8rem; text-decoration: none; color: var(--hr-primary);"
-                                onclick="
-                                    const extra = document.getElementById('overviewLocationsExtra');
-                                    const isHidden = extra.classList.contains('d-none');
-                                    extra.classList.toggle('d-none', !isHidden);
-                                    this.textContent = isHidden ? 'Show less' : 'Show {{ $locationsHidden->count() }} more';
-                                ">
-                            Show {{ $locationsHidden->count() }} more
-                        </button>
-                        @endif
-                    </div>
-                    @endif
+                    {{-- Places-of-assignment breakdown removed — Total vacancies above covers it. --}}
 
                     {{-- Qualification standards — moved above duties --}}
                     @if ($posting->qualification_education || $posting->qualification_training || $posting->qualification_experience || $posting->qualification_eligibility)
@@ -948,6 +898,69 @@
                 @endif
             </div>
 
+            {{-- Assessment criteria --}}
+            <div class="card mb-3">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Assessment criteria</h6>
+                        <span class="badge {{ $remainingWeight > 0 ? 'text-bg-light text-dark border' : 'text-bg-success' }}">
+                            {{ $usedWeight }}% used &middot; {{ $remainingWeight }}% remaining
+                        </span>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        @forelse ($criteria as $c)
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 small d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div class="fw-medium">{{ $c->name }}</div>
+                                    <div class="text-muted">{{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}% weight</div>
+                                </div>
+                                @if ($posting->status !== 'closed')
+                                <form method="POST" action="{{ route('assessments.criteria.destroy', $c->id) }}"
+                                      onsubmit="return confirm('Remove this criterion?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
+                                </form>
+                                @endif
+                            </div>
+                        </div>
+                        @empty
+                        <div class="col-12"><p class="text-muted small mb-0">No criteria defined yet.</p></div>
+                        @endforelse
+                    </div>
+                    @if ($posting->status === 'closed')
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="This posting is closed.">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @elseif ($remainingWeight > 0)
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCriterionModal">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @else
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="No weight remaining">
+                        <i class="bi bi-plus-lg me-1"></i> Add criterion
+                    </button>
+                    @endif
+
+                    @if ($criteria->isNotEmpty() && $posting->status !== 'closed')
+                    <form method="POST" action="{{ route('assessments.criteria.destroy-all') }}" class="d-inline ms-2"
+                          onsubmit="return confirm('Delete ALL {{ $criteria->count() }} assessment criteria for this posting? This cannot be undone.')">
+                        @csrf @method('DELETE')
+                        <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash me-1"></i> Delete all
+                        </button>
+                    </form>
+                    @endif
+
+                    @if ($posting->status !== 'closed')
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#importCriteriaModal">
+                        <i class="bi bi-upload me-1"></i> Scan file for criteria
+                    </button>
+                    @endif
+                </div>
+            </div>
+
             {{-- Ranking --}}
             <div class="card mb-3">
                 <div class="card-body p-4">
@@ -1077,69 +1090,6 @@
                         </tbody>
                     </table>
                     </div>
-                    @endif
-                </div>
-            </div>
-
-            {{-- Assessment criteria --}}
-            <div class="card">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="mb-0">Assessment criteria</h6>
-                        <span class="badge {{ $remainingWeight > 0 ? 'text-bg-light text-dark border' : 'text-bg-success' }}">
-                            {{ $usedWeight }}% used &middot; {{ $remainingWeight }}% remaining
-                        </span>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        @forelse ($criteria as $c)
-                        <div class="col-md-4">
-                            <div class="border rounded p-2 small d-flex justify-content-between align-items-start">
-                                <div>
-                                    <div class="fw-medium">{{ $c->name }}</div>
-                                    <div class="text-muted">{{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}% weight</div>
-                                </div>
-                                @if ($posting->status !== 'closed')
-                                <form method="POST" action="{{ route('assessments.criteria.destroy', $c->id) }}"
-                                      onsubmit="return confirm('Remove this criterion?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-x-lg"></i></button>
-                                </form>
-                                @endif
-                            </div>
-                        </div>
-                        @empty
-                        <div class="col-12"><p class="text-muted small mb-0">No criteria defined yet.</p></div>
-                        @endforelse
-                    </div>
-                    @if ($posting->status === 'closed')
-                    <button class="btn btn-sm btn-outline-secondary" disabled title="This posting is closed.">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @elseif ($remainingWeight > 0)
-                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addCriterionModal">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @else
-                    <button class="btn btn-sm btn-outline-secondary" disabled title="No weight remaining">
-                        <i class="bi bi-plus-lg me-1"></i> Add criterion
-                    </button>
-                    @endif
-
-                    @if ($criteria->isNotEmpty() && $posting->status !== 'closed')
-                    <form method="POST" action="{{ route('assessments.criteria.destroy-all') }}" class="d-inline ms-2"
-                          onsubmit="return confirm('Delete ALL {{ $criteria->count() }} assessment criteria for this posting? This cannot be undone.')">
-                        @csrf @method('DELETE')
-                        <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                            <i class="bi bi-trash me-1"></i> Delete all
-                        </button>
-                    </form>
-                    @endif
-
-                    @if ($posting->status !== 'closed')
-                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#importCriteriaModal">
-                        <i class="bi bi-upload me-1"></i> Scan file for criteria
-                    </button>
                     @endif
                 </div>
             </div>

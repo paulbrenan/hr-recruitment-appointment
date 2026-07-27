@@ -158,6 +158,25 @@ class JobPostingImportController extends Controller
     {
         $batch = PdfImportBatch::findOrFail($batchId);
 
+        // OCR occasionally grabs an over-long stray block of text into a
+        // location_place field (garbled scan, table lines misread, etc.),
+        // which used to hard-fail validation below with e.g. "The
+        // rows.1.location_place.0 field must not be greater than 500
+        // characters" -- killing the ENTIRE confirm submission and
+        // discarding every row HR had already reviewed/edited, not just
+        // the one bad field. Truncate any over-length entries up front so
+        // a single garbled OCR read can't take down the whole import; HR
+        // can still fix the truncated text on the posting afterward.
+        $rows = $request->input('rows', []);
+        foreach ($rows as $i => $row) {
+            foreach (($row['location_place'] ?? []) as $j => $place) {
+                if (is_string($place) && mb_strlen($place) > 500) {
+                    $rows[$i]['location_place'][$j] = mb_substr(trim($place), 0, 500);
+                }
+            }
+        }
+        $request->merge(['rows' => $rows]);
+
         // Atomically claim this batch so a duplicate/concurrent submission
         // (double-click, browser back+resubmit, retry, two tabs, etc.)
         // can't run the import loop twice. Only one request will see

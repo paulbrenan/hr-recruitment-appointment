@@ -3,6 +3,7 @@
 @extends('layouts.app')
 
 @section('title', 'Records')
+@section('page-title', 'Records')
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">

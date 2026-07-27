@@ -1,6 +1,5 @@
 @extends('layouts.app')
 
-@section('page-title', 'Records')
 @section('title', 'Dashboard')
 @section('page-title', 'Dashboard')
 

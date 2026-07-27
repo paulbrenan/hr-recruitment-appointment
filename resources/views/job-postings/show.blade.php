@@ -1027,7 +1027,7 @@
                         // Rendering all of them here too was the other big
                         // contributor to this page being heavy to load/toggle
                         // between steps, alongside the qualification tabs.
-                        $rankPerPage = 50;
+                        $rankPerPage = 10;
                         $rankPage = max(1, (int) request('pg_rank', 1));
                         $rankLastPage = max(1, (int) ceil($rankedCandidates->count() / $rankPerPage));
                         $rankPageCandidates = $rankedCandidates->forPage($rankPage, $rankPerPage)->values();

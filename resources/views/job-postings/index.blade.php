@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Job postings')
-@section('page-title', 'Job postings')
+@section('title', 'Job Vacancy')
+@section('page-title', 'Job Vacancy')
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/jobpostings-index-polish.css') }}">
@@ -36,46 +36,59 @@
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Archived</div>
-            <div class="fs-4 fw-semibold">{{ $postings->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $postings->total() }}</div>
         </div>
     </div>
     @else
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Open</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'open')->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $statusCounts->get('open', 0) }}</div>
         </div>
     </div>
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Interview</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'interview_scheduled')->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $statusCounts->get('interview_scheduled', 0) }}</div>
         </div>
     </div>
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Ranking</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'ranking')->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $statusCounts->get('ranking', 0) }}</div>
         </div>
     </div>
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Closed</div>
-            <div class="fs-4 fw-semibold">{{ $postings->where('status', 'closed')->count() }}</div>
+            <div class="fs-4 fw-semibold">{{ $statusCounts->get('closed', 0) }}</div>
         </div>
     </div>
     <div class="col-md-2">
         <div class="card p-3">
             <div class="text-muted small">Total vacancies</div>
-            <div class="fs-4 fw-semibold">{{ $postings->sum(fn($p) => $p->locations->sum('vacancies') ?: $p->vacancies) }}</div>
+            <div class="fs-4 fw-semibold">{{ $totalVacancies }}</div>
         </div>
     </div>
     @endif
 </div>
 
+<div class="mb-3">
+    <div class="input-group input-group-sm" style="max-width: 320px;">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input
+            type="text"
+            id="jobTitleSearch"
+            class="form-control"
+            placeholder="Search by job title..."
+            autocomplete="off"
+        >
+    </div>
+</div>
+
 <div class="card">
     <div class="table-responsive">
-        <table class="table align-top mb-0" style="vertical-align: top; table-layout: fixed; width: 100%;">
+        <table class="table align-top mb-0" id="jobPostingsTable" style="vertical-align: top; table-layout: fixed; width: 100%;">
             <colgroup>
                 <col style="width: 32%;">  {{-- Title --}}
                 <col style="width: 9%;">   {{-- Vacancies --}}
@@ -100,7 +113,7 @@
             </thead>
             <tbody>
                 @foreach ($postings as $posting)
-                <tr class="posting-row" style="cursor: pointer; vertical-align: top;" data-href="{{ route('job-postings.show', $posting->id) }}">
+                <tr class="posting-row" style="cursor: pointer; vertical-align: top;" data-href="{{ route('job-postings.show', $posting->id) }}" data-title="{{ strtolower($posting->title) }}">
                     <td class="fw-medium" style="word-break: break-word;">
                         {{ $posting->title }}
                         <div class="text-muted fw-normal" style="font-size: 0.75rem;">
@@ -157,9 +170,16 @@
                         <a href="{{ route('job-postings.show', $posting->id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-eye"></i>
                         </a>
+                        @if ($posting->status === 'open')
                         <a href="{{ route('job-postings.edit', $posting->id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        @else
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled
+                                title="This posting can no longer be edited once it's no longer open.">
+                            <i class="bi bi-lock"></i>
+                        </button>
+                        @endif
                         <form action="{{ route('job-postings.destroy', $posting->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this job posting? This cannot be undone.')">
                             @csrf
                             @method('DELETE')
@@ -174,6 +194,9 @@
         </table>
     </div>
 </div>
+<div class="mt-3">
+    {{ $postings->onEachSide(1)->links() }}
+</div>
 @push('scripts')
 <script>
     // Clickable rows
@@ -182,6 +205,24 @@
             window.location = this.dataset.href;
         });
     });
+
+    // Job title search — client-side filter, all postings are already
+    // rendered in the table so no extra request is needed.
+    (function () {
+        var searchInput = document.getElementById('jobTitleSearch');
+        var table = document.getElementById('jobPostingsTable');
+        if (!searchInput || !table) return;
+
+        var rows = table.querySelectorAll('tbody tr.posting-row');
+
+        searchInput.addEventListener('input', function () {
+            var query = this.value.trim().toLowerCase();
+            rows.forEach(function (row) {
+                var title = row.dataset.title || '';
+                row.style.display = title.indexOf(query) !== -1 ? '' : 'none';
+            });
+        });
+    })();
 </script>
 <script src="{{ asset('js/jobpostings-index-polish.js') }}"></script>
 @endpush

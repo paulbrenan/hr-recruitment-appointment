@@ -168,8 +168,17 @@ class InterviewScheduleController extends Controller
 
         $panelistIds = array_map('intval', $request->input('panelist_ids', []));
 
+        // Eligibility is based on qualification_result, not status.
+        // status can drift forward for reasons unrelated to qualification
+        // (e.g. a stale value carried over from an earlier flow, or set
+        // by a different action entirely) and had gone out of sync with
+        // the Qualification Checking tab's own "Qualified" count on some
+        // postings -- the modal was offering to schedule applicants who
+        // were never actually marked qualified. qualification_result is
+        // the single source of truth the Qualified/Disqualified/Pending
+        // tabs themselves are built from, so tie scheduling to that.
         $query = Application::where('job_posting_id', $validated['job_posting_id'])
-            ->whereIn('status', ['qualified', 'interview_scheduled', 'ranked']);
+            ->where('qualification_result', 'qualified');
 
         if (!empty($validated['job_posting_location_id'])) {
             $query->where('job_posting_location_id', $validated['job_posting_location_id']);

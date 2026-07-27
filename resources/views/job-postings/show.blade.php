@@ -1027,7 +1027,7 @@
                         // Rendering all of them here too was the other big
                         // contributor to this page being heavy to load/toggle
                         // between steps, alongside the qualification tabs.
-                        $rankPerPage = 10;
+                        $rankPerPage = 50;
                         $rankPage = max(1, (int) request('pg_rank', 1));
                         $rankLastPage = max(1, (int) ceil($rankedCandidates->count() / $rankPerPage));
                         $rankPageCandidates = $rankedCandidates->forPage($rankPage, $rankPerPage)->values();
@@ -1506,7 +1506,7 @@
                     <div class="alert alert-info small py-2 mb-3">
                         <i class="bi bi-info-circle me-1"></i>
                         This will schedule <strong>all qualified applicants</strong> on this posting at once.
-                        {{ $applications->whereIn('status', ['qualified','interview_scheduled','ranked'])->count() }} applicant(s) will be scheduled.
+                        {{ $applications->where('qualification_result', 'qualified')->count() }} applicant(s) will be scheduled.
                     </div>
 
                     <div class="mb-2">

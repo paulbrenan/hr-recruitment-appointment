@@ -28,8 +28,18 @@ class RecordsController extends Controller
         $pending = Application::with(['candidate', 'jobPosting'])
             ->whereNull('transaction_number')
             ->when($search !== '', function ($query) use ($search) {
+                // CONFIRMED REAL BUG: full_name is a PHP accessor on the
+                // Candidate model (first_name/middle_name/last_name
+                // concatenated at read time) -- it isn't a real database
+                // column, so where('full_name', ...) blew up with
+                // "Column not found" the moment anyone typed a letter.
+                // Filter on the actual columns instead.
                 $query->whereHas('candidate', function ($q) use ($search) {
-                    $q->where('full_name', 'like', '%' . $search . '%');
+                    $q->where(function ($nameQuery) use ($search) {
+                        $nameQuery->where('first_name', 'like', '%' . $search . '%')
+                            ->orWhere('middle_name', 'like', '%' . $search . '%')
+                            ->orWhere('last_name', 'like', '%' . $search . '%');
+                    });
                 });
             })
             ->when($position !== '', function ($query) use ($position) {
@@ -49,7 +59,11 @@ class RecordsController extends Controller
             ->whereNotNull('transaction_number')
             ->when($search !== '', function ($query) use ($search) {
                 $query->whereHas('candidate', function ($q) use ($search) {
-                    $q->where('full_name', 'like', '%' . $search . '%');
+                    $q->where(function ($nameQuery) use ($search) {
+                        $nameQuery->where('first_name', 'like', '%' . $search . '%')
+                            ->orWhere('middle_name', 'like', '%' . $search . '%')
+                            ->orWhere('last_name', 'like', '%' . $search . '%');
+                    });
                 });
             })
             ->when($position !== '', function ($query) use ($position) {
@@ -80,15 +94,31 @@ class RecordsController extends Controller
      * dedicated ApplicationCodeAssigned email containing the code
      * (see resources/views/mail/application-code.blade.php).
      */
-    public function assignCode($id)
+    public function assignCode(Request $request, $id)
     {
         $application = Application::with(['candidate', 'jobPosting'])
             ->whereNull('transaction_number')
             ->findOrFail($id);
 
-        DB::transaction(function () use ($application) {
+        // Optional manual override -- if Records typed a specific code,
+        // validate and use that instead of auto-generating. Left blank
+        // (the default), behavior is unchanged from before.
+        $validated = $request->validate([
+            'transaction_number' => [
+                'nullable',
+                'string',
+                'max:50',
+                'unique:applications,transaction_number',
+            ],
+        ]);
+
+        $manualCode = trim((string) ($validated['transaction_number'] ?? ''));
+
+        DB::transaction(function () use ($application, $manualCode) {
             $application->update([
-                'transaction_number' => Application::generateTransactionNumber(),
+                'transaction_number' => $manualCode !== ''
+                    ? $manualCode
+                    : Application::generateTransactionNumber(),
             ]);
         });
 

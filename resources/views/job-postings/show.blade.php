@@ -171,7 +171,7 @@
                     <form action="{{ route('job-postings.archive', $posting->id) }}" method="POST"
                           onsubmit="return confirm('Archive this posting? It will move out of the active job postings list.');">
                         @csrf
-                        <button type="submit" class="btn btn-sm btn-outline-dark w-100">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
                             <i class="bi bi-archive me-1"></i> Archive posting
                         </button>
                     </form>
@@ -373,7 +373,7 @@
                             <a href="{{ route('job-postings.export-qualifications', $posting->id) }}"
                                id="export-qualifications-btn"
                                data-no-loader
-                               class="btn btn-sm btn-outline-success">
+                               class="btn btn-sm btn-success">
                                 <i class="bi bi-file-earmark-excel me-1"></i> Export qualifications
                             </a>
                             @else
@@ -649,7 +649,7 @@
                             @if ($pendingScheduleNotices > 0)
                             <form action="{{ route('applications.schedule-notices.send-all', $posting->id) }}" method="POST" class="m-0">
                                 @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-primary"
+                                <button type="submit" class="btn btn-sm btn-primary"
                                         onclick="return confirm('Send emails to {{ $pendingScheduleNotices }} applicant(s)? Qualified applicants with a schedule get the qualified letter + schedule; everyone else gets a disqualification notice.')">
                                     <i class="bi bi-envelope me-1"></i> Send all emails ({{ $pendingScheduleNotices }})
                                 </button>
@@ -661,7 +661,7 @@
                                 <i class="bi bi-plus-lg me-1"></i> New schedule
                             </button>
                             @endif
-                            <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-outline-success ms-2">
+                            <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-success ms-2">
                                 <i class="bi bi-file-earmark-excel me-1"></i> Export IER
                             </a>
                         </div>
@@ -924,7 +924,7 @@
                 <form method="POST" action="{{ route('assessments.send-all') }}" class="m-0">
                     @csrf
                     <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-primary"
+                    <button type="submit" class="btn btn-sm btn-primary"
                             onclick="return confirm('Send ranking notifications to all {{ $rankedCandidates->count() }} applicant(s)?')">
                         <i class="bi bi-envelope me-1"></i> Send all notifications
                     </button>
@@ -943,7 +943,7 @@
                 </a>
                 @endif
                 @if ($rankedCandidates->isNotEmpty())
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#carDocumentModal">
+                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#carDocumentModal">
                     <i class="bi bi-file-earmark-text me-1"></i> View / Print CAR
                 </button>
                 @endif

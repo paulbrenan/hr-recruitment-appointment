@@ -11,6 +11,7 @@ use App\Models\JobPostingLocation;
 use App\Models\Panelist;
 use App\Services\JobTitleRegistrar;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class JobPostingController extends Controller
@@ -192,11 +193,26 @@ class JobPostingController extends Controller
         // reliably sets created_at, which let new postings show up
         // out of order. id is guaranteed to increase with every new
         // row regardless of how it was inserted.
-        $postings = JobPosting::with('locations')
+        // Base query (unpaginated) — reused for both the stat cards, which
+        // need to reflect the FULL filtered set, and the paginated list
+        // itself. Cloned before each terminal call since a query builder
+        // gets consumed once executed.
+        $baseQuery = JobPosting::query()
             ->when($showArchived, fn ($q) => $q->where('status', 'archived'))
             ->when(!$showArchived, fn ($q) => $q->where('status', '!=', 'archived'))
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
+
+        // Stat cards: pull just id/status/vacancies (+ locations for the
+        // vacancy sum) across the WHOLE filtered set, independent of which
+        // page is showing. Cheap since it skips every other posting column.
+        $statsSource   = (clone $baseQuery)->with('locations:id,job_posting_id,vacancies')
+            ->get(['id', 'status', 'vacancies']);
+        $statusCounts  = $statsSource->countBy('status');
+        $totalVacancies = $statsSource->sum(fn ($p) => $p->locations->sum('vacancies') ?: $p->vacancies);
+
+        $postings = (clone $baseQuery)->with('locations')
+            ->paginate(10)
+            ->withQueryString();
 
         // Applicant counts for all listed postings in a single grouped
         // query, then attach as a dynamic property -- avoids an N+1
@@ -210,7 +226,7 @@ class JobPostingController extends Controller
             $posting->applicant_count = $applicantCounts->get($posting->id, 0);
         });
 
-        return view('job-postings.index', compact('postings', 'showArchived'));
+        return view('job-postings.index', compact('postings', 'showArchived', 'statusCounts', 'totalVacancies'));
     }
 
     public function create()
@@ -296,6 +312,13 @@ class JobPostingController extends Controller
     public function edit($id)
     {
         $posting = JobPosting::findOrFail($id);
+
+        if ($posting->status !== 'open') {
+            return redirect()
+                ->route('job-postings.index')
+                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
+        }
+
         $posting->exists = true;
         $jobTitles  = config('job_titles.titles', []);
         $panelists         = Panelist::orderBy('name')->get();
@@ -308,6 +331,12 @@ class JobPostingController extends Controller
     public function update(Request $request, $id)
     {
         $posting = JobPosting::findOrFail($id);
+
+        if ($posting->status !== 'open') {
+            return redirect()
+                ->route('job-postings.index')
+                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
+        }
 
         $validated = $request->validate($this->rules());
 
@@ -509,7 +538,7 @@ class JobPostingController extends Controller
         $locations = $posting->locations;
         $panelists = $posting->panelists;
 
-        $applications = Application::with(['candidate', 'assessments'])
+        $applications = Application::with('candidate')
             ->where('job_posting_id', $id)
             ->latest('applied_at')
             ->get();
@@ -538,6 +567,13 @@ class JobPostingController extends Controller
         $rankableApplications = $applications
             ->filter(fn ($app) => $app->qualification_result === 'qualified')
             ->values();
+
+        // Assessments are only ever read for this narrowed subset below --
+        // loading them here (one extra whereIn query) instead of on the
+        // full $applications collection above avoids fetching assessment
+        // rows for hundreds/thousands of applicants who haven't even
+        // passed qualification checking yet.
+        $rankableApplications->load('assessments');
 
         $rankedCandidates = $rankableApplications->map(function ($app) use ($criteria) {
             $scores = [];
@@ -958,7 +994,7 @@ class JobPostingController extends Controller
         $ierSignatory = \App\Models\IERSignatory::orderBy('id')->first();
 
         $sheet->setCellValue('O' . $footerStart, 'Prepared and certified correct by:');
-        $sheet->setCellValue('O' . ($footerStart + 3), strtoupper($ierSignatory->name ?? auth()->user()->name ?? ''));
+        $sheet->setCellValue('O' . ($footerStart + 3), strtoupper($ierSignatory->name ?? Auth::user()?->name ?? ''));
         $sheet->setCellValue('O' . ($footerStart + 4), $ierSignatory->position ?? 'Human Resource Management Officer');
         $sheet->setCellValue('O' . ($footerStart + 5), 'Date: _______________');
         $sheet->getStyle('O' . $footerStart . ':O' . ($footerStart + 5))->getFont()->setName($font)->setSize(18);

@@ -168,8 +168,17 @@ class InterviewScheduleController extends Controller
 
         $panelistIds = array_map('intval', $request->input('panelist_ids', []));
 
+        // Eligibility is based on qualification_result, not status.
+        // status can drift forward for reasons unrelated to qualification
+        // (e.g. a stale value carried over from an earlier flow, or set
+        // by a different action entirely) and had gone out of sync with
+        // the Qualification Checking tab's own "Qualified" count on some
+        // postings -- the modal was offering to schedule applicants who
+        // were never actually marked qualified. qualification_result is
+        // the single source of truth the Qualified/Disqualified/Pending
+        // tabs themselves are built from, so tie scheduling to that.
         $query = Application::where('job_posting_id', $validated['job_posting_id'])
-            ->whereIn('status', ['qualified', 'interview_scheduled', 'ranked']);
+            ->where('qualification_result', 'qualified');
 
         if (!empty($validated['job_posting_location_id'])) {
             $query->where('job_posting_location_id', $validated['job_posting_location_id']);
@@ -188,29 +197,36 @@ class InterviewScheduleController extends Controller
 
         foreach ($applications as $application) {
             foreach ($validated['type'] as $type) {
-                // Guard against duplicate submissions (e.g. a double-click
-                // or resubmitted form): if this applicant already has an
-                // identical schedule -- same type, date/time, and location
-                // -- reuse it instead of creating another one.
+                // Guard against duplicate scheduling: if this applicant
+                // already has an ACTIVE schedule of this type for this
+                // posting, leave it alone entirely -- don't touch it, and
+                // don't count/notify for it again. This intentionally does
+                // NOT match on date/time/location like before: matching on
+                // exact date/time meant a later "New schedule" run (which
+                // naturally uses a different date/time to catch newly
+                // qualified stragglers) would re-match everyone from the
+                // earlier run too and double-book/double-notify them.
                 $schedule = $application->interviewSchedules()
                     ->where('type', $type)
-                    ->where('scheduled_at', $validated['scheduled_at'])
-                    ->where('location', $validated['location'] ?? null)
+                    ->where('status', '!=', 'cancelled')
                     ->first();
 
                 $isNew = ! $schedule;
 
-                if ($isNew) {
-                    $schedule = InterviewSchedule::create([
-                        'application_id' => $application->id,
-                        'type'           => $type,
-                        'scheduled_at'   => $validated['scheduled_at'],
-                        'location'       => $validated['location'] ?? null,
-                        'status'         => 'scheduled',
-                    ]);
-                    $created++;
-                    $hasNewByApplication[$application->id] = true;
+                if (! $isNew) {
+                    // Already has an active schedule of this type -- skip.
+                    continue;
                 }
+
+                $schedule = InterviewSchedule::create([
+                    'application_id' => $application->id,
+                    'type'           => $type,
+                    'scheduled_at'   => $validated['scheduled_at'],
+                    'location'       => $validated['location'] ?? null,
+                    'status'         => 'scheduled',
+                ]);
+                $created++;
+                $hasNewByApplication[$application->id] = true;
 
                 if (!empty($panelistIds)) {
                     $schedule->panelists()->sync($panelistIds);
@@ -224,12 +240,6 @@ class InterviewScheduleController extends Controller
                     ];
                 }
                 $schedulesByApplication[$application->id]['schedules'][] = $schedule;
-
-                // Don't re-notify panelists about a schedule that already
-                // existed -- only newly created schedules get an email.
-                if (! $isNew) {
-                    continue;
-                }
 
                 // Collect one assignment row per panelist -- emailed once
                 // per panelist below instead of once per schedule type.
@@ -256,8 +266,19 @@ class InterviewScheduleController extends Controller
             if (empty($hasNewByApplication[$applicationId])) {
                 continue;
             }
+
+            $application = $entry['application'];
+
+            // Advance status so this applicant drops out of the
+            // "qualified but not yet scheduled" pool that storeForPosting()
+            // queries above -- otherwise every future "New schedule" click
+            // keeps re-matching them (harmless now that the per-type check
+            // above skips them, but status should still reflect reality).
+            if ($application->status === 'qualified') {
+                $application->update(['status' => 'interview_scheduled']);
+            }
+
             try {
-                $application = $entry['application'];
                 $allSchedules = $application->interviewSchedules()->orderBy('scheduled_at')->get();
                 $application->candidate->notify(
                     new \App\Notifications\QualifiedScheduleBundleNotification($application, $allSchedules)

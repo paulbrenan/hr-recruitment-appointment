@@ -3,6 +3,7 @@
 @extends('layouts.app')
 
 @section('title', 'Records')
+@section('page-title', 'Records')
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -12,6 +13,29 @@
 @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
+
+<form action="{{ route('records.index') }}" method="GET" class="row g-2 mb-3 align-items-center">
+    <div class="col-auto">
+        <input type="text" name="search" value="{{ $search ?? '' }}"
+               class="form-control" placeholder="Search applicant name..." style="min-width: 250px;">
+    </div>
+    <div class="col-auto">
+        <select name="position" class="form-select" style="min-width: 220px;">
+            <option value="">All positions</option>
+            @foreach ($positions as $title)
+                <option value="{{ $title }}" @selected(($position ?? '') === $title)>
+                    {{ $title }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-secondary">Filter</button>
+        @if (!empty($search) || !empty($position))
+            <a href="{{ route('records.index') }}" class="btn btn-outline-danger">Clear</a>
+        @endif
+    </div>
+</form>
 
 <table class="table table-bordered align-middle">
     <thead>
@@ -39,7 +63,15 @@
             </td>
         </tr>
         @empty
-        <tr><td colspan="4" class="text-center text-muted">No applications pending a code.</td></tr>
+        <tr>
+            <td colspan="4" class="text-center text-muted">
+                @if (!empty($search) || !empty($position))
+                    No pending applications match the current filters.
+                @else
+                    No applications pending a code.
+                @endif
+            </td>
+        </tr>
         @endforelse
     </tbody>
 </table>

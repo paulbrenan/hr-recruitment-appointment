@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Pagination\Paginator;
 use App\Models\ActivityLog;
 use App\Models\JobPosting;
 use App\Models\Application;
@@ -28,6 +29,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Laravel's default paginator view uses Tailwind classes, which
+        // this Bootstrap 5 project doesn't load — without this, ->links()
+        // renders unstyled Previous/Next anchors that stack as two
+        // oversized full-width blocks instead of small inline buttons.
+        Paginator::useBootstrapFive();
+
         // Activity Log Book: record create/update/delete on core HR models.
         $loggedModels = [
             JobPosting::class => 'title',

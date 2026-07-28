@@ -400,7 +400,7 @@
                         // whichever group is first in this array as the default
                         // active tab ($loop->first), and Pending is the one HR
                         // actually needs to act on.
-                        $qualGroups = [
+                        $qualGroupsAll = [
                             'pending'       => $applications->whereNull('qualification_result')->values(),
                             'qualified'     => $applications->where('qualification_result', 'qualified')->values(),
                             'not_qualified' => $applications->where('qualification_result', 'not_qualified')->values(),
@@ -410,15 +410,42 @@
                             'qualified'     => ['label' => 'Qualified', 'color' => 'success'],
                             'not_qualified' => ['label' => 'Disqualified', 'color' => 'danger'],
                         ];
+
+                        // Each tab renders only one page of rows at a time --
+                        // previously all three tabs' full applicant lists
+                        // (up to 1000+ rows each) were rendered into the DOM
+                        // simultaneously and just toggled with d-none, which
+                        // is what made this page heavy to load. A separate
+                        // page query param per tab (pg_pending / pg_qualified
+                        // / pg_not_qualified) lets each tab paginate on its
+                        // own without disturbing the others or the active
+                        // step/tab selection.
+                        $qualPerPage = 50;
+                        $qualPages = [
+                            'pending'       => max(1, (int) request('pg_pending', 1)),
+                            'qualified'     => max(1, (int) request('pg_qualified', 1)),
+                            'not_qualified' => max(1, (int) request('pg_not_qualified', 1)),
+                        ];
+                        $qualGroups = collect($qualGroupsAll)->mapWithKeys(function ($groupApps, $groupKey) use ($qualPages, $qualPerPage) {
+                            return [$groupKey => $groupApps->forPage($qualPages[$groupKey], $qualPerPage)->values()];
+                        });
+
+                        // Which tab is shown expanded on load -- respects
+                        // ?qual_tab= so a Prev/Next click (which reloads the
+                        // page) reopens on the same tab it was clicked from,
+                        // instead of always resetting to Pending.
+                        $activeQualTab = in_array(request('qual_tab'), array_keys($qualGroupsAll), true)
+                            ? request('qual_tab')
+                            : 'pending';
                     @endphp
 
                     {{-- Pill switcher — pick one group to view at a time --}}
                     <div class="qual-pill-tabs mb-3" role="tablist">
-                        @foreach ($qualGroups as $groupKey => $groupApps)
+                        @foreach ($qualGroupsAll as $groupKey => $groupApps)
                         <button type="button"
-                                class="qual-pill-tab {{ $loop->first ? 'active' : '' }}"
+                                class="qual-pill-tab {{ $groupKey === $activeQualTab ? 'active' : '' }}"
                                 data-qual-tab="{{ $groupKey }}"
-                                role="tab" aria-selected="{{ $loop->first ? 'true' : 'false' }}">
+                                role="tab" aria-selected="{{ $groupKey === $activeQualTab ? 'true' : 'false' }}">
                             {{ $qualGroupMeta[$groupKey]['label'] }}
                             <span class="qual-pill-count">{{ $groupApps->count() }}</span>
                         </button>
@@ -467,7 +494,7 @@
                     </style>
 
                     @foreach ($qualGroups as $groupKey => $groupApps)
-                    <div class="qual-tab-panel {{ $loop->first ? '' : 'd-none' }}" data-qual-panel="{{ $groupKey }}">
+                    <div class="qual-tab-panel {{ $groupKey === $activeQualTab ? '' : 'd-none' }}" data-qual-panel="{{ $groupKey }}">
                         @forelse ($groupApps as $app)
                         @php
                             $qColors = ['qualified'=>'success','not_qualified'=>'danger','hired'=>'dark','ranking_sent'=>'primary','interview_scheduled'=>'info','submitted'=>'secondary','rejected'=>'secondary'];
@@ -557,6 +584,30 @@
                         @empty
                         <p class="text-muted small mb-0 py-3 text-center">None in this group.</p>
                         @endforelse
+
+                        @php
+                            $qualTotal = $qualGroupsAll[$groupKey]->count();
+                            $qualLastPage = max(1, (int) ceil($qualTotal / $qualPerPage));
+                            $qualCurrentPage = $qualPages[$groupKey];
+                            $qualParam = 'pg_' . $groupKey;
+                        @endphp
+                        @if ($qualLastPage > 1)
+                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                            <span class="text-muted small">
+                                Page {{ $qualCurrentPage }} of {{ $qualLastPage }} ({{ $qualTotal }} total)
+                            </span>
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-outline-secondary {{ $qualCurrentPage <= 1 ? 'disabled' : '' }}"
+                                   href="{{ $qualCurrentPage > 1 ? request()->fullUrlWithQuery([$qualParam => $qualCurrentPage - 1, 'qual_tab' => $groupKey]) : '#' }}">
+                                    <i class="bi bi-chevron-left"></i> Prev
+                                </a>
+                                <a class="btn btn-outline-secondary {{ $qualCurrentPage >= $qualLastPage ? 'disabled' : '' }}"
+                                   href="{{ $qualCurrentPage < $qualLastPage ? request()->fullUrlWithQuery([$qualParam => $qualCurrentPage + 1, 'qual_tab' => $groupKey]) : '#' }}">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                        @endif
                     </div>
                     @endforeach
 
@@ -968,6 +1019,19 @@
                     @if ($rankedCandidates->isEmpty())
                         <p class="text-muted small mb-0 text-center py-3">No applications to rank yet.</p>
                     @else
+                    @php
+                        // Display-only pagination for this on-screen table --
+                        // $rankedCandidates itself stays whole (the CAR
+                        // document below and the offer-eligibility list both
+                        // need every ranked candidate, not just this page).
+                        // Rendering all of them here too was the other big
+                        // contributor to this page being heavy to load/toggle
+                        // between steps, alongside the qualification tabs.
+                        $rankPerPage = 50;
+                        $rankPage = max(1, (int) request('pg_rank', 1));
+                        $rankLastPage = max(1, (int) ceil($rankedCandidates->count() / $rankPerPage));
+                        $rankPageCandidates = $rankedCandidates->forPage($rankPage, $rankPerPage)->values();
+                    @endphp
                     <div class="table-responsive">
                     <table class="table align-middle mb-0" style="font-size:0.875rem;">
                         <thead>
@@ -985,7 +1049,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($rankedCandidates as $i => $cand)
+                            @foreach ($rankPageCandidates as $cand)
+                            @php $i = $cand->rank - 1; @endphp
                             <tr>
                                 <td>
                                     @if ($i === 0 && $cand->total_score > 0)
@@ -1090,6 +1155,23 @@
                         </tbody>
                     </table>
                     </div>
+                    @if ($rankLastPage > 1)
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                        <span class="text-muted small">
+                            Page {{ $rankPage }} of {{ $rankLastPage }} ({{ $rankedCandidates->count() }} total)
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-outline-secondary {{ $rankPage <= 1 ? 'disabled' : '' }}"
+                               href="{{ $rankPage > 1 ? request()->fullUrlWithQuery(['pg_rank' => $rankPage - 1]) : '#' }}">
+                                <i class="bi bi-chevron-left"></i> Prev
+                            </a>
+                            <a class="btn btn-outline-secondary {{ $rankPage >= $rankLastPage ? 'disabled' : '' }}"
+                               href="{{ $rankPage < $rankLastPage ? request()->fullUrlWithQuery(['pg_rank' => $rankPage + 1]) : '#' }}">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                     @endif
                 </div>
             </div>
@@ -1441,7 +1523,7 @@
                     <div class="alert alert-info small py-2 mb-3">
                         <i class="bi bi-info-circle me-1"></i>
                         This will schedule <strong>all qualified applicants</strong> on this posting at once.
-                        {{ $applications->whereIn('status', ['qualified','interview_scheduled','ranked'])->count() }} applicant(s) will be scheduled.
+                        {{ $applications->where('qualification_result', 'qualified')->count() }} applicant(s) will be scheduled.
                     </div>
 
                     <div class="mb-2">
@@ -1770,10 +1852,6 @@
             <div class="modal-header">
                 <h6 class="modal-title"><i class="bi bi-file-earmark-text me-2"></i>Comparative Assessment Result</h6>
                 <div class="d-flex align-items-center gap-2 ms-auto me-2">
-                    <div class="form-check form-check-inline mb-0" style="font-size:0.8rem;">
-                        <input type="checkbox" class="form-check-input" id="carPublicToggle">
-                        <label for="carPublicToggle" class="form-check-label">Public view (conceal names)</label>
-                    </div>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
                         <i class="bi bi-printer me-1"></i> Print
                     </button>
@@ -1782,7 +1860,20 @@
             </div>
             <div class="modal-body">
                 <div id="carDocumentPrintArea">
-                    <div class="text-center fw-bold mb-1">Comparative Assessment Result (CAR)</div>
+                    {{-- Official letterhead: hidden on screen, shown only when printing --}}
+                    <div class="d-none d-print-block text-center mb-2">
+                        <img src="{{ asset('images/deped-logo.png') }}" alt="DepEd Seal" style="height:70px;">
+                        <div style="font-size:0.75rem; line-height:1.2; margin-top:2px;">
+                            Republic of the Philippines<br>
+                            <strong>Department of Education</strong><br>
+                            REGION IV-A<br>
+                            SCHOOLS DIVISION OFFICE OF CAVITE PROVINCE
+                        </div>
+                        <hr style="border-top:2px solid #000; margin:6px 0;">
+                    </div>
+                    <div class="text-center fw-bold mb-1" style="font-size:0.95rem; text-transform:uppercase;">
+                        Comparative Assessment Results – Registry of Qualified Applicants (CAR-EQA)
+                    </div>
                     <div class="text-center text-muted small mb-3">{{ $posting->title }}</div>
                     <div class="row mb-2" style="font-size:0.8rem;">
                         <div class="col-6">Position: <strong>{{ $posting->title }}</strong></div>
@@ -1791,40 +1882,41 @@
                         <div class="col-6">Office: <strong>DepEd Division of Cavite Province</strong></div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered" style="font-size:0.78rem;" id="carDocTable">
+                        <table class="table table-bordered" style="font-size:0.78rem; border:2px solid #000;" id="carDocTable">
                             <thead>
                                 <tr>
-                                    <th>Rank</th>
-                                    <th class="car-confidential">Name</th>
-                                    <th>App. Code</th>
+                                    <th rowspan="2" class="text-center align-middle" style="border:1px solid #000; width:3%;">No.</th>
+                                    <th rowspan="2" class="text-center align-middle" style="border:1px solid #000; width:9%;">Application Code</th>
+                                    <th colspan="{{ count($criteria) + 1 }}" class="text-center" style="border:1px solid #000;">
+                                        Comparative Assessment Results
+                                    </th>
+                                    <th rowspan="2" class="text-center align-middle car-doc-fillable" style="border:1px solid #000; width:5%;">Passed</th>
+                                </tr>
+                                <tr>
                                     @foreach ($criteria as $c)
-                                    <th>{{ $c->name }} ({{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}%)</th>
+                                    <th class="text-center" style="border:1px solid #000;">
+                                        {{ $c->name }}<br>({{ rtrim(rtrim(number_format($c->weight_percentage,2),'0'),'.') }}%)
+                                    </th>
                                     @endforeach
-                                    <th>Total</th>
-                                    <th>Passed</th>
-                                    <th class="car-doc-fillable">Background Investigation</th>
-                                    <th class="car-doc-fillable">Appointment</th>
+                                    <th class="text-center" style="border:1px solid #000;">Total<br>(100 pts)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($rankedCandidates as $i => $cand)
                                 <tr>
-                                    <td class="text-center fw-bold">#{{ $i + 1 }}</td>
-                                    <td class="car-confidential">{{ $cand->candidate_name }}</td>
-                                    <td>{{ $cand->application_code ?? '—' }}</td>
+                                    <td class="text-center fw-bold" style="border:1px solid #000;">{{ $i + 1 }}</td>
+                                    <td class="text-center fw-bold" style="border:1px solid #000;">{{ $cand->application_code ?? '—' }}</td>
                                     @foreach ($criteria as $c)
-                                    <td class="text-center">{{ $cand->scores[$c->id] ?? '—' }}</td>
+                                    <td class="text-center" style="border:1px solid #000;">{{ $cand->scores[$c->id] ?? '—' }}</td>
                                     @endforeach
-                                    <td class="text-center fw-bold">{{ $cand->total_score }}</td>
-                                    <td class="text-center">
+                                    <td class="text-center fw-bold" style="border:1px solid #000;">{{ $cand->total_score }}</td>
+                                    <td class="text-center car-doc-fillable" style="border:1px solid #000;">
                                         @if ($cand->passed ?? false)
                                             <span class="badge text-bg-success">Passed</span>
                                         @else
                                             <span class="badge text-bg-secondary">—</span>
                                         @endif
                                     </td>
-                                    <td></td>
-                                    <td></td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -2049,21 +2141,82 @@ function advanceStep() {
     });
 }
 
-// ── CAR public toggle ───────────────────────────────────────────────────────
-document.getElementById('carPublicToggle')?.addEventListener('change', function () {
-    document.getElementById('carDocTable')?.classList.toggle('public-mode', this.checked);
-});
-
 // ── Print CAR ───────────────────────────────────────────────────────────────
 // Scoped print CSS added inline so it works without a separate stylesheet
 if (!document.getElementById('carPrintStyle')) {
     const s = document.createElement('style');
     s.id = 'carPrintStyle';
     s.textContent = `@media print {
-        body * { visibility: hidden; }
-        #carDocumentPrintArea, #carDocumentPrintArea * { visibility: visible; }
-        #carDocumentPrintArea { position: absolute; top: 0; left: 0; width: 100%; }
-        .car-confidential.public-mode { display: none !important; }
+        body * { visibility: hidden; height: 0 !important; overflow: hidden !important; }
+        #carDocumentPrintArea, #carDocumentPrintArea * {
+            visibility: visible;
+            height: auto !important;
+            overflow: visible !important;
+        }
+        #carDocumentPrintArea {
+            position: absolute; top: 0; left: 0; width: 100%;
+        }
+        /* The blanket height:auto rule above (needed to un-collapse the
+           print area) also overrides the seal's inline style="height:70px",
+           since an !important stylesheet rule beats a plain inline style.
+           Pin it back down so the logo doesn't render at full native size
+           and split across the page break. */
+        #carDocumentPrintArea img {
+            height: 70px !important;
+            width: auto !important;
+        }
+        /* The modal wrapper is what actually caused the blank pages:
+           Bootstrap gives .modal a fixed position and .modal-body a
+           capped, scrollable height. Printing a fixed/scrolling box
+           only prints whatever slice was visible on screen, page
+           after page. Reset all of it to normal flow so the table
+           can paginate naturally. */
+        #carDocumentModal,
+        #carDocumentModal .modal-dialog,
+        #carDocumentModal .modal-dialog-scrollable,
+        #carDocumentModal .modal-content,
+        #carDocumentModal .modal-body {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: none !important;
+        }
+        #carDocumentModal .modal-header,
+        #carDocumentModal .modal-footer {
+            display: none !important;
+        }
+        /* .table-responsive normally scrolls overflow horizontally on
+           screen -- on paper there's no scrollbar, so anything past the
+           visible width was just getting cut off. Let it flow full width
+           instead, and force the table to actually fit that width. */
+        #carDocumentPrintArea .table-responsive {
+            overflow: visible !important;
+            width: 100% !important;
+        }
+        #carDocTable {
+            font-size: 7px;
+            width: 100% !important;
+            table-layout: fixed;
+        }
+        #carDocTable th, #carDocTable td {
+            padding: 2px 3px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        /* Passed / Background Investigation / Appointment columns are
+           only for on-screen reference -- not needed on the printed copy. */
+        #carDocTable .car-doc-fillable {
+            display: none !important;
+        }
+        @page { size: landscape; margin: 8mm; }
     }`;
     document.head.appendChild(s);
 }

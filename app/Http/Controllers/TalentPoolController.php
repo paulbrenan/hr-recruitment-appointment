@@ -7,6 +7,7 @@ use App\Models\Candidate;
 use App\Models\TalentPool;
 use App\Models\JobPosting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class TalentPoolController extends Controller
@@ -17,7 +18,11 @@ class TalentPoolController extends Controller
             ->orderByDesc('added_at')
             ->get();
 
-        $availableCandidates = Candidate::whereNotIn('id', TalentPool::pluck('candidate_id')->filter())
+        $availableCandidates = Candidate::whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('talent_pools')
+                    ->whereColumn('talent_pools.candidate_id', 'candidates.id');
+            })
             ->orderBy('first_name')
             ->get();
 

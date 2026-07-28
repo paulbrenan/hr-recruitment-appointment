@@ -351,7 +351,7 @@ class PositionBlockDetector
         // doesn't run past its real boundary and swallow the place text.
         $stopPattern = implode('|', array_map(function ($l) {
             $quoted = preg_quote($l, '/');
-            return $l === 'Place of Assignment' ? 'P[l1i]ace of Assignment' : $quoted;
+            return $l === 'Place of Assignment' ? 'P[l1i]ace\s*of\s*Assignment' : $quoted;
         }, $stopLabels));
 
         // Confirmed real OCR behavior: the bullet marker ("•") in front of
@@ -381,7 +381,14 @@ class PositionBlockDetector
         array $pageBoundaries,
         ?int $vacancies
     ): array {
-        if (preg_match('/P[l1i]ace of Assignment:?\s*To be determined/i', $blockText)) {
+        // "Performance Requirements" added — confirmed real case
+        // (OSDS-2025-0087): without it, a comma-separated inline school
+        // list ran past its real boundary into the next section's garbled
+        // OCR table. Used as a stop boundary by both the bullet-list and
+        // inline single-value branches below.
+        $inlineStopPattern = '(?:Duties\s+and\s+Responsibilities|Job\s+Summary|Terms\s+of\s+Reference|Preferred\s+Qualification|Qualification\s+Standards|Performance\s+Requirements|Number\s+of\s+Vacant\s+Position)';
+
+        if (preg_match('/P[l1i]ace\s*of\s*Assignment:?\s*To be determined/i', $blockText)) {
             return ['type' => 'single', 'value' => 'To be determined'];
         }
 
@@ -397,10 +404,44 @@ class PositionBlockDetector
         // Also handles inline bullet format where count prefix is given:
         //   ➤  2 – Tanza National Comprehensive HS
         //   ➤  1 – Emiliano Tria Tirona Memorial Integrated NHS, Kawit
-        if (preg_match('/P[l1i]ace\s+of\s+Assignment:?\s*((?:[\x{27A4}>›].*(?:\n|$))+)/iu', $blockText, $bm)) {
+        // Confirmed real OCR case (OSDS-2025-0132): "»" bullets (same
+        // character the COS-format detector already special-cases) used
+        // here too, plus the label itself rendered as "Place ofAssignment:"
+        // with zero space between "of" and "Assignment" — \s* (not \s+)
+        // tolerates that merge.
+        //
+        // Between the label and the first bullet there can also be a
+        // stray same-line artifact (a lone "=") AND a full page-break's
+        // worth of boilerplate (footer address/phone/email, then next
+        // page's header) — a negated bullet-char class (rather than ".")
+        // skips past all of that since it matches across newlines
+        // regardless of the DOTALL flag.
+        //
+        // Also confirmed real (same memo): each school entry can wrap
+        // across two physical lines ("» Main School - Indang Central ES,
+        // Adopted Schools - Kayquit ES and\nAlulod ES, Indang"), and
+        // entries are separated by a blank line. The previous approach —
+        // matching only consecutive lines that each individually start
+        // with a bullet — broke on both: it stopped at the first blank
+        // line (losing every entry after the first) and dropped the
+        // wrapped continuation text of even that first entry. Capturing
+        // the whole region up to a real stop word, then splitting on the
+        // bullet character itself, handles wrapping and blank-line
+        // separators the same way.
+        if (preg_match(
+            '/P[l1i]ace\s*of\s*Assignment:?[^\x{27A4}\x{00BB}>\x{203A}]*?([\x{27A4}\x{00BB}>\x{203A}].*?)(?=' . $inlineStopPattern . '|\z)/isu',
+            $blockText,
+            $bm
+        )) {
             $bulletBlock = $bm[1];
-            // Extract each bullet line
-            preg_match_all('/[\x{27A4}>›]\s*(.*)/u', $bulletBlock, $lines);
+            // Split on the bullet character itself rather than matching
+            // consecutive bullet-prefixed lines, so wrapped continuation
+            // lines and blank-line-separated entries both stay intact.
+            $rawEntries = preg_split('/[\x{27A4}\x{00BB}>\x{203A}]\s*/u', $bulletBlock);
+            $lines = [1 => array_values(array_filter(array_map(
+                fn ($e) => trim(preg_replace('/\s+/', ' ', $e)),
+                $rawEntries
+            ), fn ($e) => $e !== ''))];
             $schools = [];
             $rowNum = 1;
             foreach ($lines[1] as $line) {
@@ -436,16 +477,8 @@ class PositionBlockDetector
         // This MUST run before the table parser so inline-place PDFs
         // don't fall through to VacancyTableParser which misreads footer
         // numbers as table row numbers.
-        // "Performance Requirements" added — confirmed real case
-        // (OSDS-2025-0087): without it, a comma-separated inline school
-        // list ("Place of Assignment: School A, School B, ...") ran past
-        // its real boundary into the next section's garbled OCR table,
-        // exceeded the 300-char inline-value ceiling below, and fell
-        // through to the table-parsing branch, producing hundreds of
-        // bogus "unrecoverable" rows instead of one clean inline value.
-        $inlineStopPattern = '(?:Duties\s+and\s+Responsibilities|Job\s+Summary|Terms\s+of\s+Reference|Preferred\s+Qualification|Qualification\s+Standards|Performance\s+Requirements|Number\s+of\s+Vacant\s+Position)';
         if (preg_match(
-            '/P[l1i]ace\s+of\s+Assignment:?\s+(.+?)(?=\s*' . $inlineStopPattern . '|$)/is',
+            '/P[l1i]ace\s*of\s*Assignment:?\s+(.+?)(?=\s*' . $inlineStopPattern . '|$)/is',
             $blockText,
             $m
         )) {
@@ -454,7 +487,7 @@ class PositionBlockDetector
             // Only treat as inline if the extracted value looks like a real
             // place name (not a table header like "No. Mother School ...").
             // A table header will contain "Mother School" or "No." at the start.
-            $looksLikeTable = preg_match('/\bNo\.?\s+(Mother\s+School|P[l1i]ace\s+of\s+Assignment)\b/i', $value)
+            $looksLikeTable = preg_match('/\bNo\.?\s+(Mother\s+School|P[l1i]ace\s*of\s*Assignment)\b/i', $value)
                 || preg_match('/^\s*\d+\s+\w/', $value); // starts with a row number
 
             if (!$looksLikeTable && strlen($value) > 2 && strlen($value) < 300) {
@@ -696,7 +729,19 @@ class PositionBlockDetector
         // that use a bullet heading for a non-COS single position with
         // an inline SG code instead of an appointment type, e.g.
         // "» SCHOOL PRINCIPAL II (SG-20)" (confirmed real: OSDS-2025-0149).
-        $pattern = '/(?:»|>|›)\s+(.+?)\n\s*Qualification[s]?(?:\s+Standards)?:/is';
+        // Confirmed real OCR case (OSDS-2025-0066): a stray bullet-like
+        // character elsewhere in the page's letterhead/logo noise (OCR
+        // build/DPI dependent) can anchor this regex far too early, and
+        // an unbounded ".+?" then lazily swallows everything up to the
+        // real "Qualifications:" — the entire letterhead, recipient
+        // list, and intro paragraph — as if it were the title. Real
+        // titles are never more than ~110 chars even wrapped across two
+        // lines; capping the capture at 180 chars makes it structurally
+        // impossible to swallow a whole page: if no "Qualifications:"
+        // appears within 180 chars of a given bullet, that match
+        // attempt simply fails and the regex engine moves on to test
+        // the next bullet occurrence instead.
+        $pattern = '/(?:»|>|›)\s+(.{1,180}?)\n\s*Qualification[s]?(?:\s+Standards)?:/is';
 
         if (!preg_match_all($pattern, $fullText, $matches, PREG_OFFSET_CAPTURE)) {
             return [];
@@ -789,7 +834,7 @@ class PositionBlockDetector
         // Stored in description since there's no standard field for them.
         $description = null;
         if (preg_match(
-            '/Additional Qualifications?:?\s*(.*?)(?=Number of Vacant|P[l1i]ace of Assignment|Terms of Reference|Mandatory Requirements|$)/is',
+            '/Additional Qualifications?:?\s*(.*?)(?=Number of Vacant|P[l1i]ace\s*of\s*Assignment|Terms of Reference|Mandatory Requirements|$)/is',
             $blockText, $m
         )) {
             $val = trim(preg_replace('/\s+/', ' ', $m[1]));
@@ -810,7 +855,7 @@ class PositionBlockDetector
         // in extractPlaceOfAssignment(), swallowing hundreds of
         // characters of unrelated block text into place_of_assignment.
         $place = 'To be determined';
-        if (preg_match('/P[l1i]ace of Assignment:?\s*(.+?)(?:\n|$)/i', $blockText, $m)) {
+        if (preg_match('/P[l1i]ace\s*of\s*Assignment:?\s*(.+?)(?:\n|$)/i', $blockText, $m)) {
             $extracted = trim($m[1]);
             if ($extracted !== '') {
                 $place = $extracted;

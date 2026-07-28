@@ -79,11 +79,11 @@
             background-color: var(--hr-primary-dark);
             color: #fff;
             font-weight: 600;
-            border-left-color: var(--hr-accent);
+            border-left-color: #fff;
         }
         .hr-sidebar .nav-link.active i {
             opacity: 1;
-            color: var(--hr-accent);
+            color: #fff;
         }
         .hr-sidebar.collapsed {
             width: 64px;

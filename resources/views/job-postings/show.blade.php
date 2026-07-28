@@ -661,7 +661,7 @@
                                 <i class="bi bi-plus-lg me-1"></i> New schedule
                             </button>
                             @endif
-                            <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-outline-secondary ms-2">
+                            <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-outline-success ms-2">
                                 <i class="bi bi-file-earmark-excel me-1"></i> Export IER
                             </a>
                         </div>

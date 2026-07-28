@@ -1,0 +1,130 @@
+/* ============================================================
+   DepEd HR Admin — Shared Theme v1
+   Save to: public/css/hr-admin-theme.css
+   Include ONCE, in layouts/app.blade.php, BEFORE any of the
+   per-page *-polish.css files (job-postings, applications,
+   salary-grade, etc.) — they all read colors from --hr-primary
+   with a hardcoded #003087 fallback, so loading this first
+   re-themes every one of them without editing those files.
+   ============================================================ */
+
+:root {
+  --hr-primary:      #0c2f6b;  /* matches public-portal --official */
+  --hr-primary-deep: #071c46;
+  --hr-primary-mid:  #275aa8;
+  --hr-gold:         #b9922f;
+  --hr-red:          #a3202f;
+  --hr-good:         #178a6c;
+  --hr-surface:      #fbfbfa; /* warm off-white instead of flat #fff */
+  --hr-border:       #e4e7ec;
+  --hr-text-muted:   #5b6472;
+}
+
+body {
+  background: var(--hr-surface);
+}
+
+/* ---------- Cards: quieter shadow, warm surface ---------- */
+.card {
+  background: #fff;
+  border: 1px solid var(--hr-border);
+  box-shadow: 0 1px 2px rgba(12, 47, 107, 0.04);
+}
+
+/* ---------- Stat cards (dashboard) ---------- */
+.stat-card {
+  border-left: 3px solid var(--hr-primary);
+}
+.stat-icon-navy { background: rgba(12, 47, 107, 0.10); color: var(--hr-primary); }
+.stat-icon-gold { background: rgba(185, 146, 47, 0.16); color: var(--hr-gold); }
+.stat-icon-red  { background: rgba(163, 32, 47, 0.10);  color: var(--hr-red); }
+
+/* ---------- Buttons ---------- */
+.btn:focus-visible,
+.form-control:focus,
+.form-select:focus {
+  box-shadow: 0 0 0 3px rgba(12, 47, 107, 0.18);
+  border-color: var(--hr-primary);
+}
+
+/* ---------- Status badges: stamped-ink treatment ----------
+   Purely additive — targets the existing .status-* and
+   .jps-status-* / .sg-status-* classes already emitted by
+   Blade; no template changes needed. Trades the flat Bootstrap
+   pill look for something that reads like an ink stamp,
+   echoing the seal motif on the public-facing side. */
+.badge-status,
+[class*="status-"] {
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 0.32em 0.6em;
+}
+
+/* Stamped-ink outline badge treatment removed (2026-07) -- it set
+   background-color with !important but not color, and Bootstrap
+   5.3's own .text-bg-* utilities force color:#fff !important, which
+   always wins over a non-!important declaration regardless of
+   selector specificity. Net effect: pale background, colored
+   border, but text stayed forced-white -- unreadable. Reverted to
+   Bootstrap's plain solid-fill badges (.badge-status above only
+   controls sizing now, same as before this block existed). */
+
+/* ---------- Tables ---------- */
+table.table thead th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hr-text-muted);
+  border-bottom: 2px solid var(--hr-border);
+  padding: 0.85rem 1rem;
+}
+table.table.align-middle td {
+  padding: 0.85rem 1rem;
+  vertical-align: middle;
+}
+table.table tbody tr {
+  transition: background-color .12s ease;
+}
+table.table tbody tr:hover {
+  background-color: rgba(12, 47, 107, 0.03);
+}
+table.table .fw-medium {
+  color: #1a2840;
+}
+table.table .text-muted.small {
+  color: #8a94a3 !important;
+}
+
+/* ---------- Pagination ---------- */
+.pagination {
+  gap: 0.25rem;
+}
+.page-link {
+  color: var(--hr-primary);
+  border-radius: 6px;
+  border-color: var(--hr-border);
+  margin: 0;
+  font-size: 0.85rem;
+  transition: background-color .12s ease, color .12s ease;
+}
+.page-link:hover {
+  background-color: rgba(12, 47, 107, 0.06);
+  color: var(--hr-primary-deep);
+}
+.page-item.active .page-link {
+  background-color: var(--hr-primary);
+  border-color: var(--hr-primary);
+  font-weight: 700;
+}
+.page-item.disabled .page-link {
+  color: #b7bec8;
+}
+
+/* ---------- Page loader accent (page-loader.css) ---------- */
+#deped-page-loader .loader-progress-bar {
+  background: linear-gradient(90deg, var(--hr-gold), var(--hr-red));
+}

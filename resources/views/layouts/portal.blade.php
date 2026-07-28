@@ -9,10 +9,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         :root {
-            --hr-primary: #003087;
-            --hr-primary-dark: #0a1a33;
-            --hr-accent: #ffd700;
-            --hr-bg: #f0f4fa;
+            --hr-primary: #0c2f6b;
+            --hr-primary-dark: #071c46;
+            --hr-accent: #b9922f;
+            --hr-bg: #f7f6f2;
         }
         body { background: var(--hr-bg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         .portal-navbar {
@@ -38,15 +38,21 @@
             font-size: 0.875rem;
             padding: 0.5rem 1.25rem;
             border-radius: 0;
+            border-left: 3px solid transparent;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            transition: background-color .12s ease, color .12s ease, border-color .12s ease;
         }
-        .portal-sidebar .nav-link:hover,
+        .portal-sidebar .nav-link:hover {
+            background: #f0f4f6;
+            color: var(--hr-primary);
+        }
         .portal-sidebar .nav-link.active {
             background: #f0f4f6;
             color: var(--hr-primary);
             font-weight: 600;
+            border-left-color: var(--hr-accent);
         }
         .portal-main { flex: 1; padding: 1.75rem; max-width: 900px; }
         .btn-hr-primary { background: var(--hr-primary); color: #fff; }

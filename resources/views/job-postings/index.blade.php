@@ -22,7 +22,7 @@
                 <i class="bi bi-archive me-1"></i> Show archived
             </a>
         @endif
-        <a href="{{ route('job-postings.import.create') }}" class="btn btn-sm btn-outline-secondary">
+        <a href="{{ route('job-postings.import.create') }}" class="btn btn-sm btn-success">
             <i class="bi bi-file-earmark-pdf me-1"></i> Import from PDF
         </a>
         <a href="{{ route('job-postings.create') }}" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
@@ -91,13 +91,13 @@
         <table class="table align-top mb-0" id="jobPostingsTable" style="vertical-align: top; table-layout: fixed; width: 100%;">
             <colgroup>
                 <col style="width: 32%;">  {{-- Title --}}
-                <col style="width: 9%;">   {{-- Vacancies --}}
-                <col style="width: 12%;">  {{-- Employment type --}}
-                <col style="width: 7%;">   {{-- SG --}}
-                <col style="width: 8%;">   {{-- Posted --}}
-                <col style="width: 8%;">   {{-- Closes --}}
-                <col style="width: 8%;">   {{-- Status --}}
-                <col style="width: 16%;">  {{-- Actions — wide enough for 3 buttons --}}
+                <col style="width: 8%;">   {{-- Vacancies --}}
+                <col style="width: 13%;">  {{-- Employment type --}}
+                <col style="width: 6%;">   {{-- SG --}}
+                <col style="width: 9%;">   {{-- Posted --}}
+                <col style="width: 9%;">   {{-- Closes --}}
+                <col style="width: 11%;">  {{-- Status --}}
+                <col style="width: 12%;">  {{-- Actions — trimmed, only needs room for 3 icon buttons --}}
             </colgroup>
             <thead>
                 <tr>
@@ -162,7 +162,7 @@
                                 'archived'            => 'Archived',
                             ];
                         @endphp
-                        <span class="badge badge-status text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }}">
+                        <span class="badge badge-status text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }}" style="white-space: nowrap;">
                             {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
                         </span>
                     </td>

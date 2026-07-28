@@ -38,7 +38,7 @@
         <a href="{{ route('applications.export', request()->only(['status', 'job_posting'])) }}"
            id="export-excel-btn"
            data-no-loader
-           class="btn btn-sm btn-outline-primary"
+           class="btn btn-sm btn-outline-success"
            title="{{ request('job_posting') ? 'Includes this posting\'s scoring columns — ready to fill in and re-import on Assessment & ranking' : 'Select a job posting above to include scoring columns for that posting' }}">
             <i class="bi bi-file-earmark-excel"></i> Export to Excel
         </a>

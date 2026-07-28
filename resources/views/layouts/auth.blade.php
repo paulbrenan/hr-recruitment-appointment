@@ -8,12 +8,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         :root {
-            --blue:       #003087;
-            --blue-mid:   #0047b3;
-            --blue-light: #e6ecf7;
-            --blue-dark:  #0a1a33;
-            --gold:       #ffd700;
-            --red:        #CE1126;
+            --blue:       #0c2f6b;
+            --blue-mid:   #275aa8;
+            --blue-light: #e9edf4;
+            --blue-dark:  #071c46;
+            --gold:       #b9922f;
+            --red:        #a3202f;
             --text:       #1a2840;
             --muted:      #5a6880;
             --header-h:   64px;

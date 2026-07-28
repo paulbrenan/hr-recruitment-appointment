@@ -1,32 +1,49 @@
 /* ============================================================
-   DepEd Cavite — Shared Theme
-   Include on every page with:
+   DepEd Cavite — Shared Theme (public candidate portal) v2
+   Include on every public-facing page with:
    <link rel="stylesheet" href="{{ asset('css/deped-theme.css') }}">
    Logo file expected at: public/images/deped-logo.png
+
+   Design tokens are also consumed by the admin side (see
+   hr-admin-theme.css) via the --hr-primary custom property,
+   so the brand reads as one system across both.
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap');
+
 :root {
-  --teal: #003087;
-  --teal-light: #e6ecf7;
-  --teal-mid: #0047b3;
-  --teal-dark: #0a1a33;
-  --gold: #ffd700;
-  --navy: #00247d;
+  /* -- brand: "official ink" + brass seal, on warm paper -- */
+  --official:      #0c2f6b;   /* primary ink-blue */
+  --official-deep: #071c46;   /* header gradient end / hover */
+  --official-mid:  #275aa8;   /* links, focus rings */
+  --gold:          #b9922f;   /* brass seal (muted, not neon) */
+  --gold-bright:   #d4af37;   /* seal highlight / hover */
+  --red:           #a3202f;   /* flag red, used sparingly */
+  --paper:         #faf8f2;   /* warm card background */
+  --paper-line:    #e8e3d4;   /* hairlines on paper */
+  --ink-muted:     #5b6472;   /* secondary text */
+
+  /* legacy aliases kept so nothing upstream breaks */
+  --teal: var(--official);
+  --teal-light: #e9edf4;
+  --teal-mid: var(--official-mid);
+  --teal-dark: var(--official-deep);
+  --navy: var(--official-deep);
+
+  --font-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-body: 'Segoe UI', Arial, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
 
 body {
-  background: url('../matatag-bg.png') center center / cover no-repeat fixed;
+  background: linear-gradient(rgba(7, 28, 70, 0.82), rgba(7, 28, 70, 0.82)),
+              url('../matatag-bg.png') center center / cover no-repeat fixed;
   min-height: 100vh;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: var(--font-body);
   position: relative;
-}
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 48, 135, 0.72);
-  z-index: 0;
-  pointer-events: none;
 }
 
 /* ---------- Watermark seal behind content ---------- */
@@ -42,25 +59,24 @@ body.deped-watermark::before {
   height: 640px;
   background: url('../images/deped-logo.png') center / contain no-repeat;
   transform: translate(-50%, -50%);
-  opacity: 0.06;
+  opacity: 0.05;
   pointer-events: none;
   z-index: 0;
 }
 
 /* ---------- Header with logo ---------- */
 .deped-header {
-  background: linear-gradient(120deg, var(--teal) 0%, var(--teal-dark) 100%);
+  background: linear-gradient(120deg, var(--official) 0%, var(--official-deep) 100%);
   color: #fff;
-  padding: 26px 36px 24px;
+  padding: 28px 36px 26px;
   display: flex;
   align-items: center;
   gap: 18px;
   position: relative;
   overflow: hidden;
-  border-bottom: 4px solid var(--gold);
+  border-bottom: 3px solid var(--gold);
 }
 
-/* faint shield pattern accent in the header itself */
 .deped-header::after {
   content: "";
   position: absolute;
@@ -69,7 +85,7 @@ body.deped-watermark::before {
   width: 200px;
   height: 200px;
   background: url('../images/deped-logo.png') center / contain no-repeat;
-  opacity: 0.10;
+  opacity: 0.08;
   pointer-events: none;
 }
 
@@ -91,8 +107,10 @@ body.deped-watermark::before {
 }
 
 .deped-header h1 {
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   margin: 0 0 6px;
   line-height: 1.3;
 }
@@ -104,11 +122,10 @@ body.deped-watermark::before {
   line-height: 1.5;
 }
 
-/* Centered variant, used on confirmation / submitted cards */
 .deped-header.deped-header-center {
   flex-direction: column;
   text-align: center;
-  padding: 28px 28px 24px;
+  padding: 30px 28px 26px;
 }
 .deped-header.deped-header-center img.deped-logo {
   width: 56px;
@@ -121,36 +138,83 @@ body.deped-watermark::before {
 .deped-card {
   max-width: 780px;
   margin: 40px auto 60px;
-  background: #fff;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0,0,0,.10);
+  background: var(--paper);
+  border-radius: 10px;
+  overflow: visible;
+  box-shadow: 0 4px 28px rgba(7, 28, 70, 0.16);
   position: relative;
   z-index: 1;
+  animation: deped-card-in 0.35s ease both;
+}
+@keyframes deped-card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* -- signature element: stamped official seal on every document card -- */
+.form-card::before,
+.deped-card::before {
+  content: "OFFICIAL";
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 2px dashed var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  opacity: 0.55;
+  transform: rotate(-8deg);
+  pointer-events: none;
+  z-index: 2;
+}
+.form-card::after,
+.deped-card::after {
+  content: "";
+  position: absolute;
+  top: 25px;
+  right: 29px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  opacity: 0.4;
+  transform: rotate(-8deg);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .privacy {
   background: var(--teal-light);
-  border-left: 4px solid var(--teal-mid);
+  border-left: 4px solid var(--official-mid);
   padding: 18px 24px;
   margin: 0;
   font-size: .82rem;
-  color: #1a5c5a;
+  color: #26425f;
   line-height: 1.6;
 }
 
 .section-title {
-  color: var(--teal);
+  font-family: var(--font-display);
+  color: var(--official);
   font-size: 1.05rem;
   font-weight: 700;
   margin: 28px 0 18px;
   padding-bottom: 6px;
-  border-bottom: 2px solid var(--teal-light);
+  border-bottom: 2px solid var(--paper-line);
 }
 
 .btn-submit,
 .btn-portal {
-  background: var(--teal);
+  background: var(--official);
   color: #fff;
   font-weight: 700;
   font-size: .95rem;
@@ -158,12 +222,18 @@ body.deped-watermark::before {
   border-radius: 8px;
   border: none;
   width: 100%;
-  transition: .2s;
+  transition: background-color .2s ease, transform .15s ease;
 }
 .btn-submit:hover,
 .btn-portal:hover {
-  background: var(--teal-dark);
+  background: var(--official-deep);
   color: #fff;
+  transform: translateY(-1px);
+}
+.btn-submit:focus-visible,
+.btn-portal:focus-visible {
+  outline: 3px solid var(--gold-bright);
+  outline-offset: 2px;
 }
 
 .form-footer,
@@ -171,6 +241,11 @@ body.deped-watermark::before {
   text-align: center;
   padding: 18px 36px 24px;
   font-size: .78rem;
-  color: #888;
-  border-top: 1px solid #eee;
+  color: var(--ink-muted);
+  border-top: 1px solid var(--paper-line);
+}
+
+@media (max-width: 560px) {
+  .form-card::before, .deped-card::before,
+  .form-card::after, .deped-card::after { display: none; }
 }

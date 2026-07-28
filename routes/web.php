@@ -191,6 +191,7 @@ Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy'])->
 
 Route::get('/records', [RecordsController::class, 'index'])->name('records.index');
 Route::post('/records/{id}/assign-code', [RecordsController::class, 'assignCode'])->name('records.assign-code');
+Route::patch('/records/{id}/update-code', [RecordsController::class, 'updateCode'])->name('records.update-code');
 
 // Signatories -- one page (signatories.index), one section per document
 // type. Add a new document type by copying the ier-signatories.* group

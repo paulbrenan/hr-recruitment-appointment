@@ -7,12 +7,13 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/page-loader.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ asset('css/hr-admin-theme.css') }}">
     <style>
         :root {
-            --hr-primary: #003087;
-            --hr-primary-dark: #0a1a33;
-            --hr-accent: #ffd700;
-            --hr-bg: #f0f4fa;
+            --hr-primary: #0c2f6b;
+            --hr-primary-dark: #071c46;
+            --hr-accent: #b9922f;
+            --hr-bg: #f7f6f2;
             --hr-header-h: 56px;
         }
         html, body {
@@ -36,7 +37,7 @@
             overflow-y: auto;
         }
         .hr-sidebar-brand {
-            height: var(--hr-header-h);
+            height: 72px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
@@ -44,7 +45,8 @@
             color: #fff;
             font-weight: 600;
             font-size: 1.05rem;
-            border-bottom: 1px solid var(--hr-primary-dark);
+            border-bottom: 2px solid rgba(185, 146, 47, 0.35);
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
         }
         .hr-sidebar.collapsed .hr-sidebar-brand {
             justify-content: center;
@@ -55,22 +57,33 @@
         }
         .hr-sidebar .nav-link {
             color: #c9d4d9;
-            padding: 0.65rem 1.25rem;
+            padding: 0.7rem 1.25rem;
             font-size: 0.92rem;
             border-left: 3px solid transparent;
+            transition: background-color .15s ease, color .15s ease, border-color .15s ease;
         }
         .hr-sidebar .nav-link i {
             width: 20px;
             margin-right: 10px;
+            opacity: 0.7;
+            transition: opacity .15s ease;
         }
         .hr-sidebar .nav-link:hover {
             background-color: rgba(255,255,255,0.06);
             color: #fff;
         }
+        .hr-sidebar .nav-link:hover i {
+            opacity: 1;
+        }
         .hr-sidebar .nav-link.active {
             background-color: var(--hr-primary-dark);
             color: #fff;
-            border-left-color: var(--hr-accent);
+            font-weight: 600;
+            border-left-color: #fff;
+        }
+        .hr-sidebar .nav-link.active i {
+            opacity: 1;
+            color: #fff;
         }
         .hr-sidebar.collapsed {
             width: 64px;
@@ -138,25 +151,18 @@
             border-bottom: 1px solid #e2e6e8;
             padding: 0.85rem 1.5rem;
         }
+        .hr-pagebar h5 {
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            color: var(--hr-primary);
+        }
+        .hr-pagebar .text-muted.small {
+            background: rgba(12, 47, 107, 0.06);
+            padding: 0.3rem 0.7rem;
+            border-radius: 20px;
+        }
         .hr-main {
             padding: 1.5rem;
-        }
-        .badge-status {
-            font-size: 0.75rem;
-            font-weight: 500;
-            padding: 0.35em 0.7em;
-        }
-        .card {
-            border: 1px solid #e2e6e8;
-            box-shadow: none;
-        }
-        .table thead th {
-            font-size: 0.78rem;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            color: #6c7780;
-            border-bottom-width: 1px;
-            font-weight: 600;
         }
     </style>
     @stack('styles')

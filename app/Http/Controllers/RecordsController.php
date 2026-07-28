@@ -41,6 +41,26 @@ class RecordsController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        // Applications that already have a code, for the "Assigned" table
+        // where Records can correct a mistyped/wrong code. Kept simple:
+        // same $search filter, separate pagination page name so paginating
+        // one table doesn't reset the other.
+        $assigned = Application::with(['candidate', 'jobPosting'])
+            ->whereNotNull('transaction_number')
+            ->when($search !== '', function ($query) use ($search) {
+                $query->whereHas('candidate', function ($q) use ($search) {
+                    $q->where('full_name', 'like', '%' . $search . '%');
+                });
+            })
+            ->when($position !== '', function ($query) use ($position) {
+                $query->whereHas('jobPosting', function ($q) use ($position) {
+                    $q->where('title', $position);
+                });
+            })
+            ->latest()
+            ->paginate(20, ['*'], 'assigned_page')
+            ->withQueryString();
+
         // Distinct job titles for the position filter dropdown, drawn only
         // from postings that currently have at least one pending application.
         $positions = JobPosting::whereHas('applications', function ($q) {
@@ -51,7 +71,7 @@ class RecordsController extends Controller
             ->unique()
             ->values();
 
-        return view('records.index', compact('pending', 'search', 'position', 'positions'));
+        return view('records.index', compact('pending', 'assigned', 'search', 'position', 'positions'));
     }
 
     /**
@@ -87,5 +107,33 @@ class RecordsController extends Controller
         return redirect()
             ->route('records.index')
             ->with('success', 'Application Code ' . $application->transaction_number . ' assigned to ' . ($application->candidate->full_name ?? 'applicant') . ' and emailed.');
+    }
+
+    /**
+     * Records made a mistake on an already-assigned Application Code
+     * (typo, wrong format, etc.) and needs to correct it manually.
+     * This is a data fix only -- it does NOT resend the assignment email.
+     */
+    public function updateCode(Request $request, $id)
+    {
+        $application = Application::whereNotNull('transaction_number')
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'transaction_number' => [
+                'required',
+                'string',
+                'max:50',
+                'unique:applications,transaction_number,' . $application->id,
+            ],
+        ]);
+
+        $application->update([
+            'transaction_number' => $validated['transaction_number'],
+        ]);
+
+        return redirect()
+            ->route('records.index')
+            ->with('success', 'Application Code updated to ' . $application->transaction_number . '.');
     }
 }

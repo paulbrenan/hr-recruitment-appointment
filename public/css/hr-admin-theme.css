@@ -68,13 +68,13 @@ body {
    outline-on-paper stamp: white background, colored ring, colored
    ink. Two-class selector out-specifies the single-class Bootstrap
    utility, so no !important needed. */
-.badge-status.text-bg-secondary { background-color: #fff !important; color: #495057; border: 1px solid #c3c9d1; }
-.badge-status.text-bg-info      { background-color: #fff !important; color: #0aa2c0; border: 1px solid #0aa2c0; }
-.badge-status.text-bg-primary   { background-color: #fff !important; color: var(--hr-primary); border: 1px solid var(--hr-primary); }
-.badge-status.text-bg-success   { background-color: #fff !important; color: var(--hr-good); border: 1px solid var(--hr-good); }
-.badge-status.text-bg-warning   { background-color: #fff !important; color: #8a6500; border: 1px solid var(--hr-gold); }
-.badge-status.text-bg-danger    { background-color: #fff !important; color: var(--hr-red); border: 1px solid var(--hr-red); }
-.badge-status.text-bg-dark      { background-color: #fff !important; color: #0a1a33; border: 1px solid #0a1a33; }
+.badge-status.text-bg-secondary { background-color: rgba(73, 80, 87, 0.06) !important; color: #495057; border: 1px solid #c3c9d1; }
+.badge-status.text-bg-info      { background-color: rgba(10, 162, 192, 0.08) !important; color: #0aa2c0; border: 1px solid #0aa2c0; }
+.badge-status.text-bg-primary   { background-color: rgba(12, 47, 107, 0.08) !important; color: var(--hr-primary); border: 1px solid var(--hr-primary); }
+.badge-status.text-bg-success   { background-color: rgba(23, 138, 108, 0.08) !important; color: var(--hr-good); border: 1px solid var(--hr-good); }
+.badge-status.text-bg-warning   { background-color: rgba(185, 146, 47, 0.12) !important; color: #8a6500; border: 1px solid var(--hr-gold); }
+.badge-status.text-bg-danger    { background-color: rgba(163, 32, 47, 0.08) !important; color: var(--hr-red); border: 1px solid var(--hr-red); }
+.badge-status.text-bg-dark      { background-color: rgba(10, 26, 51, 0.06) !important; color: #0a1a33; border: 1px solid #0a1a33; }
 
 /* ---------- Tables ---------- */
 table.table thead th {

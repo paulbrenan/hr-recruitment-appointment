@@ -75,4 +75,58 @@
         @endforelse
     </tbody>
 </table>
+
+{{ $pending->links() }}
+
+<hr class="my-4">
+
+<h5 class="mb-3">Assigned Application Codes</h5>
+
+<table class="table table-bordered align-middle">
+    <thead>
+        <tr>
+            <th>Applicant</th>
+            <th>Position</th>
+            <th style="min-width: 220px;">Application Code</th>
+            <th class="text-end">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @forelse ($assigned as $application)
+        <tr>
+            <td>{{ $application->candidate->full_name ?? '—' }}</td>
+            <td>{{ $application->jobPosting->title ?? '—' }}</td>
+            <td>
+                <form action="{{ route('records.update-code', $application->id) }}" method="POST" class="d-flex gap-2">
+                    @csrf
+                    @method('PATCH')
+                    <input type="text" name="transaction_number"
+                           value="{{ $application->transaction_number }}"
+                           class="form-control form-control-sm" required>
+                    <button type="submit" class="btn btn-sm btn-outline-primary"
+                        onclick="return confirm('Update this Application Code? This will NOT resend the assignment email.');">
+                        Save
+                    </button>
+                </form>
+                @error('transaction_number')
+                    <div class="text-danger small mt-1">{{ $message }}</div>
+                @enderror
+            </td>
+            <td class="text-end"></td>
+        </tr>
+        @empty
+        <tr>
+            <td colspan="4" class="text-center text-muted">
+                @if (!empty($search) || !empty($position))
+                    No assigned applications match the current filters.
+                @else
+                    No Application Codes assigned yet.
+                @endif
+            </td>
+        </tr>
+        @endforelse
+    </tbody>
+</table>
+
+{{ $assigned->links() }}
 @endsection

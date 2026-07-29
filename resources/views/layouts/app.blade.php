@@ -25,7 +25,7 @@
             min-height: 100vh;
         }
         .hr-sidebar {
-            width: 240px;
+            width: 170px;
             flex-shrink: 0;
             background-color: var(--hr-primary);
             color: #e8edf0;
@@ -57,7 +57,7 @@
         }
         .hr-sidebar .nav-link {
             color: #c9d4d9;
-            padding: 0.7rem 1.25rem;
+            padding: 0.7rem 1rem;
             font-size: 0.92rem;
             border-left: 3px solid transparent;
             transition: background-color .15s ease, color .15s ease, border-color .15s ease;
@@ -147,8 +147,8 @@
             min-width: 0;
         }
         .hr-pagebar {
-            background-color: #fff;
-            border-bottom: 1px solid #e2e6e8;
+            background-color: var(--hr-bg);
+            border-bottom: 1px solid #e9e6df;
             padding: 0.85rem 1.5rem;
         }
         .hr-pagebar h5 {
@@ -231,8 +231,12 @@
         </header>
 
             <div class="hr-content">
-                <div class="hr-pagebar d-flex justify-content-between align-items-center">
+                <div class="hr-pagebar d-flex justify-content-between align-items-center position-relative">
                     <h5 class="mb-0">@yield('page-title', 'Dashboard')</h5>
+                    <div class="text-muted small hr-pagebar-subtitle"
+                         style="position:absolute;left:50%;transform:translateX(-50%);">
+                        @yield('page-subtitle')
+                    </div>
                     <div class="text-muted small">
                         <i class="bi bi-person-circle me-1"></i> HR Staff
                     </div>

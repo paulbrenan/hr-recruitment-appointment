@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="{{ asset('css/deped-theme.css') }}">
 <style>
   /* Page-specific overrides only — shared theme lives in deped-theme.css */
+  .form-card { background: #fff !important; }
   .form-body { padding:32px 36px; }
   .q-num { color:var(--teal); font-weight:600; }
   .form-label { font-size:.88rem; color:#333; font-weight:500; }

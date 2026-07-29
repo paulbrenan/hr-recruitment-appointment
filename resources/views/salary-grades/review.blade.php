@@ -3,25 +3,25 @@
 @section('title', 'Review Salary Grade Import')
 @section('page-title', 'Review Salary Grade Import')
 
+@section('page-subtitle')
+Status: <span class="badge sg-status-{{ $circular->status }}">{{ ucfirst($circular->status) }}</span>
+&middot; source: {{ $circular->original_filename }}
+@endsection
+
 @php
     $parsed = $circular->tableArray();
     $previous = \App\Models\SalaryGrade::currentTableArray();
 @endphp
 
 @section('content')
-@if (session('success'))
-<div class="alert alert-success alert-dismissible fade show small py-2" role="alert">
-    {{ session('success') }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-@endif
-
-<div class="d-flex justify-content-between align-items-start mb-3">
-    <p class="text-muted small mb-0">
-        Status: <span class="badge sg-status-{{ $circular->status }}">{{ ucfirst($circular->status) }}</span>
-        &middot; source: {{ $circular->original_filename }}
-    </p>
-    <a href="{{ route('salary-grades.index') }}" class="small">&larr; Back to Salary Grade</a>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    @if (session('success'))
+    <div class="alert alert-success fade show small py-2 px-3 mb-0 d-flex align-items-center gap-2" role="alert">
+        <span>{{ session('success') }}</span>
+        <button type="button" class="btn-close" style="font-size: 0.65rem;" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    @endif
+    <a href="{{ route('salary-grades.index') }}" class="small ms-auto">&larr; Back to Salary Grade</a>
 </div>
 
 @if ($circular->status === 'processing')
@@ -30,7 +30,7 @@
 <div class="alert alert-danger small">{{ $circular->error_message }}</div>
 @else
 
-<form method="POST" action="{{ route('salary-grades.update', $circular->id) }}">
+<form method="POST" action="{{ route('salary-grades.update', $circular->id) }}" id="salaryCorrectionsForm">
     @csrf
     @method('PUT')
 
@@ -98,19 +98,22 @@
         </div>
     </div>
 
-    <button type="submit" class="btn btn-outline-secondary">Save corrections</button>
-</form>
+    </form>
 
-@if ($circular->status === 'ready')
-<form method="POST" action="{{ route('salary-grades.confirm', $circular->id) }}" class="d-inline"
-      onsubmit="return confirm('Make this the active salary schedule system-wide?');">
-    @csrf
-    @method('PUT')
-    <button type="submit" class="btn" style="background-color: var(--hr-primary); color: #fff;">
-        Confirm as active schedule
-    </button>
-</form>
-@endif
+<div class="d-flex justify-content-end gap-2 mt-3">
+    <button type="submit" form="salaryCorrectionsForm" class="btn btn-primary">Save corrections</button>
+
+    @if ($circular->status === 'ready')
+    <form method="POST" action="{{ route('salary-grades.confirm', $circular->id) }}" class="d-inline"
+          onsubmit="return confirm('Make this the active salary schedule system-wide?');">
+        @csrf
+        @method('PUT')
+        <button type="submit" class="btn btn-success">
+            Confirm as active schedule
+        </button>
+    </form>
+    @endif
+</div>
 
 @endif
 

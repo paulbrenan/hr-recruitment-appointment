@@ -5,11 +5,11 @@
 @section('title', 'Records')
 @section('page-title', 'Records')
 
-@section('content')
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0">Records — Pending Application Codes</h4>
-</div>
+@section('page-subtitle')
+Pending Application Codes
+@endsection
 
+@section('content')
 @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif

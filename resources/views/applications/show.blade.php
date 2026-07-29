@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Application details')
-@section('page-title', 'Application details')
+@section('page-title', 'Application Details')
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/application-show-polish.css') }}">

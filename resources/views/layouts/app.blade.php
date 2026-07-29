@@ -237,8 +237,21 @@
                          style="position:absolute;left:50%;transform:translateX(-50%);">
                         @yield('page-subtitle')
                     </div>
-                    <div class="text-muted small">
-                        <i class="bi bi-person-circle me-1"></i> HR Staff
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-sm text-muted small dropdown-toggle border-0 bg-transparent"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle me-1"></i> {{ auth()->user()->name ?? 'HR Staff' }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <form action="{{ route('logout') }}" method="POST" class="m-0">
+                                    @csrf
+                                    <button type="submit" class="dropdown-item">
+                                        <i class="bi bi-box-arrow-right me-2"></i> Log out
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
                     </div>
                 </div>
                 <div class="hr-main">

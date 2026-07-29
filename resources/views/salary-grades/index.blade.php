@@ -3,13 +3,18 @@
 @section('title', 'Salary Grade')
 @section('page-title', 'Salary Grade')
 
-@section('content')
-@if (session('success'))
-<div class="alert alert-success alert-dismissible fade show small py-2" role="alert">
-    {{ session('success') }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
+@section('page-subtitle')
+@if ($currentCircular)
+    Active schedule: <strong>Budget Circular No. {{ $currentCircular->circular_no ?? '—' }}</strong>
+    @if ($currentCircular->effective_date)
+        &middot; effective {{ $currentCircular->effective_date->format('M d, Y') }}
+    @endif
+@else
+    No salary schedule has been imported yet -- using the built-in default table.
 @endif
+@endsection
+
+@section('content')
 @if (session('error'))
 <div class="alert alert-danger alert-dismissible fade show small py-2" role="alert">
     {{ session('error') }}
@@ -17,18 +22,14 @@
 </div>
 @endif
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <p class="text-muted small mb-0">
-        @if ($currentCircular)
-            Active schedule: <strong>Budget Circular No. {{ $currentCircular->circular_no ?? '—' }}</strong>
-            @if ($currentCircular->effective_date)
-                &middot; effective {{ $currentCircular->effective_date->format('M d, Y') }}
-            @endif
-        @else
-            No salary schedule has been imported yet -- using the built-in default table.
-        @endif
-    </p>
-    <a href="{{ route('salary-grades.create') }}" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    @if (session('success'))
+    <div class="alert alert-success fade show small py-2 px-3 mb-0 d-flex align-items-center gap-2" role="alert">
+        <span>{{ session('success') }}</span>
+        <button type="button" class="btn-close" style="font-size: 0.65rem;" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    @endif
+    <a href="{{ route('salary-grades.create') }}" class="btn btn-sm ms-auto" style="background-color: var(--hr-primary); color: #fff;">
         <i class="bi bi-upload"></i> Import new circular
     </a>
 </div>

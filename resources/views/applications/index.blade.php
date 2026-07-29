@@ -1,7 +1,11 @@
 @extends('layouts.app')
 
 @section('title', 'Applications')
-@section('page-title', 'Candidate applications')
+@section('page-title', 'Candidate Applications')
+
+@section('page-subtitle')
+Track candidate applications from submission through hiring
+@endsection
 
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/applications-index-polish.css') }}">
@@ -9,7 +13,6 @@
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <p class="text-muted mb-0 small">Track candidate applications from submission through hiring</p>
     <div class="d-flex gap-2 align-items-center">
         <form method="GET" action="{{ route('applications.index') }}" class="d-flex gap-2">
             <select name="job_posting" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
@@ -38,9 +41,10 @@
         <a href="{{ route('applications.export', request()->only(['status', 'job_posting'])) }}"
            id="export-excel-btn"
            data-no-loader
-           class="btn btn-sm btn-outline-success"
+           class="btn btn-sm btn-success d-inline-flex align-items-center justify-content-center"
+           style="white-space: nowrap; padding: 0.3rem 1.1rem; min-width: 160px;"
            title="{{ request('job_posting') ? 'Includes this posting\'s scoring columns — ready to fill in and re-import on Assessment & ranking' : 'Select a job posting above to include scoring columns for that posting' }}">
-            <i class="bi bi-file-earmark-excel"></i> Export to Excel
+            <i class="bi bi-file-earmark-excel me-1"></i> Export to Excel
         </a>
     </div>
 </div>

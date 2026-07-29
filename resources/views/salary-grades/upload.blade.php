@@ -1,10 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'Import Salary Grade Schedule')
-@section('page-title', 'Import Salary Grade Schedule')
+@section('title', 'Import Salary Grade')
+@section('page-title', 'Import Salary Grade')
+
+@section('page-subtitle')
+Upload the DBM Budget Circular (PDF) or an Excel/CSV export of the Annex A salary schedule.
+@endsection
 
 @section('content')
-<p class="text-muted small mb-3">Upload the DBM Budget Circular (PDF) or an Excel/CSV export of the Annex A salary schedule.</p>
 
 @if ($errors->any())
 <div class="alert alert-danger small py-2">

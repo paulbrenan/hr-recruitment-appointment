@@ -3,33 +3,15 @@
 @section('title', 'Job Vacancy')
 @section('page-title', 'Job Vacancy')
 
+@section('page-subtitle')
+Manage open positions, qualifications, and assignment details
+@endsection
+
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/jobpostings-index-polish.css') }}">
 @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <p class="text-muted mb-0 small">Manage open positions, qualifications, and assignment details</p>
-    </div>
-    <div class="d-flex gap-2">
-        @if ($showArchived ?? false)
-            <a href="{{ route('job-postings.index') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Back to active postings
-            </a>
-        @else
-            <a href="{{ route('job-postings.index', ['archived' => 1]) }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-archive me-1"></i> Show archived
-            </a>
-        @endif
-        <a href="{{ route('job-postings.import.create') }}" class="btn btn-sm btn-success">
-            <i class="bi bi-file-earmark-pdf me-1"></i> Import from PDF
-        </a>
-        <a href="{{ route('job-postings.create') }}" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
-            <i class="bi bi-plus-lg me-1"></i> New posting
-        </a>
-    </div>
-</div>
 
 <div class="row mb-3 g-2">
     @if ($showArchived ?? false)
@@ -73,7 +55,7 @@
     @endif
 </div>
 
-<div class="mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div class="input-group input-group-sm" style="max-width: 320px;">
         <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
         <input
@@ -83,6 +65,23 @@
             placeholder="Search by job title..."
             autocomplete="off"
         >
+    </div>
+    <div class="d-flex gap-2">
+        @if ($showArchived ?? false)
+            <a href="{{ route('job-postings.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Back to active postings
+            </a>
+        @else
+            <a href="{{ route('job-postings.index', ['archived' => 1]) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-archive me-1"></i> Show archived
+            </a>
+        @endif
+        <a href="{{ route('job-postings.import.create') }}" class="btn btn-sm btn-success">
+            <i class="bi bi-file-earmark-pdf me-1"></i> Import from PDF
+        </a>
+        <a href="{{ route('job-postings.create') }}" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">
+            <i class="bi bi-plus-lg me-1"></i> New posting
+        </a>
     </div>
 </div>
 

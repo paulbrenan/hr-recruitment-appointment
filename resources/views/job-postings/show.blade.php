@@ -1,7 +1,15 @@
 @extends('layouts.app')
 
 @section('title', $posting->title . ' — Pipeline')
-@section('page-title', 'Job posting pipeline')
+@section('page-title', 'Job Posting Pipeline')
+
+@section('page-subtitle')
+<div class="d-flex gap-1 align-items-center small text-muted">
+    <a href="{{ route('job-postings.index') }}" class="text-decoration-none text-muted">Job postings</a>
+    <i class="bi bi-chevron-right" style="font-size:0.7rem;"></i>
+    <span>{{ $posting->title }}</span>
+</div>
+@endsection
 
 @section('content')
 @if (session('success'))
@@ -55,13 +63,6 @@
         'archived'            => 'Archived',
     ];
 @endphp
-
-{{-- Breadcrumb --}}
-<div class="d-flex gap-1 align-items-center mb-3 small text-muted">
-    <a href="{{ route('job-postings.index') }}" class="text-decoration-none text-muted">Job postings</a>
-    <i class="bi bi-chevron-right" style="font-size:0.7rem;"></i>
-    <span>{{ $posting->title }}</span>
-</div>
 
 <div class="row g-3">
 

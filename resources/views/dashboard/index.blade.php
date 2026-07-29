@@ -3,8 +3,11 @@
 @section('title', 'Dashboard')
 @section('page-title', 'Dashboard')
 
+@section('page-subtitle')
+Recruitment pipeline overview as of {{ \Carbon\Carbon::now()->format('M d, Y') }}
+@endsection
+
 @section('content')
-<p class="text-muted small mb-3">Recruitment pipeline overview as of {{ \Carbon\Carbon::now()->format('M d, Y') }}</p>
 
 <div class="row g-3 mb-3">
     <div class="col-md-3">
@@ -66,7 +69,9 @@
         <div class="card h-100 fade-card">
             <div class="card-body p-3">
                 <h6 class="mb-3">Recruitment activity (last 6 months)</h6>
-                <canvas id="applicationsChart" height="110"></canvas>
+                <div style="height: 320px;">
+                    <canvas id="applicationsChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -74,7 +79,9 @@
         <div class="card h-100 fade-card">
             <div class="card-body p-3">
                 <h6 class="mb-3">Applications by status</h6>
-                <canvas id="statusChart" height="160"></canvas>
+                <div style="height: 320px;">
+                    <canvas id="statusChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -259,6 +266,8 @@
             ]
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
@@ -299,6 +308,8 @@
             }]
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
             cutout: '68%',
             plugins: {
                 legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, usePointStyle: true, pointStyle: 'circle' } },

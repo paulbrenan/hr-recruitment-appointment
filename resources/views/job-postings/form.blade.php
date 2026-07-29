@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', $posting->exists ?? false ? 'Edit posting' : 'New posting')
-@section('page-title', ($posting->exists ?? false) ? 'Edit job posting' : 'New job posting')
+@section('page-title', ($posting->exists ?? false) ? 'Edit Job Posting' : 'New Job Posting')
 
 @section('content')
 @push('styles')

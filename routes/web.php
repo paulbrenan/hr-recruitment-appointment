@@ -86,6 +86,8 @@ Route::get('/api/track', function (\Illuminate\Http\Request $request) {
     ]);
 });
 
+Route::middleware('auth')->group(function () {
+
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
 // Job postings
@@ -208,3 +210,5 @@ Route::delete('/signatories/qualification-notice/{qualificationNoticeSignatory}'
 
 // Activity Log Book (added by install_activity_log_book.php)
 Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');
+
+}); // end auth-protected admin routes

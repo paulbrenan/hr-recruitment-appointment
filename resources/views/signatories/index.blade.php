@@ -3,6 +3,10 @@
 @section('title', 'Signatories')
 @section('page-title', 'Signatories')
 
+@section('page-subtitle')
+Add and manage signatories for each document type
+@endsection
+
 @section('content')
 @if (session('success'))
 <div class="alert alert-success alert-dismissible fade show small py-2" role="alert">
@@ -10,12 +14,6 @@
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 @endif
-
-<p class="text-muted small mb-4">
-    People whose name and title appear on generated documents and emails. Each document type has its own
-    list below -- a document can have more than one signature block (e.g. "Prepared by" and "Approved by"),
-    so add as many rows per section as that document actually needs.
-</p>
 
 {{-- IER --}}
 <div class="card mb-4">
@@ -65,7 +63,7 @@
                     </div>
                 </div>
                 @empty
-                <tr><td colspan="3" class="text-center text-muted py-3">No IER signatories yet -- exports fall back to a generic default.</td></tr>
+                <tr><td colspan="3" class="text-center text-muted py-3">None yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -665,6 +665,9 @@
                             <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-success ms-2">
                                 <i class="bi bi-file-earmark-excel me-1"></i> Export IER
                             </a>
+                            <a href="{{ route('job-postings.export-scheduling-qualified', $posting->id) }}" id="export-scheduling-qualified-btn" data-no-loader class="btn btn-sm btn-outline-success ms-2">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export Qualified (Excel)
+                            </a>
                         </div>
                     </div>
 
@@ -2621,6 +2624,57 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
                 var disposition = response.headers.get('Content-Disposition') || '';
                 var match = disposition.match(/filename="?([^";]+)"?/);
                 var filename = match ? match[1] : 'IER.xlsx';
+                return response.blob().then(function (blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function (result) {
+                var blobUrl = window.URL.createObjectURL(result.blob);
+                var tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = result.filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                window.URL.revokeObjectURL(blobUrl);
+            })
+            .catch(function (err) {
+                alert('Could not export: ' + err.message);
+            })
+            .finally(function () {
+                btn.classList.remove('disabled');
+                btn.innerHTML = originalHtml;
+            });
+    });
+})();
+
+// Export Qualified (Excel): same problem/fix as the export-ier button
+// above -- fetch as blob so the button never depends on a page
+// navigation event to reset it. The anchor has data-no-loader, so
+// page-loader.js's global click listener skips it and never shows the
+// full-screen overlay for this button in the first place.
+(function () {
+    var btn = document.getElementById('export-scheduling-qualified-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var url = btn.getAttribute('href');
+        var originalHtml = btn.innerHTML;
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Exporting…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) {
+                        throw new Error('Export failed (HTTP ' + response.status + '). ' + text.slice(0, 200));
+                    });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename="?([^";]+)"?/);
+                var filename = match ? match[1] : 'qualified-applicants.xlsx';
                 return response.blob().then(function (blob) {
                     return { blob: blob, filename: filename };
                 });

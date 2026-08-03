@@ -163,7 +163,157 @@ Add and manage signatories for each document type
     </div>
 </div>
 
-{{-- To add another document type later: copy one of the two sections
+{{-- CAR District Sub-Committee (SG 11-15 CAR layout) --}}
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">CAR &ndash; District Sub-Committee (SG 11-15)</h6>
+            <button type="button" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;" data-bs-toggle="modal" data-bs-target="#addCarDistrictSignatoryModal">
+                <i class="bi bi-plus-lg me-1"></i> Add
+            </button>
+        </div>
+        <p class="small text-muted">Position should include "Chairman", "Co-Chairman", or "Member" so the CAR export places each signatory correctly.</p>
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr><th>Name</th><th>Position</th><th></th></tr>
+            </thead>
+            <tbody>
+                @forelse ($carDistrictSignatories as $s)
+                <tr>
+                    <td>{{ $s->name }}</td>
+                    <td>{{ $s->position }}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editCarDistrictSignatoryModal{{ $s->id }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form action="{{ route('car-district-signatories.destroy', $s->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this signatory?');">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+
+                <div class="modal fade" id="editCarDistrictSignatoryModal{{ $s->id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form action="{{ route('car-district-signatories.update', $s->id) }}" method="POST">
+                                @csrf @method('PUT')
+                                <div class="modal-header"><h6 class="modal-title">Edit signatory</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                <div class="modal-body">
+                                    <div class="mb-2"><label class="form-label small">Name</label><input type="text" name="name" class="form-control form-control-sm" value="{{ $s->name }}" required></div>
+                                    <div class="mb-2"><label class="form-label small">Position</label><input type="text" name="position" class="form-control form-control-sm" value="{{ $s->position }}" required></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Save</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                @empty
+                <tr><td colspan="3" class="text-center text-muted py-3">None yet.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addCarDistrictSignatoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('car-district-signatories.store') }}" method="POST">
+                @csrf
+                <div class="modal-header"><h6 class="modal-title">Add CAR District Sub-Committee signatory</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-2"><label class="form-label small">Name</label><input type="text" name="name" class="form-control form-control-sm" required></div>
+                    <div class="mb-2"><label class="form-label small">Position</label><input type="text" name="position" class="form-control form-control-sm" placeholder="e.g. District Sub-Committee Chairman" required></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- CAR HRMPSB (SG 16-23 CAR layout) --}}
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">CAR &ndash; HRMPSB (SG 16-23)</h6>
+            <button type="button" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;" data-bs-toggle="modal" data-bs-target="#addCarHrmpsbSignatoryModal">
+                <i class="bi bi-plus-lg me-1"></i> Add
+            </button>
+        </div>
+        <p class="small text-muted">Position should include "Chairman", "Member", or "Appointing Authority" so the CAR export places each signatory correctly.</p>
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr><th>Name</th><th>Position</th><th></th></tr>
+            </thead>
+            <tbody>
+                @forelse ($carHrmpsbSignatories as $s)
+                <tr>
+                    <td>{{ $s->name }}</td>
+                    <td>{{ $s->position }}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editCarHrmpsbSignatoryModal{{ $s->id }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form action="{{ route('car-hrmpsb-signatories.destroy', $s->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this signatory?');">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+
+                <div class="modal fade" id="editCarHrmpsbSignatoryModal{{ $s->id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form action="{{ route('car-hrmpsb-signatories.update', $s->id) }}" method="POST">
+                                @csrf @method('PUT')
+                                <div class="modal-header"><h6 class="modal-title">Edit signatory</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                                <div class="modal-body">
+                                    <div class="mb-2"><label class="form-label small">Name</label><input type="text" name="name" class="form-control form-control-sm" value="{{ $s->name }}" required></div>
+                                    <div class="mb-2"><label class="form-label small">Position</label><input type="text" name="position" class="form-control form-control-sm" value="{{ $s->position }}" required></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Save</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                @empty
+                <tr><td colspan="3" class="text-center text-muted py-3">None yet.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addCarHrmpsbSignatoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('car-hrmpsb-signatories.store') }}" method="POST">
+                @csrf
+                <div class="modal-header"><h6 class="modal-title">Add CAR HRMPSB signatory</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <div class="mb-2"><label class="form-label small">Name</label><input type="text" name="name" class="form-control form-control-sm" required></div>
+                    <div class="mb-2"><label class="form-label small">Position</label><input type="text" name="position" class="form-control form-control-sm" placeholder="e.g. HRMPSB Chairman, HRMPSB Member, Appointing Authority" required></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- To add another document type later: copy one of the sections
      above, make a new migration/model/controller following the same
      ier_signatories / IERSignatory / IERSignatoryController pattern,
      and add its routes below the existing ones in routes/web.php. --}}

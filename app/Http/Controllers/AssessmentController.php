@@ -6,13 +6,18 @@ use App\Models\JobPosting;
 use App\Models\AssessmentCriterion;
 use App\Models\CandidateAssessment;
 use App\Models\Application;
+use App\Models\CarDistrictSignatory;
+use App\Models\CarHrmpsbSignatory;
 use App\Notifications\RankingResultNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
 class AssessmentController extends Controller
 {
@@ -402,6 +407,248 @@ class AssessmentController extends Controller
 
         $writer = new Xlsx($spreadsheet);
         $filename = 'car-import-template-' . $jobPostingId . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * Export the current CAR-EQA rankings for this posting as a filled-in
+     * official-format Excel document.
+     *
+     * Layout is chosen from the posting's salary grade: SG 11-15 gets the
+     * District Sub-Committee layout, SG 16 and up gets the HRMPSB layout
+     * (extra Background Investigation / Appointment / Probation columns).
+     * Anything outside that range falls back to the simpler District
+     * layout -- there's no official variant for it yet.
+     *
+     * Signatories come from CarDistrictSignatory / CarHrmpsbSignatory
+     * (managed under Signatories in the sidebar) and are matched by
+     * keywords in their `position` field: "chairman" gets its own slot,
+     * "co-chairman" its own row, "appointing authority" (HRMPSB only) is
+     * placed at the bottom, everyone else renders as a plain member.
+     */
+    public function downloadCarDocument(Request $request)
+    {
+        $request->validate([
+            'job_posting_id' => 'required|exists:job_postings,id',
+        ]);
+
+        $jobPostingId = $request->query('job_posting_id') ?? $request->input('job_posting_id');
+        $posting = JobPosting::findOrFail($jobPostingId);
+        $criteria = AssessmentCriterion::where('job_posting_id', $jobPostingId)->orderBy('id')->get();
+
+        if ($criteria->isEmpty()) {
+            return back()->with('error', 'Add assessment criteria for this posting before exporting the CAR.');
+        }
+
+        $applications = Application::with(['candidate', 'assessments'])
+            ->where('job_posting_id', $jobPostingId)
+            ->whereHas('assessments')
+            ->get();
+
+        if ($applications->isEmpty()) {
+            return back()->with('error', 'No scored applicants to export for this posting.');
+        }
+
+        $ranked = $applications->map(function ($app) use ($criteria) {
+            $scores = [];
+            $total = 0;
+            foreach ($criteria as $c) {
+                $assessment = $app->assessments->firstWhere('assessment_criteria_id', $c->id);
+                $score = $assessment ? (float) $assessment->score : null;
+                $scores[$c->id] = $score;
+                $total += (float) $score;
+            }
+            return ['app' => $app, 'scores' => $scores, 'total' => $total];
+        })->sortByDesc('total')->values();
+
+        $grade = (int) preg_replace('/\D/', '', (string) $posting->salary_grade);
+        $variant = $grade >= 16 ? 'hrmpsb' : 'district';
+
+        $signatories = $variant === 'hrmpsb'
+            ? CarHrmpsbSignatory::orderBy('id')->get()
+            : CarDistrictSignatory::orderBy('id')->get();
+
+        $chairman = $signatories->first(fn ($s) => stripos($s->position, 'chairman') !== false && stripos($s->position, 'co-chairman') === false);
+        $coChairmen = $signatories->filter(fn ($s) => stripos($s->position, 'co-chairman') !== false)->values();
+        $appointingAuthority = $signatories->first(fn ($s) => stripos($s->position, 'appointing authority') !== false);
+        $members = $signatories->reject(function ($s) use ($chairman, $coChairmen, $appointingAuthority) {
+            return ($chairman && $s->is($chairman))
+                || $coChairmen->contains(fn ($cc) => $cc->is($s))
+                || ($appointingAuthority && $s->is($appointingAuthority));
+        })->values();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('CAR');
+
+        // -- Letterhead --
+        $sheet->setCellValue('A1', 'Republic of the Philippines');
+        $sheet->setCellValue('A2', 'Department of Education');
+        $sheet->setCellValue('A3', 'REGION IV-A');
+        $sheet->setCellValue('A4', 'SCHOOLS DIVISION OFFICE OF CAVITE PROVINCE');
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(13);
+        foreach ([1, 2, 3, 4] as $r) {
+            $sheet->getStyle("A{$r}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        }
+
+        $row = 6;
+        $sheet->setCellValue("A{$row}", 'COMPARATIVE ASSESSMENT RESULT (CAR)');
+        $sheet->getStyle("A{$row}")->getFont()->setBold(true);
+        $row += 2;
+
+        $sheet->setCellValue("A{$row}", 'Position:');
+        $sheet->setCellValue("B{$row}", $posting->title);
+        $row++;
+        $sheet->setCellValue("A{$row}", 'Office/Bureau/Service/Unit where the vacancy exists:');
+        $sheet->setCellValue("D{$row}", $posting->place_of_assignment ?? '');
+        $row += 2;
+
+        // -- Table header (two rows: group header + per-criterion sub-header) --
+        $tableHeaderRow = $row;
+        $sheet->setCellValue("A{$tableHeaderRow}", 'No.');
+        $sheet->setCellValue("B{$tableHeaderRow}", 'Name of Applicant');
+        $sheet->setCellValue("C{$tableHeaderRow}", 'Application Code');
+        $sheet->mergeCells("A{$tableHeaderRow}:A" . ($tableHeaderRow + 1));
+        $sheet->mergeCells("B{$tableHeaderRow}:B" . ($tableHeaderRow + 1));
+        $sheet->mergeCells("C{$tableHeaderRow}:C" . ($tableHeaderRow + 1));
+
+        $criteriaStartCol = 4;
+        $col = $criteriaStartCol;
+        foreach ($criteria as $c) {
+            $label = rtrim(rtrim(number_format($c->weight_percentage, 2), '0'), '.');
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($col) . ($tableHeaderRow + 1), "{$c->name} ({$label} pts)");
+            $col++;
+        }
+        $totalCol = $col;
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($totalCol) . ($tableHeaderRow + 1), 'Total');
+        $sheet->mergeCells(Coordinate::stringFromColumnIndex($criteriaStartCol) . "{$tableHeaderRow}:" . Coordinate::stringFromColumnIndex($totalCol) . $tableHeaderRow);
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($criteriaStartCol) . $tableHeaderRow, 'COMPARATIVE ASSESSMENT RESULTS');
+        // NOTE: Total's header cell already sits inside the merge above --
+        // it must NOT also be merged vertically on its own, or PhpSpreadsheet
+        // ends up with two overlapping merged ranges sharing that cell,
+        // which makes Excel blank out the whole group-header row on render.
+        $col = $totalCol + 1;
+
+        $remarksCol = $col;
+        $sheet->setCellValue(Coordinate::stringFromColumnIndex($remarksCol) . $tableHeaderRow, 'Remarks');
+        $sheet->mergeCells(Coordinate::stringFromColumnIndex($remarksCol) . "{$tableHeaderRow}:" . Coordinate::stringFromColumnIndex($remarksCol) . ($tableHeaderRow + 1));
+        $col++;
+
+        if ($variant === 'hrmpsb') {
+            $bgYesCol = $col;
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($bgYesCol) . $tableHeaderRow, 'For Background Investigation (Y/N)');
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($bgYesCol) . ($tableHeaderRow + 1), 'Yes');
+            $col++;
+            $bgNoCol = $col;
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($bgNoCol) . ($tableHeaderRow + 1), 'No');
+            $sheet->mergeCells(Coordinate::stringFromColumnIndex($bgYesCol) . "{$tableHeaderRow}:" . Coordinate::stringFromColumnIndex($bgNoCol) . $tableHeaderRow);
+            $col++;
+
+            $apptCol = $col;
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($apptCol) . $tableHeaderRow, 'For Appointment');
+            $sheet->mergeCells(Coordinate::stringFromColumnIndex($apptCol) . "{$tableHeaderRow}:" . Coordinate::stringFromColumnIndex($apptCol) . ($tableHeaderRow + 1));
+            $col++;
+
+            $probCol = $col;
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($probCol) . $tableHeaderRow, 'For Probation');
+            $sheet->mergeCells(Coordinate::stringFromColumnIndex($probCol) . "{$tableHeaderRow}:" . Coordinate::stringFromColumnIndex($probCol) . ($tableHeaderRow + 1));
+            $col++;
+        }
+
+        $lastCol = $col - 1;
+        $lastColLetter = Coordinate::stringFromColumnIndex($lastCol);
+        $headerRange = "A{$tableHeaderRow}:{$lastColLetter}" . ($tableHeaderRow + 1);
+        $sheet->getStyle($headerRange)->getFont()->setBold(true);
+        $sheet->getStyle($headerRange)->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
+        $sheet->getStyle($headerRange)->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
+        // -- Data rows --
+        $dataStartRow = $tableHeaderRow + 2;
+        $r = $dataStartRow;
+        foreach ($ranked as $i => $item) {
+            $app = $item['app'];
+            $sheet->setCellValue("A{$r}", $i + 1);
+            $sheet->setCellValue("B{$r}", $app->candidate->full_name ?? 'Unknown');
+            $sheet->setCellValue("C{$r}", $app->transaction_number ?? '');
+
+            $c = $criteriaStartCol;
+            foreach ($criteria as $crit) {
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($c) . $r, $item['scores'][$crit->id] ?? '');
+                $c++;
+            }
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($totalCol) . $r, $item['total']);
+            // Remarks, and (HRMPSB) Background Investigation/Appointment/Probation
+            // are left blank -- these are filled in by hand after deliberation,
+            // same as on the blank official template.
+            $sheet->getStyle("A{$r}:{$lastColLetter}{$r}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+            $r++;
+        }
+
+        // -- Signature block --
+        $r += 2;
+        $sheet->setCellValue("A{$r}", $variant === 'hrmpsb' ? 'Prepared by the HRMPSB' : 'Prepared by the District Sub-Committee');
+        $r++;
+        $sheet->setCellValue("A{$r}", '(All members should affix signature)');
+        $r += 3;
+
+        $sigCol = 1;
+        $placeSignatory = function ($signatory) use ($sheet, &$sigCol, &$r, $lastCol) {
+            $letter = Coordinate::stringFromColumnIndex($sigCol);
+            $sheet->setCellValue("{$letter}{$r}", strtoupper($signatory->name));
+            $sheet->getStyle("{$letter}{$r}")->getFont()->setBold(true);
+            $sheet->setCellValue($letter . ($r + 1), $signatory->position);
+            $sigCol += 3;
+            if ($sigCol > $lastCol) {
+                $sigCol = 1;
+                $r += 3;
+            }
+        };
+
+        if ($chairman) {
+            $placeSignatory($chairman);
+        }
+        foreach ($coChairmen as $cc) {
+            $placeSignatory($cc);
+        }
+        $r += 3;
+        $sigCol = 1;
+        foreach ($members as $m) {
+            $placeSignatory($m);
+        }
+
+        if ($variant === 'hrmpsb' && $appointingAuthority) {
+            $r += 3;
+            $sheet->setCellValue("A{$r}", 'Appointment conferred by:');
+            $r += 2;
+            $sheet->setCellValue("A{$r}", strtoupper($appointingAuthority->name));
+            $sheet->getStyle("A{$r}")->getFont()->setBold(true);
+            $sheet->setCellValue('A' . ($r + 1), $appointingAuthority->position);
+        }
+
+        $sheet->getColumnDimension('A')->setWidth(5);   // No.
+        $sheet->getColumnDimension('B')->setWidth(26);  // Name of Applicant
+        $sheet->getColumnDimension('C')->setWidth(16);  // Application Code
+        foreach (range($criteriaStartCol, $totalCol) as $c) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->setWidth(13); // criteria + Total (header text wraps)
+        }
+        $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($remarksCol))->setWidth(18);
+        if ($variant === 'hrmpsb') {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($bgYesCol))->setWidth(7);
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($bgNoCol))->setWidth(7);
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($apptCol))->setWidth(14);
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($probCol))->setWidth(14);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'CAR-' . Str::slug($posting->title) . '.xlsx';
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');

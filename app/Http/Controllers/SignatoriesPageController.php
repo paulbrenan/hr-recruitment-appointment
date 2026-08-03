@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\IERSignatory;
 use App\Models\QualificationNoticeSignatory;
+use App\Models\CarDistrictSignatory;
+use App\Models\CarHrmpsbSignatory;
 
 class SignatoriesPageController extends Controller
 {
@@ -11,7 +13,14 @@ class SignatoriesPageController extends Controller
     {
         $ierSignatories = IERSignatory::orderBy('name')->get();
         $qualificationNoticeSignatories = QualificationNoticeSignatory::orderBy('name')->get();
+        $carDistrictSignatories = CarDistrictSignatory::orderBy('name')->get();
+        $carHrmpsbSignatories = CarHrmpsbSignatory::orderBy('name')->get();
 
-        return view('signatories.index', compact('ierSignatories', 'qualificationNoticeSignatories'));
+        return view('signatories.index', compact(
+            'ierSignatories',
+            'qualificationNoticeSignatories',
+            'carDistrictSignatories',
+            'carHrmpsbSignatories'
+        ));
     }
 }

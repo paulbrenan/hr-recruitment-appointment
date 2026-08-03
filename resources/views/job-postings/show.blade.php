@@ -1836,6 +1836,10 @@
             <div class="modal-header">
                 <h6 class="modal-title"><i class="bi bi-file-earmark-text me-2"></i>Comparative Assessment Result</h6>
                 <div class="d-flex align-items-center gap-2 ms-auto me-2">
+                    <a href="{{ route('assessments.car.download', ['job_posting_id' => $posting->id]) }}"
+                       class="btn btn-sm btn-outline-success" data-no-loader>
+                        <i class="bi bi-file-earmark-excel me-1"></i> Download Excel
+                    </a>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
                         <i class="bi bi-printer me-1"></i> Print
                     </button>

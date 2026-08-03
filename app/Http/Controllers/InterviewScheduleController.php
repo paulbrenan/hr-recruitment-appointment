@@ -164,6 +164,12 @@ class InterviewScheduleController extends Controller
             'location'                => ['nullable', 'string', 'max:255'],
             'panelist_ids'            => ['nullable', 'array'],
             'panelist_ids.*'          => ['exists:panelists,id'],
+            // Optional: schedule only this specific subset of qualified
+            // applicants (capped at 150) instead of all of them at once.
+            // Validated server-side too -- the 150 cap in the modal's JS
+            // is a UX convenience, not the actual guarantee.
+            'application_ids'         => ['nullable', 'array', 'max:150'],
+            'application_ids.*'       => ['integer', 'exists:applications,id'],
         ]);
 
         $panelistIds = array_map('intval', $request->input('panelist_ids', []));
@@ -182,6 +188,13 @@ class InterviewScheduleController extends Controller
 
         if (!empty($validated['job_posting_location_id'])) {
             $query->where('job_posting_location_id', $validated['job_posting_location_id']);
+        }
+
+        // If specific applicants were picked (via the "Pick applicants"
+        // modal), narrow to just that subset. Otherwise, fall back to the
+        // original behavior of scheduling everyone qualified at once.
+        if (!empty($validated['application_ids'])) {
+            $query->whereIn('id', $validated['application_ids']);
         }
 
         $applications = $query->with(['candidate', 'jobPosting'])->get();

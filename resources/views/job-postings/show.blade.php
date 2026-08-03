@@ -45,7 +45,7 @@
         2 => ['label' => 'Qualification Checking',  'icon' => 'bi-clipboard-check'],
         3 => ['label' => 'Open Ranking & Scheduling','icon' => 'bi-calendar-event'],
         4 => ['label' => 'Assessment & Results',     'icon' => 'bi-bar-chart-line'],
-        5 => ['label' => 'Offer Management',         'icon' => 'bi-envelope-paper'],
+        5 => ['label' => 'Orientation Schedule',      'icon' => 'bi-calendar2-check'],
     ];
 
     $statusColors = [
@@ -161,7 +161,7 @@
                         @if ($posting->status === 'interview_scheduled')
                             <i class="bi bi-arrow-right me-1"></i> Move to Assessment
                         @elseif ($posting->status === 'ranking')
-                            <i class="bi bi-arrow-right me-1"></i> Move to Offer Management
+                            <i class="bi bi-arrow-right me-1"></i> Move to Orientation Schedule
                         @endif
                     </button>
                 </div>
@@ -180,17 +180,10 @@
                 @endif
 
                 <div class="mt-3 pt-3 border-top">
-                    @if ($currentStep < 3)
                     <a href="{{ route('job-postings.edit', $posting->id) }}"
                        class="btn btn-sm btn-outline-secondary w-100">
                         <i class="bi bi-pencil me-1"></i> Edit posting
                     </a>
-                    @else
-                    <button type="button" class="btn btn-sm btn-outline-secondary w-100" disabled
-                            title="This posting can no longer be edited once scheduling has started.">
-                        <i class="bi bi-lock me-1"></i> Edit posting
-                    </button>
-                    @endif
                 </div>
             </div>
         </div>
@@ -198,6 +191,15 @@
 
     {{-- ── RIGHT: Step panels ───────────────────────────────────────────── --}}
     <div class="col-md-9">
+
+        {{-- Back button -- shared across all steps; JS shows/hides it and
+             points it at whichever step is one before the one currently
+             being viewed. Hidden on Step 1 since there's nothing before it. --}}
+        <div id="stepBackBtnWrap" class="mb-3 d-none">
+            <button type="button" id="stepBackBtn" class="btn btn-sm btn-outline-secondary" onclick="goToPreviousStep()">
+                <i class="bi bi-arrow-left me-1"></i> Back to previous step
+            </button>
+        </div>
 
         {{-- ══ STEP 1 ══════════════════════════════════════════════════════ --}}
         <div class="step-panel" id="panel-1">
@@ -219,17 +221,10 @@
                             <span class="badge text-bg-{{ $statusColors[$posting->status] ?? 'secondary' }}">
                                 {{ $statusLabels[$posting->status] ?? ucfirst($posting->status) }}
                             </span>
-                            @if ($currentStep < 3)
                             <a href="{{ route('job-postings.edit', $posting->id) }}"
                                class="btn btn-sm btn-outline-secondary">
                                 <i class="bi bi-pencil me-1"></i> Edit posting
                             </a>
-                            @else
-                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled
-                                    title="This posting can no longer be edited once scheduling has started.">
-                                <i class="bi bi-lock me-1"></i> Edit posting
-                            </button>
-                            @endif
                         </div>
                     </div>
                     <hr class="mt-0">
@@ -336,7 +331,6 @@
                         @foreach ($panelists as $panelist)
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
                             <span class="small fw-medium">{{ $panelist->name }}</span>
-                            @if ($currentStep < 3)
                             <form action="{{ route('job-postings.panelists.detach', [$posting->id, $panelist->id]) }}"
                                   method="POST" class="m-0"
                                   onsubmit="return confirm('Remove {{ addslashes($panelist->name) }} from this posting\'s panel?')">
@@ -345,7 +339,6 @@
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             </form>
-                            @endif
                         </li>
                         @endforeach
                     </ul>
@@ -656,7 +649,6 @@
                                 </button>
                             </form>
                             @endif
-                            @if ($currentStep < 4)
                             <button class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;"
                                     data-bs-toggle="modal" data-bs-target="#newScheduleModal">
                                 <i class="bi bi-plus-lg me-1"></i> New schedule
@@ -664,6 +656,9 @@
                             @endif
                             <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-success ms-2">
                                 <i class="bi bi-file-earmark-excel me-1"></i> Export IER
+                            </a>
+                            <a href="{{ route('job-postings.export-scheduling-qualified', $posting->id) }}" id="export-scheduling-qualified-btn" data-no-loader class="btn btn-sm btn-outline-success ms-2">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export Qualified (Excel)
                             </a>
                         </div>
                     </div>
@@ -836,7 +831,6 @@
                                                         @foreach ($group as $s)
                                                         <span class="badge text-bg-light text-dark border d-inline-flex align-items-center gap-1" style="font-size:0.75rem;">
                                                             {{ str_replace('_',' ',ucfirst($s->type)) }}
-                                                            @if ($currentStep < 4)
                                                             <form action="{{ route('interviews.destroy', $s->id) }}" method="POST" class="d-inline m-0 p-0"
                                                                   onsubmit="return confirm('Remove the {{ str_replace('_',' ',ucfirst($s->type)) }} schedule for {{ addslashes($first->application->candidate->full_name) }}?')">
                                                                 @csrf @method('DELETE')
@@ -844,7 +838,6 @@
                                                                     <i class="bi bi-x-lg" style="font-size:0.65rem;"></i>
                                                                 </button>
                                                             </form>
-                                                            @endif
                                                         </span>
                                                         @endforeach
                                                     </div>
@@ -1118,8 +1111,25 @@
                                     @endif
                                 </td>
                                 <td class="text-end">
+                                    @if ($posting->status !== 'closed')
+                                    @php
+                                        $candApp = $applications->firstWhere('id', $cand->application_id);
+                                        $isHired = $candApp && $candApp->status === 'hired';
+                                    @endphp
                                     <div class="d-flex gap-1 justify-content-end">
-                                        @if ($posting->status !== 'closed')
+                                        @if (!$isHired)
+                                        <form action="{{ route('applications.updateStatus', $cand->application_id) }}" method="POST" class="m-0"
+                                              onsubmit="return confirm('Hire {{ addslashes($cand->candidate_name) }} for this position? If this fills the last opening for this role, the posting will close and remaining applicants will be automatically rejected and notified.');">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="hidden" name="status" value="hired">
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-check-lg"></i> Hire
+                                            </button>
+                                        </form>
+                                        @else
+                                        <span class="badge text-bg-dark align-self-center">Hired</span>
+                                        @endif
                                         <button type="button" class="btn btn-sm btn-outline-secondary"
                                                 data-bs-toggle="modal" data-bs-target="#editScoresModal"
                                                 data-application-id="{{ $cand->application_id }}"
@@ -1127,12 +1137,12 @@
                                                 data-scores="{{ json_encode($cand->scores) }}">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        @endif
                                         <button type="button" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;"
-                                                onclick="switchStep(5)" title="Go to Offer Management">
+                                                onclick="switchStep(5)" title="Go to Orientation Schedule">
                                             <i class="bi bi-envelope-paper me-1"></i> Offer
                                         </button>
                                     </div>
+                                    @endif
                                 </td>
                             </tr>
                             @endforeach
@@ -1165,9 +1175,9 @@
         <div class="step-panel d-none" id="panel-5">
             <div class="card mb-3">
                 <div class="card-body p-4">
-                    <h6 class="mb-3">Job offers</h6>
-                    @if ($offers->isEmpty())
-                        <p class="text-muted small mb-0 text-center py-3">No offers yet.</p>
+                    <h6 class="mb-3">Orientation schedules</h6>
+                    @if ($orientationSchedules->isEmpty())
+                        <p class="text-muted small mb-0 text-center py-3">No orientation schedules yet.</p>
                     @else
                     <div class="table-responsive mb-4">
                         <table class="table align-middle mb-0" style="font-size:0.875rem;">
@@ -1175,53 +1185,53 @@
                                 <tr>
                                     <th>Candidate</th>
                                     <th>Email</th>
-                                    <th>Sent</th>
+                                    <th>Date</th>
+                                    <th>Place</th>
                                     <th>Email delivery</th>
-                                    <th>Response by</th>
                                     <th>Status</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($offers as $o)
+                                @foreach ($orientationSchedules as $o)
                                 @php
-                                    $offerColors = ['draft' => 'secondary', 'sent' => 'primary', 'accepted' => 'success', 'declined' => 'danger', 'expired' => 'dark'];
-                                    $offerApp = $o->application;
-                                    $offerCand = $offerApp->candidate ?? null;
-                                    $offerPlace = $offerApp ? (optional($offerApp->jobPostingLocation)->place_of_assignment ?? $posting->place_of_assignment ?? null) : null;
-                                    $offerCheckData = $offerApp->qualification_check ?? [];
-                                    $offerCriteria = [];
+                                    $orientationColors = ['scheduled' => 'primary', 'cancelled' => 'secondary'];
+                                    $orientApp = $o->application;
+                                    $orientCand = $orientApp->candidate ?? null;
+                                    $orientPlaceOfAssignment = $orientApp ? (optional($orientApp->jobPostingLocation)->place_of_assignment ?? $posting->place_of_assignment ?? null) : null;
+                                    $orientCheckData = $orientApp->qualification_check ?? [];
+                                    $orientCriteria = [];
                                     foreach (['education' => 'Education', 'experience' => 'Experience', 'training' => 'Training', 'eligibility' => 'Eligibility'] as $ock => $ocl) {
-                                        if (isset($offerCheckData['criteria'][$ock])) {
-                                            $offerCriteria[] = [
+                                        if (isset($orientCheckData['criteria'][$ock])) {
+                                            $orientCriteria[] = [
                                                 'label' => $ocl,
-                                                'actual' => $offerCheckData['criteria'][$ock]['actual'] ?? null,
-                                                'passed' => (bool) ($offerCheckData['criteria'][$ock]['passed'] ?? false),
+                                                'actual' => $orientCheckData['criteria'][$ock]['actual'] ?? null,
+                                                'passed' => (bool) ($orientCheckData['criteria'][$ock]['passed'] ?? false),
                                             ];
                                         }
                                     }
-                                    $offerInfoData = [
-                                        'name' => $offerCand->full_name ?? 'Unknown',
-                                        'email' => $offerCand->email ?? null,
-                                        'phone' => $offerCand->phone ?? null,
-                                        'address' => $offerCand->address ?? null,
-                                        'age' => $offerCand->age ?? null,
-                                        'sex' => $offerCand->sex ?? null,
-                                        'civil_status' => $offerCand->civil_status ?? null,
-                                        'religion' => $offerCand->religion ?? null,
-                                        'disability' => $offerCand->disability ?? null,
-                                        'ethnic_group' => $offerCand->ethnic_group ?? null,
-                                        'education' => $offerCand->education ?? null,
-                                        'training_hours' => $offerCand->training_hours ?? null,
-                                        'years_experience' => $offerCand->years_experience ?? null,
-                                        'eligibility' => $offerCand->eligibility ?? null,
-                                        'transaction_number' => $offerApp->transaction_number ?? null,
-                                        'applied_at' => $offerApp && $offerApp->applied_at ? \Carbon\Carbon::parse($offerApp->applied_at)->format('M d, Y') : null,
-                                        'status' => $offerApp ? str_replace('_', ' ', ucfirst($offerApp->status)) : null,
-                                        'place_of_assignment' => $offerPlace,
-                                        'notes' => $offerApp->notes ?? null,
-                                        'qualification_result' => ($offerApp && $offerApp->qualification_result) ? ucfirst(str_replace('_', ' ', $offerApp->qualification_result)) : null,
-                                        'criteria' => $offerCriteria,
+                                    $orientInfoData = [
+                                        'name' => $orientCand->full_name ?? 'Unknown',
+                                        'email' => $orientCand->email ?? null,
+                                        'phone' => $orientCand->phone ?? null,
+                                        'address' => $orientCand->address ?? null,
+                                        'age' => $orientCand->age ?? null,
+                                        'sex' => $orientCand->sex ?? null,
+                                        'civil_status' => $orientCand->civil_status ?? null,
+                                        'religion' => $orientCand->religion ?? null,
+                                        'disability' => $orientCand->disability ?? null,
+                                        'ethnic_group' => $orientCand->ethnic_group ?? null,
+                                        'education' => $orientCand->education ?? null,
+                                        'training_hours' => $orientCand->training_hours ?? null,
+                                        'years_experience' => $orientCand->years_experience ?? null,
+                                        'eligibility' => $orientCand->eligibility ?? null,
+                                        'transaction_number' => $orientApp->transaction_number ?? null,
+                                        'applied_at' => $orientApp && $orientApp->applied_at ? \Carbon\Carbon::parse($orientApp->applied_at)->format('M d, Y') : null,
+                                        'status' => $orientApp ? str_replace('_', ' ', ucfirst($orientApp->status)) : null,
+                                        'place_of_assignment' => $orientPlaceOfAssignment,
+                                        'notes' => $orientApp->notes ?? null,
+                                        'qualification_result' => ($orientApp && $orientApp->qualification_result) ? ucfirst(str_replace('_', ' ', $orientApp->qualification_result)) : null,
+                                        'criteria' => $orientCriteria,
                                     ];
                                 @endphp
                                 <tr>
@@ -1229,12 +1239,13 @@
                                         <span role="button" style="border-bottom: 1px dashed #adb5bd;"
                                               title="View applicant information"
                                               onclick="showApplicantInfo(this)"
-                                              data-info="{{ json_encode($offerInfoData) }}">
-                                            {{ $offerCand->full_name ?? 'Unknown' }}
+                                              data-info="{{ json_encode($orientInfoData) }}">
+                                            {{ $orientCand->full_name ?? 'Unknown' }}
                                         </span>
                                     </td>
                                     <td>{{ $o->application->candidate->email ?? '—' }}</td>
-                                    <td>{{ $o->offer_sent_at ? \Carbon\Carbon::parse($o->offer_sent_at)->format('M d, Y') : '—' }}</td>
+                                    <td>{{ $o->scheduled_at ? \Carbon\Carbon::parse($o->scheduled_at)->format('M d, Y') : '—' }}{{ $o->scheduled_time ? ' ' . \Carbon\Carbon::parse($o->scheduled_time)->format('g:i A') : '' }}</td>
+                                    <td>{{ $o->place ?? '—' }}</td>
                                     <td>
                                         @if ($o->email_sent_at)
                                             <span class="badge text-bg-success">Sent</span>
@@ -1243,38 +1254,14 @@
                                             <span class="badge text-bg-secondary">Not sent</span>
                                         @endif
                                     </td>
-                                    <td>{{ $o->response_deadline ? \Carbon\Carbon::parse($o->response_deadline)->format('M d, Y') : '—' }}</td>
                                     <td>
-                                        <span class="badge badge-status text-bg-{{ $offerColors[$o->status] ?? 'secondary' }}">{{ ucfirst($o->status) }}</span>
+                                        <span class="badge badge-status text-bg-{{ $orientationColors[$o->status] ?? 'secondary' }}">{{ ucfirst($o->status) }}</span>
                                     </td>
                                     <td class="text-end">
-                                        <div class="d-flex gap-1 justify-content-end">
-                                            @if ($o->status === 'draft')
-                                            <form method="POST" action="{{ route('offers.send', $o->id) }}" class="d-inline">
-                                                @csrf @method('PUT')
-                                                <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Send</button>
-                                            </form>
-                                            @elseif ($o->status === 'sent')
-                                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
-                                                  onsubmit="return confirm('Mark this offer as accepted?')">
-                                                @csrf @method('PUT')
-                                                <input type="hidden" name="response" value="accepted">
-                                                <button type="submit" class="btn btn-sm btn-outline-success">Accept</button>
-                                            </form>
-                                            <form method="POST" action="{{ route('offers.respond', $o->id) }}" class="d-inline"
-                                                  onsubmit="return confirm('Mark this offer as declined?')">
-                                                @csrf @method('PUT')
-                                                <input type="hidden" name="response" value="declined">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
-                                            </form>
-                                            @else
-                                            <span class="text-muted small">No actions</span>
-                                            @endif
-                                            <form method="POST" action="{{ route('offers.destroy', $o->id) }}" class="d-inline" onsubmit="return confirm('Delete this offer? This cannot be undone.');">
-                                                @csrf @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-trash"></i></button>
-                                            </form>
-                                        </div>
+                                        <form method="POST" action="{{ route('orientation-schedules.destroy', $o->id) }}" class="d-inline" onsubmit="return confirm('Delete this orientation schedule? This cannot be undone.');">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-trash"></i></button>
+                                        </form>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -1283,22 +1270,54 @@
                     </div>
                     @endif
 
-                    <h6 class="mb-3">Generate new offer{{ $offerVacancyLimit > 1 ? 's' : '' }}</h6>
-                    @if ($eligibleOfferApplications->isEmpty())
-                        <p class="text-muted small mb-0">No candidates on this posting are currently eligible for an offer. Candidates become eligible once shortlisted, assessed, or hired, and don't already have an offer.</p>
-                    @elseif ($offerVacancyLimit < 1)
-                        <p class="text-muted small mb-0">All {{ $posting->vacancies }} vacanc{{ $posting->vacancies == 1 ? 'y' : 'ies' }} for this posting already have an active offer.</p>
+                    <h6 class="mb-3">Schedule orientation for new candidate{{ $orientationVacancyLimit > 1 ? 's' : '' }}</h6>
+                    @if ($eligibleOrientationApplications->isEmpty())
+                        <p class="text-muted small mb-0">No candidates on this posting are currently eligible for orientation. Candidates become eligible once shortlisted, assessed, or hired, and don't already have an orientation scheduled.</p>
+                    @elseif ($orientationVacancyLimit < 1)
+                        <p class="text-muted small mb-0">All {{ $posting->vacancies }} vacanc{{ $posting->vacancies == 1 ? 'y' : 'ies' }} for this posting already have an active orientation schedule.</p>
                     @else
-                    @if ($errors->has('application_ids') || $errors->has('compensation_override'))
-                    <div class="alert alert-danger small py-2">{{ $errors->first('application_ids') ?: $errors->first('compensation_override') }}</div>
+                    @if ($errors->has('application_ids') || $errors->has('scheduled_at'))
+                    <div class="alert alert-danger small py-2">{{ $errors->first('application_ids') ?: $errors->first('scheduled_at') }}</div>
                     @endif
                     <p class="text-muted small mb-2">
-                        Select up to <strong>{{ $offerVacancyLimit }}</strong> candidate{{ $offerVacancyLimit == 1 ? '' : 's' }} (this posting's remaining vacancy slots). Compensation defaults to SG {{ $posting->salary_grade }} Step 1 &mdash; override below if needed.
+                        Select up to <strong>{{ $orientationVacancyLimit }}</strong> candidate{{ $orientationVacancyLimit == 1 ? '' : 's' }} (this posting's remaining vacancy slots) and set the orientation date and place. An invitation email is sent immediately on submit.
                     </p>
-                    <form method="POST" action="{{ route('offers.store') }}" id="generateOfferForm">
+                    <form method="POST" action="{{ route('orientation-schedules.store') }}" id="generateOrientationForm">
                         @csrf
                         <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                        <div class="mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1">Orientation date <span class="text-danger">*</span></label>
+                                <input type="date" name="scheduled_at" class="form-control form-control-sm" min="{{ now()->toDateString() }}" value="{{ old('scheduled_at') }}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted mb-1">Time</label>
+                                <input type="time" name="scheduled_time" class="form-control form-control-sm" value="{{ old('scheduled_time') }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted mb-1">Place</label>
+                                <input type="text" name="place" class="form-control form-control-sm" placeholder="e.g. SDO Conference Hall" value="{{ old('place') }}">
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-sm w-100" style="background-color:var(--hr-primary);color:#fff;">
+                                    Schedule orientation<span id="orientationSelectedCountLabel"></span>
+                                </button>
+                            </div>
+                        </div>
+                        </div>
                         <div class="table-responsive mb-3">
+                        @php
+                            // Display-only pagination, same pattern as the
+                            // Candidate ranking table in Step 4 --
+                            // $eligibleOrientationApplications itself stays
+                            // whole (vacancy-limit math and the submitted
+                            // selection both need the full list).
+                            $orientPerPage = 50;
+                            $orientPage = max(1, (int) request('pg_orient', 1));
+                            $orientLastPage = max(1, (int) ceil($eligibleOrientationApplications->count() / $orientPerPage));
+                            $orientPageCandidates = $eligibleOrientationApplications->forPage($orientPage, $orientPerPage)->values();
+                        @endphp
                         <table class="table align-middle mb-0" style="font-size:0.875rem;">
                             <thead>
                                 <tr>
@@ -1311,11 +1330,11 @@
                                     <th></th>
                                 </tr>
                             </thead>
-                            <tbody id="offerCandidateRows">
-                                @foreach ($eligibleOfferApplications as $cand)
+                            <tbody id="orientationCandidateRows">
+                                @foreach ($orientPageCandidates as $cand)
                                 <tr>
                                     <td>
-                                        <input class="form-check-input offer-candidate-checkbox" type="checkbox"
+                                        <input class="form-check-input orientation-candidate-checkbox" type="checkbox"
                                                name="application_ids[]" value="{{ $cand->application_id }}"
                                                {{ in_array($cand->application_id, old('application_ids', [])) ? 'checked' : '' }}>
                                     </td>
@@ -1331,18 +1350,9 @@
                                     <td>{{ $cand->candidate->years_experience ?? '—' }}{{ $cand->candidate->years_experience ? ' yrs' : '' }}</td>
                                     <td>{{ $cand->candidate->eligibility ?? '—' }}</td>
                                     <td class="text-end">
-                                        {{-- Deliberately NOT a <form> -- it used to be, nested inside the
-                                             bulk #generateOfferForm above, which is invalid HTML (forms
-                                             can't nest). Browsers silently drop the inner <form> tag and
-                                             reparent its hidden application_ids[] input into the OUTER bulk
-                                             form instead, so every row's hidden value rode along with the
-                                             bulk submission and duplicated whatever was also checked. This
-                                             button builds and submits its own isolated form via JS instead. --}}
-                                        <button type="button" class="btn btn-sm offer-single-btn"
-                                                style="background-color: var(--hr-primary); color: #fff;"
-                                                data-application-id="{{ $cand->application_id }}"
-                                                data-candidate-name="{{ $cand->candidate_name }}">
-                                            <i class="bi bi-envelope-paper me-1"></i> Offer
+                                        <button type="button" class="btn btn-sm btn-outline-secondary orientation-select-row-btn"
+                                                data-application-id="{{ $cand->application_id }}">
+                                            Select only
                                         </button>
                                     </td>
                                 </tr>
@@ -1350,40 +1360,32 @@
                             </tbody>
                         </table>
                         </div>
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-2">
-                                <label class="form-label small text-muted mb-1">Override SG (optional)</label>
-                                <select name="sg_override" id="offerSgOverrideSelect" class="form-select form-select-sm">
-                                    <option value="">Inherit: SG {{ $posting->salary_grade }}</option>
-                                    @for ($sgOpt = 1; $sgOpt <= 33; $sgOpt++)
-                                        <option value="{{ $sgOpt }}" {{ old('sg_override') == $sgOpt ? 'selected' : '' }}>SG {{ $sgOpt }}</option>
-                                    @endfor
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label small text-muted mb-1">Override compensation (optional)</label>
-                                <input type="number" step="0.01" min="0" name="compensation_override" id="offerCompensationOverride" class="form-control form-control-sm"
-                                       placeholder="Default: SG {{ $posting->salary_grade }} Step 1" value="{{ old('compensation_override') }}">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label small text-muted mb-1">Response deadline</label>
-                                <input type="date" name="response_deadline" class="form-control form-control-sm" min="{{ now()->toDateString() }}" value="{{ old('response_deadline') }}">
-                            </div>
-                            <div class="col-md-2">
-                                <button type="submit" class="btn btn-sm w-100" style="background-color:var(--hr-primary);color:#fff;">
-                                    Generate offer<span id="offerSelectedCountLabel"></span>
-                                </button>
+                        @if ($orientLastPage > 1)
+                        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 mb-3 border-top">
+                            <span class="text-muted small">
+                                Page {{ $orientPage }} of {{ $orientLastPage }} ({{ $eligibleOrientationApplications->count() }} total)
+                            </span>
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-outline-secondary {{ $orientPage <= 1 ? 'disabled' : '' }}"
+                                   href="{{ $orientPage > 1 ? request()->fullUrlWithQuery(['pg_orient' => $orientPage - 1]) : '#' }}">
+                                    <i class="bi bi-chevron-left"></i> Prev
+                                </a>
+                                <a class="btn btn-outline-secondary {{ $orientPage >= $orientLastPage ? 'disabled' : '' }}"
+                                   href="{{ $orientPage < $orientLastPage ? request()->fullUrlWithQuery(['pg_orient' => $orientPage + 1]) : '#' }}">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </a>
                             </div>
                         </div>
+                        @endif
                     </form>
                     <script>
                     (function () {
-                        const limit = {{ (int) $offerVacancyLimit }};
-                        const boxes = document.querySelectorAll('.offer-candidate-checkbox');
-                        const countLabel = document.getElementById('offerSelectedCountLabel');
+                        const limit = {{ (int) $orientationVacancyLimit }};
+                        const boxes = document.querySelectorAll('.orientation-candidate-checkbox');
+                        const countLabel = document.getElementById('orientationSelectedCountLabel');
 
                         function refresh() {
-                            const checked = document.querySelectorAll('.offer-candidate-checkbox:checked');
+                            const checked = document.querySelectorAll('.orientation-candidate-checkbox:checked');
                             if (countLabel) countLabel.textContent = checked.length ? ' (' + checked.length + ')' : '';
                             const atLimit = checked.length >= limit;
                             boxes.forEach(function (b) {
@@ -1394,60 +1396,122 @@
                         boxes.forEach(function (b) { b.addEventListener('change', refresh); });
                         refresh();
 
-                        // Per-row single-candidate "Offer" button. Builds a
-                        // fully standalone form (not nested anywhere) and
-                        // submits it directly -- isolated from the bulk
-                        // #generateOfferForm above on purpose.
-                        document.querySelectorAll('.offer-single-btn').forEach(function (btn) {
+                        // Per-row "Select only" convenience button: checks just
+                        // this row (unchecking everything else) and focuses the
+                        // date field, since orientation scheduling always needs
+                        // a date -- unlike the old single-click "Offer" button,
+                        // this can't instant-submit on its own.
+                        document.querySelectorAll('.orientation-select-row-btn').forEach(function (btn) {
                             btn.addEventListener('click', function () {
-                                const appId = btn.dataset.applicationId;
-                                const candidateName = btn.dataset.candidateName;
-                                if (!confirm('Generate a draft offer for ' + candidateName + ' at SG {{ $posting->salary_grade }} Step 1?')) {
-                                    return;
-                                }
-
-                                const f = document.createElement('form');
-                                f.method = 'POST';
-                                f.action = '{{ route("offers.store") }}';
-                                f.style.display = 'none';
-
-                                const csrf = document.createElement('input');
-                                csrf.type = 'hidden';
-                                csrf.name = '_token';
-                                csrf.value = '{{ csrf_token() }}';
-                                f.appendChild(csrf);
-
-                                const postingIdInput = document.createElement('input');
-                                postingIdInput.type = 'hidden';
-                                postingIdInput.name = 'job_posting_id';
-                                postingIdInput.value = '{{ $posting->id }}';
-                                f.appendChild(postingIdInput);
-
-                                const appIdInput = document.createElement('input');
-                                appIdInput.type = 'hidden';
-                                appIdInput.name = 'application_ids[]';
-                                appIdInput.value = appId;
-                                f.appendChild(appIdInput);
-
-                                document.body.appendChild(f);
-                                f.submit();
+                                boxes.forEach(function (b) {
+                                    b.checked = (b.value === btn.dataset.applicationId);
+                                });
+                                refresh();
+                                const dateInput = document.querySelector('input[name="scheduled_at"]');
+                                if (dateInput) dateInput.focus();
                             });
-                        });
-
-                        // SG override -> auto-fill the peso field with that
-                        // grade's Step 1 amount. Still just a starting
-                        // point -- HR can edit the peso field afterward and
-                        // that typed value always wins on submit.
-                        const sgTable = @json(\App\Models\SalaryGrade::currentTableArray());
-                        const compInput = document.getElementById('offerCompensationOverride');
-                        sgOverrideSel?.addEventListener('change', function () {
-                            const grade = parseInt(this.value, 10);
-                            if (grade && sgTable[grade] && sgTable[grade][0] !== undefined) {
-                                compInput.value = sgTable[grade][0];
-                            }
                         });
                     })();
                     </script>
+                    @endif
+
+                    {{-- Candidate ranking -- lets HR pick ANY ranked
+                         candidate (not just the auto-eligible ones above)
+                         for orientation. This is what makes it possible to
+                         replace a candidate who backed out, or reuse the
+                         same posting's ranking when it's run again later,
+                         without redoing the whole hiring process. Visible
+                         regardless of posting status (open, closed, or
+                         archived) -- the backend store() route doesn't gate
+                         on status either, so a closed/archived posting can
+                         still get orientation schedules created against it. --}}
+                    <hr class="my-4">
+                    <h6 class="mb-1">Candidate ranking</h6>
+                    <p class="text-muted small mb-3">
+                        Pick any ranked candidate to schedule for orientation. Candidates already
+                        scheduled are greyed out -- delete their schedule above first if they need
+                        to be replaced.
+                    </p>
+                    @if ($rankedCandidates->isEmpty())
+                        <p class="text-muted small mb-0 text-center py-3">No applications to rank yet.</p>
+                    @else
+                    @php
+                        // Same display-only pagination pattern as Step 4 and
+                        // the eligible-candidates table above -- distinct
+                        // query param so paging this table doesn't clobber
+                        // the others.
+                        $orientRankPerPage = 50;
+                        $orientRankPage = max(1, (int) request('pg_orient_rank', 1));
+                        $orientRankLastPage = max(1, (int) ceil($rankedCandidates->count() / $orientRankPerPage));
+                        $orientRankPageCandidates = $rankedCandidates->forPage($orientRankPage, $orientRankPerPage)->values();
+
+                        // Who already has an active orientation schedule --
+                        // used to grey out their row below.
+                        $scheduledApplicationIds = $orientationSchedules->where('status', 'scheduled')->pluck('application_id')->all();
+                    @endphp
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0" style="font-size:0.875rem;">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Candidate</th>
+                                    <th>Education</th>
+                                    <th>Experience</th>
+                                    <th>Eligibility</th>
+                                    <th>Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($orientRankPageCandidates as $cand)
+                                @php $isAlreadyScheduled = in_array($cand->application_id, $scheduledApplicationIds); @endphp
+                                <tr class="{{ $isAlreadyScheduled ? 'text-muted' : '' }}" style="{{ $isAlreadyScheduled ? 'opacity:.55;' : '' }}">
+                                    <td>
+                                        @if ($cand->rank === 1 && $cand->total_score > 0)
+                                            <span class="badge text-bg-warning">#1</span>
+                                        @else
+                                            <span class="text-muted">#{{ $cand->rank }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="fw-medium">{{ $cand->candidate_name }}</td>
+                                    <td>{{ $cand->candidate->education ?? '—' }}</td>
+                                    <td>{{ $cand->candidate->years_experience ?? '—' }}{{ $cand->candidate->years_experience ? ' yrs' : '' }}</td>
+                                    <td>{{ $cand->candidate->eligibility ?? '—' }}</td>
+                                    <td class="fw-semibold">{{ $cand->total_score }}</td>
+                                    <td class="text-end">
+                                        @if ($isAlreadyScheduled)
+                                            <span class="badge text-bg-secondary">Already scheduled</span>
+                                        @else
+                                            <button type="button" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;"
+                                                    data-bs-toggle="modal" data-bs-target="#scheduleOrientationModal"
+                                                    data-application-id="{{ $cand->application_id }}"
+                                                    data-candidate-name="{{ $cand->candidate_name }}">
+                                                <i class="bi bi-calendar2-check me-1"></i> Schedule
+                                            </button>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @if ($orientRankLastPage > 1)
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                        <span class="text-muted small">
+                            Page {{ $orientRankPage }} of {{ $orientRankLastPage }} ({{ $rankedCandidates->count() }} total)
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-outline-secondary {{ $orientRankPage <= 1 ? 'disabled' : '' }}"
+                               href="{{ $orientRankPage > 1 ? request()->fullUrlWithQuery(['pg_orient_rank' => $orientRankPage - 1]) : '#' }}">
+                                <i class="bi bi-chevron-left"></i> Prev
+                            </a>
+                            <a class="btn btn-outline-secondary {{ $orientRankPage >= $orientRankLastPage ? 'disabled' : '' }}"
+                               href="{{ $orientRankPage < $orientRankLastPage ? request()->fullUrlWithQuery(['pg_orient_rank' => $orientRankPage + 1]) : '#' }}">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
                     @endif
                 </div>
             </div>
@@ -1504,10 +1568,19 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info small py-2 mb-3">
+                    <div class="alert alert-info small py-2 mb-3" id="newScheduleInfoBanner">
                         <i class="bi bi-info-circle me-1"></i>
                         This will schedule <strong>all qualified applicants</strong> on this posting at once.
                         {{ $applications->where('qualification_result', 'qualified')->count() }} applicant(s) will be scheduled.
+                    </div>
+
+                    <div id="newScheduleApplicantIdInputs"></div>
+
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="pickApplicantsBtn">
+                            <i class="bi bi-people me-1"></i> Pick applicants
+                        </button>
+                        <span class="small text-muted" id="pickApplicantsSummary">All qualified applicants (default)</span>
                     </div>
 
                     <div class="mb-2">
@@ -1568,6 +1641,75 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+{{-- Pick Applicants (subset of qualified applicants for the New Schedule
+     modal above, capped at 150) --}}
+<div class="modal fade" id="pickApplicantsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Pick applicants (max 150)</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pickSelect100">Select 100</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pickSelect150">Select 150</button>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="small text-muted">Select:</span>
+                        <input type="number" min="1" max="150" class="form-control form-control-sm" style="width:80px;" id="pickSelectN" placeholder="N">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="pickSelectNBtn">Select</button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-auto" id="pickClearBtn">Clear</button>
+                </div>
+                <div class="small mb-2">
+                    <span id="pickCountLabel">0</span> / 150 selected
+                </div>
+                <div class="border rounded" style="max-height:360px; overflow-y:auto;">
+                    <table class="table table-sm mb-0">
+                        <thead class="sticky-top bg-white">
+                            <tr>
+                                <th style="width:36px;"></th>
+                                <th>Candidate</th>
+                                <th>Already scheduled</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($posting->applications()->where('qualification_result', 'qualified')->with(['candidate', 'interviewSchedules'])->get() as $qa)
+                            @php
+                                $qaAlreadyScheduled = $qa->interviewSchedules->where('status', '!=', 'cancelled')->isNotEmpty();
+                            @endphp
+                            <tr class="{{ $qaAlreadyScheduled ? 'text-muted' : '' }}" style="{{ $qaAlreadyScheduled ? 'opacity:.55;background:#f8f9fa;' : '' }}">
+                                <td>
+                                    <input type="checkbox" class="form-check-input pick-applicant-checkbox"
+                                           value="{{ $qa->id }}" data-name="{{ $qa->candidate->full_name ?? ('Applicant #' . $qa->id) }}"
+                                           {{ $qaAlreadyScheduled ? 'disabled title="Already scheduled"' : '' }}>
+                                </td>
+                                <td class="small">{{ $qa->candidate->full_name ?? ('Applicant #' . $qa->id) }}</td>
+                                <td class="small text-muted">
+                                    @if ($qaAlreadyScheduled)
+                                        <i class="bi bi-check2-circle text-success"></i> Yes
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            </tr>
+                            @empty
+                            <tr><td colspan="3" class="text-center text-muted py-3">No qualified applicants yet.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;" id="pickUseSelectedBtn">
+                    Use selected
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -1805,6 +1947,42 @@
     </div>
 </div>
 
+{{-- Schedule orientation (single candidate, from the ranking table) --}}
+<div class="modal fade" id="scheduleOrientationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('orientation-schedules.store') }}" id="scheduleOrientationForm">
+                @csrf
+                <input type="hidden" name="job_posting_id" value="{{ $posting->id }}">
+                <input type="hidden" name="application_ids[]" id="scheduleOrientationAppId">
+                <div class="modal-header">
+                    <h6 class="modal-title">Schedule orientation — <span id="scheduleOrientationCandidateName"></span></h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small text-muted mb-1">Orientation date <span class="text-danger">*</span></label>
+                        <input type="date" name="scheduled_at" class="form-control form-control-sm" min="{{ now()->toDateString() }}" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small text-muted mb-1">Time</label>
+                        <input type="time" name="scheduled_time" class="form-control form-control-sm">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small text-muted mb-1">Place</label>
+                        <input type="text" name="place" class="form-control form-control-sm" placeholder="e.g. SDO Conference Hall">
+                    </div>
+                    <p class="text-muted small mb-0">An invitation email is sent to the candidate immediately on submit.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;">Schedule orientation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {{-- Import Scores --}}
 <div class="modal fade" id="importScoresModal" tabindex="-1">
     <div class="modal-dialog">
@@ -1836,6 +2014,10 @@
             <div class="modal-header">
                 <h6 class="modal-title"><i class="bi bi-file-earmark-text me-2"></i>Comparative Assessment Result</h6>
                 <div class="d-flex align-items-center gap-2 ms-auto me-2">
+                    <a href="{{ route('assessments.car.download', ['job_posting_id' => $posting->id]) }}"
+                       class="btn btn-sm btn-outline-success" data-no-loader>
+                        <i class="bi bi-file-earmark-excel me-1"></i> Download Excel
+                    </a>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
                         <i class="bi bi-printer me-1"></i> Print
                     </button>
@@ -1974,6 +2156,7 @@ function showApplicantInfo(el) {
 // ── Step switching ──────────────────────────────────────────────────────────
 const currentStep = {{ $currentStep }};
 const activeStep  = {{ $activeStep }};
+let viewedStep    = activeStep; // which panel is on screen right now -- updated by switchStep()
 
 function updateStepTracker(n) {
     // Re-render the sidebar tracker to match whichever step is now active.
@@ -2018,6 +2201,7 @@ function updateStepTracker(n) {
 
 function switchStep(n) {
     if (n > currentStep) return; // can't jump ahead
+    viewedStep = n;
     document.querySelectorAll('.step-panel').forEach(p => p.classList.add('d-none'));
     document.getElementById('panel-' + n)?.classList.remove('d-none');
     // Keep the sidebar's Overview-vs-Qualification-Checking button slot in
@@ -2028,6 +2212,13 @@ function switchStep(n) {
         el.classList.toggle('d-none', el.dataset.forStep !== String(n));
     });
     updateStepTracker(n);
+
+    // Back button only makes sense past Step 1.
+    document.getElementById('stepBackBtnWrap')?.classList.toggle('d-none', n <= 1);
+}
+
+function goToPreviousStep() {
+    switchStep(viewedStep - 1);
 }
 
 // Show the active step on load
@@ -2074,6 +2265,7 @@ function showScheduleInfo(el) {
         typesBody.appendChild(tr);
     });
 
+
     const panelistsList = document.getElementById('si-panelists-list');
     panelistsList.innerHTML = '';
     if (!data.panelists || data.panelists.length === 0) {
@@ -2089,11 +2281,128 @@ function showScheduleInfo(el) {
     new bootstrap.Modal(document.getElementById('scheduleInfoModal')).show();
 }
 
+    // ── Pick applicants modal (New Schedule -> subset of up to 150) ────────
+    (function () {
+        const MAX_PICK = 150;
+        const newScheduleModalEl = document.getElementById('newScheduleModal');
+        const pickModalEl = document.getElementById('pickApplicantsModal');
+        if (!newScheduleModalEl || !pickModalEl) return;
+
+        const newScheduleModal = bootstrap.Modal.getOrCreateInstance(newScheduleModalEl);
+        const pickModal = bootstrap.Modal.getOrCreateInstance(pickModalEl);
+
+        const pickBtn = document.getElementById('pickApplicantsBtn');
+        const checkboxes = Array.from(pickModalEl.querySelectorAll('.pick-applicant-checkbox'));
+        const countLabel = document.getElementById('pickCountLabel');
+        const summarySpan = document.getElementById('pickApplicantsSummary');
+        const infoBanner = document.getElementById('newScheduleInfoBanner');
+        const hiddenInputsContainer = document.getElementById('newScheduleApplicantIdInputs');
+
+        function checkedCount() {
+            return checkboxes.filter(function (cb) { return cb.checked; }).length;
+        }
+
+        function updateCountLabel() {
+            countLabel.textContent = checkedCount();
+        }
+
+        function enforceCap(justChecked) {
+            if (checkedCount() > MAX_PICK) {
+                justChecked.checked = false;
+                alert('You can select at most ' + MAX_PICK + ' applicants at a time.');
+            }
+            updateCountLabel();
+        }
+
+        checkboxes.forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                if (cb.checked) enforceCap(cb);
+                else updateCountLabel();
+            });
+        });
+
+        function selectFirstN(n) {
+            const selectable = checkboxes.filter(function (cb) { return !cb.disabled; });
+            selectable.forEach(function (cb, i) {
+                cb.checked = i < n;
+            });
+            updateCountLabel();
+        }
+
+        const select100Btn = document.getElementById('pickSelect100');
+        if (select100Btn) select100Btn.addEventListener('click', function () { selectFirstN(100); });
+
+        const select150Btn = document.getElementById('pickSelect150');
+        if (select150Btn) select150Btn.addEventListener('click', function () { selectFirstN(150); });
+
+        const selectNInput = document.getElementById('pickSelectN');
+        const selectNBtn = document.getElementById('pickSelectNBtn');
+        if (selectNBtn && selectNInput) {
+            selectNBtn.addEventListener('click', function () {
+                const n = Math.max(0, Math.min(MAX_PICK, parseInt(selectNInput.value, 10) || 0));
+                selectFirstN(n);
+            });
+        }
+
+        const clearBtn = document.getElementById('pickClearBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                checkboxes.forEach(function (cb) { if (!cb.disabled) cb.checked = false; });
+                updateCountLabel();
+            });
+        }
+
+        // Open: hide New Schedule, then show Pick Applicants once the
+        // first one has fully hidden (avoids Bootstrap backdrop stacking
+        // issues from having two modals open at once).
+        if (pickBtn) {
+            pickBtn.addEventListener('click', function () {
+                newScheduleModalEl.addEventListener('hidden.bs.modal', function handler() {
+                    newScheduleModalEl.removeEventListener('hidden.bs.modal', handler);
+                    pickModal.show();
+                });
+                newScheduleModal.hide();
+            });
+        }
+
+        // Confirm: write hidden application_ids[] inputs into the New
+        // Schedule form, update its summary/banner text, then hand back.
+        const useSelectedBtn = document.getElementById('pickUseSelectedBtn');
+        if (useSelectedBtn) {
+            useSelectedBtn.addEventListener('click', function () {
+                const selected = checkboxes.filter(function (cb) { return cb.checked && !cb.disabled; });
+
+                hiddenInputsContainer.innerHTML = '';
+                selected.forEach(function (cb) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'application_ids[]';
+                    input.value = cb.value;
+                    hiddenInputsContainer.appendChild(input);
+                });
+
+                if (selected.length > 0) {
+                    summarySpan.textContent = selected.length + ' applicant(s) picked';
+                    infoBanner.innerHTML = '<i class="bi bi-info-circle me-1"></i> This will schedule the <strong>' + selected.length + ' picked applicant(s)</strong> only.';
+                } else {
+                    summarySpan.textContent = 'All qualified applicants (default)';
+                    infoBanner.innerHTML = '<i class="bi bi-info-circle me-1"></i> This will schedule <strong>all qualified applicants</strong> on this posting at once.';
+                }
+
+                pickModalEl.addEventListener('hidden.bs.modal', function handler() {
+                    pickModalEl.removeEventListener('hidden.bs.modal', handler);
+                    newScheduleModal.show();
+                });
+                pickModal.hide();
+            });
+        }
+    })();
+
 function advanceStep() {
     const msgs = {
         2: 'Move this posting to Interview Scheduling? Status will update to "Interview".',
         3: 'Move this posting to Assessment & Results? Status will update to "Ranking".',
-        4: 'Move this posting to Offer Management? The top-ranked passing candidate(s) for each place of assignment will be hired automatically; remaining applicants will be rejected.',
+        4: 'Move this posting to Orientation Schedule? The top-ranked passing candidate(s) for each place of assignment will be hired automatically; remaining applicants will be rejected.',
     };
     if (!confirm(msgs[currentStep] || 'Advance to next stage?')) return;
 
@@ -2215,6 +2524,13 @@ document.getElementById('editScoresModal')?.addEventListener('show.bs.modal', fu
         const v = scores[input.dataset.criterionId];
         input.value = (v === null || v === undefined) ? '' : v;
     });
+});
+
+// ── Schedule orientation modal (per-candidate, from ranking table) ─────────
+document.getElementById('scheduleOrientationModal')?.addEventListener('show.bs.modal', function (e) {
+    const btn = e.relatedTarget;
+    document.getElementById('scheduleOrientationAppId').value = btn.dataset.applicationId;
+    document.getElementById('scheduleOrientationCandidateName').textContent = btn.dataset.candidateName;
 });
 
 // ── Qualification check modal ───────────────────────────────────────────────
@@ -2404,6 +2720,57 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
                 var disposition = response.headers.get('Content-Disposition') || '';
                 var match = disposition.match(/filename="?([^";]+)"?/);
                 var filename = match ? match[1] : 'IER.xlsx';
+                return response.blob().then(function (blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function (result) {
+                var blobUrl = window.URL.createObjectURL(result.blob);
+                var tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = result.filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                window.URL.revokeObjectURL(blobUrl);
+            })
+            .catch(function (err) {
+                alert('Could not export: ' + err.message);
+            })
+            .finally(function () {
+                btn.classList.remove('disabled');
+                btn.innerHTML = originalHtml;
+            });
+    });
+})();
+
+// Export Qualified (Excel): same problem/fix as the export-ier button
+// above -- fetch as blob so the button never depends on a page
+// navigation event to reset it. The anchor has data-no-loader, so
+// page-loader.js's global click listener skips it and never shows the
+// full-screen overlay for this button in the first place.
+(function () {
+    var btn = document.getElementById('export-scheduling-qualified-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var url = btn.getAttribute('href');
+        var originalHtml = btn.innerHTML;
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Exporting…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) {
+                        throw new Error('Export failed (HTTP ' + response.status + '). ' + text.slice(0, 200));
+                    });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename="?([^";]+)"?/);
+                var filename = match ? match[1] : 'qualified-applicants.xlsx';
                 return response.blob().then(function (blob) {
                     return { blob: blob, filename: filename };
                 });

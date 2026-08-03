@@ -123,7 +123,7 @@ Manage open positions, qualifications, and assignment details
                         {{ $posting->locations->sum('vacancies') ?: ($posting->vacancies ?? '—') }}
                     </td>
                     <td>{{ $posting->employment_type }}</td>
-                    <td class="text-nowrap">
+                    <td class="text-nowrap ps-4">
                         @if ($posting->salary_grade)
                             {{ Str::startsWith($posting->salary_grade, 'SG-') ? $posting->salary_grade : 'SG-' . $posting->salary_grade }}
                         @else

@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\AssessmentCriterion;
 use App\Models\InterviewSchedule;
 use App\Models\JobOffer;
+use App\Models\OrientationSchedule;
 use App\Models\JobPosting;
 use App\Models\JobPostingLocation;
 use App\Models\Panelist;
@@ -148,7 +149,7 @@ class JobPostingController extends Controller
                     ['after_or_equal:posted_at']
                 ),
             ],
-            'status' => ['required', 'in:open,interview_scheduled,ranking,closed'],
+            'status' => ['required', 'in:open,interview_scheduled,ranking,closed,archived'],
         ];
     }
 
@@ -313,12 +314,6 @@ class JobPostingController extends Controller
     {
         $posting = JobPosting::findOrFail($id);
 
-        if ($posting->status !== 'open') {
-            return redirect()
-                ->route('job-postings.index')
-                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
-        }
-
         $posting->exists = true;
         $jobTitles  = config('job_titles.titles', []);
         $panelists         = Panelist::orderBy('name')->get();
@@ -331,12 +326,6 @@ class JobPostingController extends Controller
     public function update(Request $request, $id)
     {
         $posting = JobPosting::findOrFail($id);
-
-        if ($posting->status !== 'open') {
-            return redirect()
-                ->route('job-postings.index')
-                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
-        }
 
         $validated = $request->validate($this->rules());
 
@@ -667,12 +656,41 @@ class JobPostingController extends Controller
         $minCompensation = ($postingGrade ? config("salary_grades.table.{$postingGrade}.0") : null)
             ?? config('salary_grades.table.1.0', 14634); // fallback: SG 1 Step 1
 
+        // Step 5 -- orientation schedules, scoped to this posting only.
+        // Mirrors the $offers/$eligibleOfferApplications/$offerVacancyLimit
+        // block above (same ranking-eligibility logic, same vacancy-cap
+        // math), just for OrientationSchedule instead of JobOffer. The old
+        // offer variables are left untouched and still passed to the view
+        // -- only Step 5's markup stops using them.
+        $orientationSchedules = OrientationSchedule::whereHas('application', function ($q) use ($id) {
+                $q->where('job_posting_id', $id);
+            })
+            ->with(['application.candidate', 'application.jobPosting'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $eligibleOrientationApplications = $rankedCandidates
+            ->filter(function ($cand) use ($applications) {
+                $app = $applications->firstWhere('id', $cand->application_id);
+                return $app
+                    && in_array($app->status, ['ranked', 'shortlisted', 'assessed', 'hired'])
+                    && ! OrientationSchedule::where('application_id', $cand->application_id)
+                        ->where('status', 'scheduled')
+                        ->exists();
+            })
+            ->values();
+
+        $alreadyScheduledCount = $orientationSchedules->where('status', 'scheduled')->count();
+        $orientationVacancyLimit = max(0, ((int) $posting->vacancies ?: 1) - $alreadyScheduledCount);
+
         return view('job-postings.show', compact(
             'posting', 'locations', 'panelists', 'applications',
             'schedules', 'criteria', 'usedWeight', 'remainingWeight',
             'rankedCandidates', 'currentStep', 'activeStep',
             'offers', 'eligibleOfferApplications', 'minCompensation',
-            'offerVacancyLimit'
+            'offerVacancyLimit',
+            'orientationSchedules', 'eligibleOrientationApplications',
+            'orientationVacancyLimit'
         ));
     }
 
@@ -1012,6 +1030,84 @@ class JobPostingController extends Controller
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $safeTitle = preg_replace('/[^A-Za-z0-9]+/', '-', $posting->title);
         $filename = 'IER-' . $safeTitle . '-' . now()->format('Ymd') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * Export ONLY the qualified applicants of this posting/batch to an
+     * Excel file, with their scheduling details (type, date/time, venue,
+     * panelists, status) alongside candidate info -- companion export to
+     * the batch "New schedule" action in Step 3. Applicants who are
+     * qualified but not yet scheduled are still included, with the
+     * schedule columns left blank ("Not yet scheduled") so this can
+     * double as a working list for the next scheduling batch.
+     */
+    public function exportSchedulingQualified($id)
+    {
+        $posting = JobPosting::with('locations')->findOrFail($id);
+
+        $applications = Application::with(['candidate', 'interviewSchedules' => function ($q) {
+                $q->where('status', '!=', 'cancelled')->orderBy('scheduled_at')->with('panelists');
+            }])
+            ->where('job_posting_id', $id)
+            ->where('qualification_result', 'qualified')
+            ->get()
+            ->sortBy(fn ($a) => $a->candidate?->full_name ?? '')
+            ->values();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Qualified Applicants');
+
+        $headers = ['No.', 'Candidate Name', 'Email', 'Contact No.', 'Place of Assignment', 'Schedule Type(s)', 'Date & Time', 'Venue', 'Panelists', 'Status'];
+        foreach ($headers as $i => $h) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue($col . '1', $h);
+        }
+        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+
+        $row = 2;
+        foreach ($applications as $i => $app) {
+            $location = $posting->locations->firstWhere('id', $app->job_posting_location_id);
+            $schedules = $app->interviewSchedules;
+
+            if ($schedules->isEmpty()) {
+                $types = $dates = $venues = $statuses = 'Not yet scheduled';
+                $panelistNames = '—';
+            } else {
+                $types    = $schedules->map(fn ($s) => ucfirst(str_replace('_', ' ', $s->type)))->implode('; ');
+                $dates    = $schedules->map(fn ($s) => $s->scheduled_at?->format('M j, Y g:i A') ?? '—')->implode('; ');
+                $venues   = $schedules->map(fn ($s) => $s->location ?: '—')->implode('; ');
+                $statuses = $schedules->map(fn ($s) => ucfirst(str_replace('_', ' ', $s->status)))->implode('; ');
+                $panelistNames = $schedules->flatMap(fn ($s) => $s->panelists->pluck('name'))->unique()->implode(', ');
+                $panelistNames = $panelistNames !== '' ? $panelistNames : '—';
+            }
+
+            $sheet->setCellValue('A' . $row, $i + 1);
+            $sheet->setCellValue('B' . $row, $app->candidate?->full_name ?? '—');
+            $sheet->setCellValue('C' . $row, $app->candidate?->email ?? '—');
+            $sheet->setCellValue('D' . $row, $app->candidate?->phone ?? '—');
+            $sheet->setCellValue('E' . $row, $location?->place_of_assignment ?? '—');
+            $sheet->setCellValue('F' . $row, $types);
+            $sheet->setCellValue('G' . $row, $dates);
+            $sheet->setCellValue('H' . $row, $venues);
+            $sheet->setCellValue('I' . $row, $panelistNames);
+            $sheet->setCellValue('J' . $row, $statuses);
+            $row++;
+        }
+
+        foreach (range(1, 10) as $c) {
+            $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c))->setAutoSize(true);
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $safeTitle = preg_replace('/[^A-Za-z0-9]+/', '-', $posting->title);
+        $filename = 'Qualified-Applicants-' . $safeTitle . '-' . now()->format('Ymd') . '.xlsx';
 
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');

@@ -106,6 +106,7 @@ Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name(
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
 Route::get('/job-postings/{id}/export-qualifications', [JobPostingController::class, 'exportQualifications'])->name('job-postings.export-qualifications');
 Route::get('/job-postings/{id}/export-ier', [JobPostingController::class, 'exportIER'])->name('job-postings.export-ier');
+Route::get('/job-postings/{id}/export-scheduling-qualified', [JobPostingController::class, 'exportSchedulingQualified'])->name('job-postings.export-scheduling-qualified');
 Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
 Route::post('/job-postings/{id}/archive', [JobPostingController::class, 'archive'])->name('job-postings.archive');
 Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');
@@ -153,6 +154,7 @@ Route::post('/assessments/scores', [AssessmentController::class, 'saveScores'])-
 Route::get('/assessments/scores/import-template', [AssessmentController::class, 'downloadImportTemplate'])->name('assessments.scores.import-template');
 Route::post('/assessments/scores/import', [AssessmentController::class, 'importScores'])->name('assessments.scores.import');
 Route::post('/assessments/send-all', [AssessmentController::class, 'sendAll'])->name('assessments.send-all');
+Route::get('/assessments/car/download', [AssessmentController::class, 'downloadCarDocument'])->name('assessments.car.download');
 
 // Offer management
 Route::get('/offers', [JobOfferController::class, 'index'])->name('offers.index');
@@ -160,6 +162,12 @@ Route::post('/offers', [JobOfferController::class, 'store'])->name('offers.store
 Route::put('/offers/{id}/send', [JobOfferController::class, 'send'])->name('offers.send');
 Route::put('/offers/{id}/respond', [JobOfferController::class, 'respond'])->name('offers.respond');
 Route::delete('/offers/{id}', [JobOfferController::class, 'destroy'])->name('offers.destroy');
+
+// Orientation Schedule (Step 5 of the job posting pipeline -- replaced
+// Offer Management there; the offers.* routes above are left intact
+// and unused rather than removed).
+Route::post('/orientation-schedules', [\App\Http\Controllers\OrientationScheduleController::class, 'store'])->name('orientation-schedules.store');
+Route::delete('/orientation-schedules/{id}', [\App\Http\Controllers\OrientationScheduleController::class, 'destroy'])->name('orientation-schedules.destroy');
 
 // Salary Grade — imported budget circular schedules (SG table used by Offer management above)
 Route::get('/salary-grades', [SalaryGradeController::class, 'index'])->name('salary-grades.index');
@@ -207,6 +215,14 @@ Route::delete('/signatories/ier/{ierSignatory}', [\App\Http\Controllers\IERSigna
 Route::post('/signatories/qualification-notice', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'store'])->name('qualification-notice-signatories.store');
 Route::put('/signatories/qualification-notice/{qualificationNoticeSignatory}', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'update'])->name('qualification-notice-signatories.update');
 Route::delete('/signatories/qualification-notice/{qualificationNoticeSignatory}', [\App\Http\Controllers\QualificationNoticeSignatoryController::class, 'destroy'])->name('qualification-notice-signatories.destroy');
+
+Route::post('/signatories/car-district', [\App\Http\Controllers\CarDistrictSignatoryController::class, 'store'])->name('car-district-signatories.store');
+Route::put('/signatories/car-district/{carDistrictSignatory}', [\App\Http\Controllers\CarDistrictSignatoryController::class, 'update'])->name('car-district-signatories.update');
+Route::delete('/signatories/car-district/{carDistrictSignatory}', [\App\Http\Controllers\CarDistrictSignatoryController::class, 'destroy'])->name('car-district-signatories.destroy');
+
+Route::post('/signatories/car-hrmpsb', [\App\Http\Controllers\CarHrmpsbSignatoryController::class, 'store'])->name('car-hrmpsb-signatories.store');
+Route::put('/signatories/car-hrmpsb/{carHrmpsbSignatory}', [\App\Http\Controllers\CarHrmpsbSignatoryController::class, 'update'])->name('car-hrmpsb-signatories.update');
+Route::delete('/signatories/car-hrmpsb/{carHrmpsbSignatory}', [\App\Http\Controllers\CarHrmpsbSignatoryController::class, 'destroy'])->name('car-hrmpsb-signatories.destroy');
 
 // Activity Log Book (added by install_activity_log_book.php)
 Route::get('/activity-logs', [\App\Http\Controllers\ActivityLogController::class, 'index'])->name('activity-logs.index');

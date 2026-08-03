@@ -39,10 +39,14 @@
   <div class="body">
     <p>Dear <strong>{{ $candidate->full_name }}</strong>,</p>
     <p>
-      The Human Resource Unit has verified your submitted requirements for
-      <strong>{{ $position }}</strong>. You may now use the Application Code below to track the
-      status of your application.
+      Please be advised of your assigned application code <strong>{{ $transactionNumber }}</strong>
+      which shall be used as you proceed with the next stage of the selection process. You may
+      refer to the official issuances of the <strong>Department of Education Cavite Province</strong>
+      for additional announcements in this regard. For inquiries, you may communicate with the HR
+      office of the Schools Division Office of Cavite Province at <strong>(046) 419-1286, 412-0349</strong>
+      or <strong>deped.cavite@deped.gov.ph</strong>.
     </p>
+    <p>Thank you.</p>
 
     <div style="text-align:center; margin:20px 0;">
       <a href="{{ url('/?txn=' . $transactionNumber) }}"

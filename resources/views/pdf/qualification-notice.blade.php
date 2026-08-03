@@ -87,9 +87,10 @@
         <p class="code-line">
             Please be advised of your assigned application code <strong>{{ $application->transaction_number }}</strong>
             which shall be used as you proceed with the next stage of the selection process. You may refer to
-            the official issuances of the Schools Division Office of Cavite Province for additional announcements
-            in this regard. For inquiries, you may communicate with the HR office of the Schools Division Office
-            of Cavite Province.
+            the official issuances of the <strong>Department of Education Cavite Province</strong> for additional
+            announcements in this regard. For inquiries, you may communicate with the HR office of the Schools
+            Division Office of Cavite Province at <strong>(046) 419-1286, 412-0349</strong> or
+            <strong>deped.cavite@deped.gov.ph</strong>.
         </p>
         <p>Thank you.</p>
     @else

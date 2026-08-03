@@ -39,6 +39,8 @@ return [
         'Contract of Service (COS)',
         'Dental Aide',
         'Dentist II',
+        'DevOps',
+
         'Driver',
         'Education Program Specialist',
         'Education Program Supervisor',

@@ -153,8 +153,8 @@ class ProcessPdfImportJob implements ShouldQueue
             // table rows (150dpi read 29/89 rows, 300dpi read 75/89 on the
             // same table) because the row-number column is small text that
             // 150dpi renders too coarsely for Tesseract to read reliably.
-            '%s -r 300 -png %s %s 2>&1',
-            $pdftoppmBin,
+'%s -r 300 -png %s %s 2>&1',
+$pdftoppmBin,
             escapeshellarg($pdfPath),
             escapeshellarg($imagePrefix)
         );

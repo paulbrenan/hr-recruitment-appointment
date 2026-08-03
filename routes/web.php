@@ -106,6 +106,7 @@ Route::put('/job-postings/{id}', [JobPostingController::class, 'update'])->name(
 Route::delete('/job-postings/{id}', [JobPostingController::class, 'destroy'])->name('job-postings.destroy');
 Route::get('/job-postings/{id}/export-qualifications', [JobPostingController::class, 'exportQualifications'])->name('job-postings.export-qualifications');
 Route::get('/job-postings/{id}/export-ier', [JobPostingController::class, 'exportIER'])->name('job-postings.export-ier');
+Route::get('/job-postings/{id}/export-scheduling-qualified', [JobPostingController::class, 'exportSchedulingQualified'])->name('job-postings.export-scheduling-qualified');
 Route::post('/job-postings/{id}/advance', [JobPostingController::class, 'advance'])->name('job-postings.advance');
 Route::post('/job-postings/{id}/archive', [JobPostingController::class, 'archive'])->name('job-postings.archive');
 Route::delete('/job-postings/{posting}/panelists/{panelist}', [JobPostingController::class, 'detachPanelist'])->name('job-postings.panelists.detach');

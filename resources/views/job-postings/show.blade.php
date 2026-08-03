@@ -656,6 +656,9 @@
                             <a href="{{ route('job-postings.export-ier', $posting->id) }}" id="export-ier-btn" data-no-loader class="btn btn-sm btn-success ms-2">
                                 <i class="bi bi-file-earmark-excel me-1"></i> Export IER
                             </a>
+                            <a href="{{ route('job-postings.export-scheduling-qualified', $posting->id) }}" id="export-scheduling-qualified-btn" data-no-loader class="btn btn-sm btn-outline-success ms-2">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Export Qualified (Excel)
+                            </a>
                         </div>
                     </div>
 
@@ -1107,8 +1110,25 @@
                                     @endif
                                 </td>
                                 <td class="text-end">
+                                    @if ($posting->status !== 'closed')
+                                    @php
+                                        $candApp = $applications->firstWhere('id', $cand->application_id);
+                                        $isHired = $candApp && $candApp->status === 'hired';
+                                    @endphp
                                     <div class="d-flex gap-1 justify-content-end">
-                                        @if ($posting->status !== 'closed')
+                                        @if (!$isHired)
+                                        <form action="{{ route('applications.updateStatus', $cand->application_id) }}" method="POST" class="m-0"
+                                              onsubmit="return confirm('Hire {{ addslashes($cand->candidate_name) }} for this position? If this fills the last opening for this role, the posting will close and remaining applicants will be automatically rejected and notified.');">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="hidden" name="status" value="hired">
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-check-lg"></i> Hire
+                                            </button>
+                                        </form>
+                                        @else
+                                        <span class="badge text-bg-dark align-self-center">Hired</span>
+                                        @endif
                                         <button type="button" class="btn btn-sm btn-outline-secondary"
                                                 data-bs-toggle="modal" data-bs-target="#editScoresModal"
                                                 data-application-id="{{ $cand->application_id }}"
@@ -1116,12 +1136,12 @@
                                                 data-scores="{{ json_encode($cand->scores) }}">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        @endif
                                         <button type="button" class="btn btn-sm" style="background-color: var(--hr-primary); color: #fff;"
                                                 onclick="switchStep(5)" title="Go to Orientation Schedule">
                                             <i class="bi bi-envelope-paper me-1"></i> Offer
                                         </button>
                                     </div>
+                                    @endif
                                 </td>
                             </tr>
                             @endforeach
@@ -2699,6 +2719,57 @@ document.querySelector('#newScheduleModal form')?.addEventListener('submit', fun
                 var disposition = response.headers.get('Content-Disposition') || '';
                 var match = disposition.match(/filename="?([^";]+)"?/);
                 var filename = match ? match[1] : 'IER.xlsx';
+                return response.blob().then(function (blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function (result) {
+                var blobUrl = window.URL.createObjectURL(result.blob);
+                var tempLink = document.createElement('a');
+                tempLink.href = blobUrl;
+                tempLink.download = result.filename;
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
+                window.URL.revokeObjectURL(blobUrl);
+            })
+            .catch(function (err) {
+                alert('Could not export: ' + err.message);
+            })
+            .finally(function () {
+                btn.classList.remove('disabled');
+                btn.innerHTML = originalHtml;
+            });
+    });
+})();
+
+// Export Qualified (Excel): same problem/fix as the export-ier button
+// above -- fetch as blob so the button never depends on a page
+// navigation event to reset it. The anchor has data-no-loader, so
+// page-loader.js's global click listener skips it and never shows the
+// full-screen overlay for this button in the first place.
+(function () {
+    var btn = document.getElementById('export-scheduling-qualified-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var url = btn.getAttribute('href');
+        var originalHtml = btn.innerHTML;
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Exporting…';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return response.text().then(function (text) {
+                        throw new Error('Export failed (HTTP ' + response.status + '). ' + text.slice(0, 200));
+                    });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename="?([^";]+)"?/);
+                var filename = match ? match[1] : 'qualified-applicants.xlsx';
                 return response.blob().then(function (blob) {
                     return { blob: blob, filename: filename };
                 });

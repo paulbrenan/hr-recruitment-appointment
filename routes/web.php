@@ -161,6 +161,12 @@ Route::put('/offers/{id}/send', [JobOfferController::class, 'send'])->name('offe
 Route::put('/offers/{id}/respond', [JobOfferController::class, 'respond'])->name('offers.respond');
 Route::delete('/offers/{id}', [JobOfferController::class, 'destroy'])->name('offers.destroy');
 
+// Orientation Schedule (Step 5 of the job posting pipeline -- replaced
+// Offer Management there; the offers.* routes above are left intact
+// and unused rather than removed).
+Route::post('/orientation-schedules', [\App\Http\Controllers\OrientationScheduleController::class, 'store'])->name('orientation-schedules.store');
+Route::delete('/orientation-schedules/{id}', [\App\Http\Controllers\OrientationScheduleController::class, 'destroy'])->name('orientation-schedules.destroy');
+
 // Salary Grade — imported budget circular schedules (SG table used by Offer management above)
 Route::get('/salary-grades', [SalaryGradeController::class, 'index'])->name('salary-grades.index');
 Route::get('/salary-grades/upload', [SalaryGradeController::class, 'create'])->name('salary-grades.create');

@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\AssessmentCriterion;
 use App\Models\InterviewSchedule;
 use App\Models\JobOffer;
+use App\Models\OrientationSchedule;
 use App\Models\JobPosting;
 use App\Models\JobPostingLocation;
 use App\Models\Panelist;
@@ -148,7 +149,7 @@ class JobPostingController extends Controller
                     ['after_or_equal:posted_at']
                 ),
             ],
-            'status' => ['required', 'in:open,interview_scheduled,ranking,closed'],
+            'status' => ['required', 'in:open,interview_scheduled,ranking,closed,archived'],
         ];
     }
 
@@ -313,12 +314,6 @@ class JobPostingController extends Controller
     {
         $posting = JobPosting::findOrFail($id);
 
-        if ($posting->status !== 'open') {
-            return redirect()
-                ->route('job-postings.index')
-                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
-        }
-
         $posting->exists = true;
         $jobTitles  = config('job_titles.titles', []);
         $panelists         = Panelist::orderBy('name')->get();
@@ -331,12 +326,6 @@ class JobPostingController extends Controller
     public function update(Request $request, $id)
     {
         $posting = JobPosting::findOrFail($id);
-
-        if ($posting->status !== 'open') {
-            return redirect()
-                ->route('job-postings.index')
-                ->with('error', 'This posting can no longer be edited once it\'s no longer open.');
-        }
 
         $validated = $request->validate($this->rules());
 
@@ -667,12 +656,41 @@ class JobPostingController extends Controller
         $minCompensation = ($postingGrade ? config("salary_grades.table.{$postingGrade}.0") : null)
             ?? config('salary_grades.table.1.0', 14634); // fallback: SG 1 Step 1
 
+        // Step 5 -- orientation schedules, scoped to this posting only.
+        // Mirrors the $offers/$eligibleOfferApplications/$offerVacancyLimit
+        // block above (same ranking-eligibility logic, same vacancy-cap
+        // math), just for OrientationSchedule instead of JobOffer. The old
+        // offer variables are left untouched and still passed to the view
+        // -- only Step 5's markup stops using them.
+        $orientationSchedules = OrientationSchedule::whereHas('application', function ($q) use ($id) {
+                $q->where('job_posting_id', $id);
+            })
+            ->with(['application.candidate', 'application.jobPosting'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $eligibleOrientationApplications = $rankedCandidates
+            ->filter(function ($cand) use ($applications) {
+                $app = $applications->firstWhere('id', $cand->application_id);
+                return $app
+                    && in_array($app->status, ['ranked', 'shortlisted', 'assessed', 'hired'])
+                    && ! OrientationSchedule::where('application_id', $cand->application_id)
+                        ->where('status', 'scheduled')
+                        ->exists();
+            })
+            ->values();
+
+        $alreadyScheduledCount = $orientationSchedules->where('status', 'scheduled')->count();
+        $orientationVacancyLimit = max(0, ((int) $posting->vacancies ?: 1) - $alreadyScheduledCount);
+
         return view('job-postings.show', compact(
             'posting', 'locations', 'panelists', 'applications',
             'schedules', 'criteria', 'usedWeight', 'remainingWeight',
             'rankedCandidates', 'currentStep', 'activeStep',
             'offers', 'eligibleOfferApplications', 'minCompensation',
-            'offerVacancyLimit'
+            'offerVacancyLimit',
+            'orientationSchedules', 'eligibleOrientationApplications',
+            'orientationVacancyLimit'
         ));
     }
 

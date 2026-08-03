@@ -161,6 +161,7 @@
                                 'interview_scheduled' => 'Interview Scheduled',
                                 'ranking'             => 'Ranking',
                                 'closed'              => 'Closed',
+                                'archived'            => 'Archived',
                             ];
                         @endphp
                         @foreach ($pipelineStages as $value => $label)

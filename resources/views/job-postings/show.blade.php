@@ -1521,10 +1521,19 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info small py-2 mb-3">
+                    <div class="alert alert-info small py-2 mb-3" id="newScheduleInfoBanner">
                         <i class="bi bi-info-circle me-1"></i>
                         This will schedule <strong>all qualified applicants</strong> on this posting at once.
                         {{ $applications->where('qualification_result', 'qualified')->count() }} applicant(s) will be scheduled.
+                    </div>
+
+                    <div id="newScheduleApplicantIdInputs"></div>
+
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="pickApplicantsBtn">
+                            <i class="bi bi-people me-1"></i> Pick applicants
+                        </button>
+                        <span class="small text-muted" id="pickApplicantsSummary">All qualified applicants (default)</span>
                     </div>
 
                     <div class="mb-2">
@@ -1585,6 +1594,75 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+{{-- Pick Applicants (subset of qualified applicants for the New Schedule
+     modal above, capped at 150) --}}
+<div class="modal fade" id="pickApplicantsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Pick applicants (max 150)</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pickSelect100">Select 100</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pickSelect150">Select 150</button>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="small text-muted">Select:</span>
+                        <input type="number" min="1" max="150" class="form-control form-control-sm" style="width:80px;" id="pickSelectN" placeholder="N">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="pickSelectNBtn">Select</button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-auto" id="pickClearBtn">Clear</button>
+                </div>
+                <div class="small mb-2">
+                    <span id="pickCountLabel">0</span> / 150 selected
+                </div>
+                <div class="border rounded" style="max-height:360px; overflow-y:auto;">
+                    <table class="table table-sm mb-0">
+                        <thead class="sticky-top bg-white">
+                            <tr>
+                                <th style="width:36px;"></th>
+                                <th>Candidate</th>
+                                <th>Already scheduled</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($posting->applications()->where('qualification_result', 'qualified')->with(['candidate', 'interviewSchedules'])->get() as $qa)
+                            @php
+                                $qaAlreadyScheduled = $qa->interviewSchedules->where('status', '!=', 'cancelled')->isNotEmpty();
+                            @endphp
+                            <tr class="{{ $qaAlreadyScheduled ? 'text-muted' : '' }}" style="{{ $qaAlreadyScheduled ? 'opacity:.55;background:#f8f9fa;' : '' }}">
+                                <td>
+                                    <input type="checkbox" class="form-check-input pick-applicant-checkbox"
+                                           value="{{ $qa->id }}" data-name="{{ $qa->candidate->full_name ?? ('Applicant #' . $qa->id) }}"
+                                           {{ $qaAlreadyScheduled ? 'disabled title="Already scheduled"' : '' }}>
+                                </td>
+                                <td class="small">{{ $qa->candidate->full_name ?? ('Applicant #' . $qa->id) }}</td>
+                                <td class="small text-muted">
+                                    @if ($qaAlreadyScheduled)
+                                        <i class="bi bi-check2-circle text-success"></i> Yes
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            </tr>
+                            @empty
+                            <tr><td colspan="3" class="text-center text-muted py-3">No qualified applicants yet.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm" style="background-color:var(--hr-primary);color:#fff;" id="pickUseSelectedBtn">
+                    Use selected
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -2091,6 +2169,7 @@ function showScheduleInfo(el) {
         typesBody.appendChild(tr);
     });
 
+
     const panelistsList = document.getElementById('si-panelists-list');
     panelistsList.innerHTML = '';
     if (!data.panelists || data.panelists.length === 0) {
@@ -2105,6 +2184,123 @@ function showScheduleInfo(el) {
 
     new bootstrap.Modal(document.getElementById('scheduleInfoModal')).show();
 }
+
+    // ── Pick applicants modal (New Schedule -> subset of up to 150) ────────
+    (function () {
+        const MAX_PICK = 150;
+        const newScheduleModalEl = document.getElementById('newScheduleModal');
+        const pickModalEl = document.getElementById('pickApplicantsModal');
+        if (!newScheduleModalEl || !pickModalEl) return;
+
+        const newScheduleModal = bootstrap.Modal.getOrCreateInstance(newScheduleModalEl);
+        const pickModal = bootstrap.Modal.getOrCreateInstance(pickModalEl);
+
+        const pickBtn = document.getElementById('pickApplicantsBtn');
+        const checkboxes = Array.from(pickModalEl.querySelectorAll('.pick-applicant-checkbox'));
+        const countLabel = document.getElementById('pickCountLabel');
+        const summarySpan = document.getElementById('pickApplicantsSummary');
+        const infoBanner = document.getElementById('newScheduleInfoBanner');
+        const hiddenInputsContainer = document.getElementById('newScheduleApplicantIdInputs');
+
+        function checkedCount() {
+            return checkboxes.filter(function (cb) { return cb.checked; }).length;
+        }
+
+        function updateCountLabel() {
+            countLabel.textContent = checkedCount();
+        }
+
+        function enforceCap(justChecked) {
+            if (checkedCount() > MAX_PICK) {
+                justChecked.checked = false;
+                alert('You can select at most ' + MAX_PICK + ' applicants at a time.');
+            }
+            updateCountLabel();
+        }
+
+        checkboxes.forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                if (cb.checked) enforceCap(cb);
+                else updateCountLabel();
+            });
+        });
+
+        function selectFirstN(n) {
+            const selectable = checkboxes.filter(function (cb) { return !cb.disabled; });
+            selectable.forEach(function (cb, i) {
+                cb.checked = i < n;
+            });
+            updateCountLabel();
+        }
+
+        const select100Btn = document.getElementById('pickSelect100');
+        if (select100Btn) select100Btn.addEventListener('click', function () { selectFirstN(100); });
+
+        const select150Btn = document.getElementById('pickSelect150');
+        if (select150Btn) select150Btn.addEventListener('click', function () { selectFirstN(150); });
+
+        const selectNInput = document.getElementById('pickSelectN');
+        const selectNBtn = document.getElementById('pickSelectNBtn');
+        if (selectNBtn && selectNInput) {
+            selectNBtn.addEventListener('click', function () {
+                const n = Math.max(0, Math.min(MAX_PICK, parseInt(selectNInput.value, 10) || 0));
+                selectFirstN(n);
+            });
+        }
+
+        const clearBtn = document.getElementById('pickClearBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                checkboxes.forEach(function (cb) { if (!cb.disabled) cb.checked = false; });
+                updateCountLabel();
+            });
+        }
+
+        // Open: hide New Schedule, then show Pick Applicants once the
+        // first one has fully hidden (avoids Bootstrap backdrop stacking
+        // issues from having two modals open at once).
+        if (pickBtn) {
+            pickBtn.addEventListener('click', function () {
+                newScheduleModalEl.addEventListener('hidden.bs.modal', function handler() {
+                    newScheduleModalEl.removeEventListener('hidden.bs.modal', handler);
+                    pickModal.show();
+                });
+                newScheduleModal.hide();
+            });
+        }
+
+        // Confirm: write hidden application_ids[] inputs into the New
+        // Schedule form, update its summary/banner text, then hand back.
+        const useSelectedBtn = document.getElementById('pickUseSelectedBtn');
+        if (useSelectedBtn) {
+            useSelectedBtn.addEventListener('click', function () {
+                const selected = checkboxes.filter(function (cb) { return cb.checked && !cb.disabled; });
+
+                hiddenInputsContainer.innerHTML = '';
+                selected.forEach(function (cb) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'application_ids[]';
+                    input.value = cb.value;
+                    hiddenInputsContainer.appendChild(input);
+                });
+
+                if (selected.length > 0) {
+                    summarySpan.textContent = selected.length + ' applicant(s) picked';
+                    infoBanner.innerHTML = '<i class="bi bi-info-circle me-1"></i> This will schedule the <strong>' + selected.length + ' picked applicant(s)</strong> only.';
+                } else {
+                    summarySpan.textContent = 'All qualified applicants (default)';
+                    infoBanner.innerHTML = '<i class="bi bi-info-circle me-1"></i> This will schedule <strong>all qualified applicants</strong> on this posting at once.';
+                }
+
+                pickModalEl.addEventListener('hidden.bs.modal', function handler() {
+                    pickModalEl.removeEventListener('hidden.bs.modal', handler);
+                    newScheduleModal.show();
+                });
+                pickModal.hide();
+            });
+        }
+    })();
 
 function advanceStep() {
     const msgs = {

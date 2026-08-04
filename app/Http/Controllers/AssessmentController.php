@@ -497,6 +497,7 @@ class AssessmentController extends Controller
         }
 
         $row = 6;
+        $carTitleRow = $row;
         $sheet->setCellValue("A{$row}", 'COMPARATIVE ASSESSMENT RESULT (CAR)');
         $sheet->getStyle("A{$row}")->getFont()->setBold(true);
         $row += 2;
@@ -562,6 +563,14 @@ class AssessmentController extends Controller
 
         $lastCol = $col - 1;
         $lastColLetter = Coordinate::stringFromColumnIndex($lastCol);
+
+        // Merge letterhead (rows 1-4) and the CAR title row across the
+        // table's full width -- fixes text clipping on the left edge
+        // (see patch header comment for root cause).
+        foreach ([1, 2, 3, 4, $carTitleRow] as $letterheadRow) {
+            $sheet->mergeCells("A{$letterheadRow}:{$lastColLetter}{$letterheadRow}");
+        }
+
         $headerRange = "A{$tableHeaderRow}:{$lastColLetter}" . ($tableHeaderRow + 1);
         $sheet->getStyle($headerRange)->getFont()->setBold(true);
         $sheet->getStyle($headerRange)->getAlignment()

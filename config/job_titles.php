@@ -27,7 +27,6 @@ return [
         'Administrative Officer II',
         'Administrative Officer IV',
         'Administrative Officer V',
-        'Administrative Support II For Disaster Preparedness And',
         'Administrative Support II For Disaster Preparedness And Response Program (DPRP)',
         'Administrative Support II For School-based Feeding Program (SBFP)',
         'Assistant School Principal II',
@@ -40,11 +39,11 @@ return [
         'Dental Aide',
         'Dentist II',
         'DevOps',
-
         'Driver',
         'Education Program Specialist',
         'Education Program Supervisor',
         'Elementary School Principal I',
+        'Elementary School Principal II',
         'Elementary School Principal III',
         'Elementary School Principal IV',
         'Engineer III',
@@ -103,5 +102,6 @@ return [
         'Teacher III',
         'Technical Assistant I',
         'Watchman I',
+        'School Counselor Associate I',
     ],
 ];
